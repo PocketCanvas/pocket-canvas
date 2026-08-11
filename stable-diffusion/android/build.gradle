@@ -1,0 +1,28 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.stablediffusion'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.stablediffusion"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+    externalNativeBuild {
+      cmake {
+        cppFlags "-fexceptions -frtti -std=c++17"
+      }
+    }
+  }
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+  lintOptions {
+    abortOnError false
+  }
+}

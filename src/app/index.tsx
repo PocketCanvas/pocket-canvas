@@ -1,78 +1,82 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Button, Image, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 
-import { getSystemInfo } from 'stable-diffusion';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { generateImage } from 'stable-diffusion';
 
 export default function HomeScreen() {
-  const [sysInfo, setSysInfo] = useState<string>('Loading C++ Info...');
+  const [prompt, setPrompt] = useState('A cat in a space suit');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadInfo() {
-      try {
-        const info = await getSystemInfo();
-        setSysInfo(info);
-      } catch (e: any) {
-        setSysInfo(`Error: ${e.message}`);
+  const handleGenerate = async () => {
+    if (!prompt) return;
+
+    setIsGenerating(true);
+    setErrorMsg(null);
+    setImageUri(null);
+
+    try {
+      const uri = await generateImage(prompt);
+      if (uri.startsWith('Error')) {
+        setErrorMsg(uri);
+      } else {
+        setImageUri(uri);
       }
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Unknown error occurred');
+    } finally {
+      setIsGenerating(false);
     }
-    loadInfo();
-  }, []);
+  };
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
-
-        <ThemedText type="code" style={styles.code}>
-          {sysInfo}
+        <ThemedText type="title" style={styles.title}>
+          Pocket Canvas PoC
         </ThemedText>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <ThemedText type="default">Model: SD 1.5 Q4_K + LCM-LoRA</ThemedText>
 
-        {Platform.OS === 'web' && <WebBadge />}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={prompt}
+            onChangeText={setPrompt}
+            placeholder="Enter prompt here..."
+            placeholderTextColor="#888"
+          />
+        </View>
+
+        <Button
+          title={isGenerating ? "Generating..." : "Generate Image"}
+          onPress={handleGenerate}
+          disabled={isGenerating || !prompt}
+        />
+
+        <View style={styles.resultContainer}>
+          {isGenerating && <ActivityIndicator size="large" color="#0000ff" />}
+
+          {errorMsg && (
+            <ThemedText type="default" style={styles.errorText}>
+              {errorMsg}
+            </ThemedText>
+          )}
+
+          {imageUri && !isGenerating && (
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.image}
+              resizeMode="contain"
+            />
+          )}
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
@@ -81,35 +85,42 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
+    padding: Spacing.four,
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
   },
   title: {
+    marginBottom: Spacing.two,
+  },
+  inputContainer: {
+    width: '100%',
+    marginVertical: Spacing.four,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: Spacing.three,
+    backgroundColor: '#fff',
+    color: '#000',
+  },
+  resultContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.four,
+  },
+  errorText: {
+    color: 'red',
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  image: {
+    width: '100%',
+    height: 400,
+    backgroundColor: '#eee',
+    borderRadius: 8,
   },
 });

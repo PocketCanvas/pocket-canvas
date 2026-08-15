@@ -3,6 +3,8 @@
 ## 시스템 개요
 Pocket Canvas는 안드로이드 기기에서 Stable Diffusion 모델을 온디바이스로 구동하는 앱입니다.
 
+현재 JavaScript 런타임 기준 버전은 Expo 57.0.13, React Native 0.86.2, React 19.2.3입니다. 루트 앱과 로컬 Expo 모듈은 같은 버전 세대를 사용합니다.
+
 ```
 ┌─ React Native (Expo SDK 57) ─────────────────────┐
 │  src/app/index.tsx                                │
@@ -51,13 +53,14 @@ pocket-canvas/
 │   │   └── src/.../StableDiffusionModule.kt  # Kotlin 브릿지
 │   └── package.json             # main: "build/index.js"
 │
-├── android/                     # 앱 레벨 Android 설정
+├── android/                     # Expo prebuild/run 시 생성되는 앱 레벨 Android 설정 (gitignore)
 ├── docs/
 │   ├── architecture.md          # 이 문서
 │   └── decisions/               # ADR (Architecture Decision Records)
 │       ├── ADR-001-native-module-architecture.md
 │       ├── ADR-002-vulkan-ndk-build.md
-│       └── ADR-003-poc-benchmark-results.md
+│       ├── ADR-003-poc-benchmark-results.md
+│       └── ADR-004-expo-dependency-version-policy.md
 ├── tasks/                       # 작업 계획 (spec, plan, todo)
 ├── AGENTS.md                    # AI 에이전트 지침 (최상위 규칙)
 └── package.json                 # 루트 앱 의존성
@@ -80,3 +83,11 @@ pocket-canvas/
 | [ADR-001](decisions/ADR-001-native-module-architecture.md) | 네이티브 모듈 구조 | Expo Modules API + JNI + git submodule |
 | [ADR-002](decisions/ADR-002-vulkan-ndk-build.md) | Vulkan NDK 빌드 전략 | ANDROID_PLATFORM=28, arm64-v8a only |
 | [ADR-003](decisions/ADR-003-poc-benchmark-results.md) | SD 1.5 온디바이스 PoC | Q4_K + LCM-LoRA 기능 PoC 성공, VAE decode가 병목 |
+| [ADR-004](decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전과 루트–모듈 lockfile 동기화 |
+
+## 의존성 및 검증 경계
+
+- 루트 `package-lock.json`은 앱 설치 그래프를, `stable-diffusion/package-lock.json`은 독립 모듈 개발·빌드 그래프를 고정합니다.
+- Expo 패키지는 `npx expo install --check`가 제시하는 SDK 57 호환 버전을 사용합니다.
+- TypeScript는 `expo/types`를 직접 참조하고 `stable-diffusion/cpp/`를 검사 대상에서 제외합니다. C++ 서브모듈의 TypeScript 예제는 루트 앱 타입 검사의 책임이 아닙니다.
+- 변경 검증 순서는 `npx expo install --check` → `npx expo-doctor` → `npx tsc --noEmit` → `npm run lint` → 모듈 `npm run build`입니다.

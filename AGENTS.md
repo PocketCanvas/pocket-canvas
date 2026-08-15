@@ -4,7 +4,7 @@
 
 ## 프로젝트 개요
 안드로이드 기기에서 **C++ 코어(stable-diffusion.cpp)**를 활용하여 Stable Diffusion 모델을 온디바이스로 구동하는 앱입니다.
-- **프레임워크:** React Native 0.86.2 + Expo SDK 57 (New Architecture)
+- **프레임워크:** Expo 57.0.13 + React Native 0.86.2 + React 19.2.3 (New Architecture)
 - **네이티브:** Kotlin(Expo Modules) → JNI → C++(stable-diffusion.cpp, git submodule)
 - **GPU:** Vulkan 1.1, 모델 로딩: mmap
 - **아키텍처 상세:** [docs/architecture.md](docs/architecture.md) 참조
@@ -15,13 +15,19 @@
 2. **점진적 검증 (Step-by-Step PoC).** 복잡한 구조를 한 번에 설계하지 마세요. 작은 단위로 빌드하고, 빌드가 성공하는지 확인한 뒤 다음 단계로 넘어가세요.
 3. **소스 주도 개발.** Expo SDK 57 / React Native 0.86.2의 최신 아키텍처를 사용 중입니다. 구형 지식에 의존하지 말고, 반드시 [공식 문서](https://docs.expo.dev/versions/v57.0.0/)를 확인하세요.
 4. **성능 최우선.** 메모리, 배터리, 빌드 속도를 항상 고려하세요.
+5. **의존성 버전 동기화.** 루트 앱과 `stable-diffusion/` 모듈의 Expo, React, React Native, TypeScript 버전을 같은 SDK 57 호환 세대로 유지하세요. 버전 변경 후 두 lockfile을 모두 갱신하세요.
 
 ## 명령어
 
 | 목적 | 명령어 |
 |---|---|
 | 앱 실행 (Android) | `npx expo run:android` |
+| Expo 호환성 검사 | `npx expo install --check` |
+| 프로젝트 진단 | `npx expo-doctor` |
+| 타입 검사 | `npx tsc --noEmit` |
+| 앱 린트 | `npm run lint` |
 | TS 모듈 빌드 | `cd stable-diffusion && npm run build` |
+| 모듈 의존성 설치 | `cd stable-diffusion && npm install` |
 | 클린 빌드 | `cd android && ./gradlew clean` |
 | 모델 전송 | `adb push <model>.safetensors /data/user/0/com.anonymous.pocketcanvas/files/` |
 | C++ 로그 모니터링 | `adb logcat -s StableDiffusionBridge:I *:S` |
@@ -35,12 +41,14 @@
 | [ADR-001](docs/decisions/ADR-001-native-module-architecture.md) | 네이티브 모듈 구조 | Expo Modules API + JNI + git submodule |
 | [ADR-002](docs/decisions/ADR-002-vulkan-ndk-build.md) | Vulkan NDK 빌드 | `ANDROID_PLATFORM=28`, `arm64-v8a` only |
 | [ADR-003](docs/decisions/ADR-003-poc-benchmark-results.md) | SD 1.5 PoC 결과 | Q4_K + LCM-LoRA 기능 PoC 성공, 전체 116초 |
+| [ADR-004](docs/decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전 및 루트–모듈 동기화 |
 
 ## 절대 하지 말 것 (Boundaries)
 
 - ❌ `stable-diffusion.cpp` 서브모듈 내부 코드 수정
 - ❌ 모듈의 `build.gradle`에 `minSdkVersion` 직접 선언 (루트 상속, CMake 인자로만 처리)
 - ❌ `react-native` 버전을 루트와 모듈 간 불일치시키기
+- ❌ `npm audit fix --force`로 Expo 공식 호환 범위를 벗어나는 버전 적용
 - ❌ `stable-diffusion/src/` TS 수정 후 `npm run build` 없이 테스트
 
 ### ⚠️ 임시 서브모듈 수정 예외
@@ -52,7 +60,11 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 
 ### 🚨 터보모듈 크래시: `NativeMicrotasksCxx could not be found`
 - **원인:** 루트와 로컬 모듈 간 `react-native` 버전 불일치
-- **해결:** 모든 `package.json`의 `react-native` 버전을 100% 일치시키고 `npm install` 재실행
+- **해결:** 두 `package.json`의 Expo/React/React Native 버전을 일치시키고, `stable-diffusion/`과 루트에서 각각 `npm install` 후 `npx expo install --check` 실행
+
+### 📦 lockfile 버전 불일치
+- **원인:** 루트 설치만 실행하면 독립된 `stable-diffusion/package-lock.json`은 갱신되지 않음
+- **해결:** 모듈 manifest 변경 시 `cd stable-diffusion && npm install`을 먼저 실행하고 루트에서 `npm install` 실행
 
 ### 🔄 TS 모듈 변경 미반영
 - **원인:** 앱은 `stable-diffusion/build/index.js`를 참조 (TS 원본이 아님)

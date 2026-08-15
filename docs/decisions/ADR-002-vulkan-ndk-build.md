@@ -43,7 +43,8 @@ Windows 호스트에서 LunarG Vulkan SDK를 사용하여 Android NDK 대상으�
 - 기본 `find_package`를 먼저 시도합니다.
 - 패키지를 찾지 못한 경우에만 KhronosGroup/SPIRV-Headers를 가져옵니다.
 - 이 변경은 서브모듈 내부의 로컬 수정이며 Pocket Canvas 루트 커밋만으로 보존되지 않습니다.
-- 서브모듈 초기화 또는 업데이트 후 Vulkan 빌드가 다시 실패하면 이 workaround의 유실 여부를 확인해야 합니다.
+- 새 clone, 서브모듈 초기화 또는 업데이트 후에는 이 workaround가 사라질 수 있습니다. 현재 clone에는 다시 적용되어 `ggml`이 의도된 dirty 상태입니다.
+- 서브모듈 업데이트 전후로 patch를 별도 보존하고, Vulkan 빌드가 실패하면 가장 먼저 fallback 유실 여부를 확인합니다.
 - 네트워크 의존성과 `GIT_TAG main`의 비결정성 때문에 영구 해결책으로 채택하지 않습니다.
 
 후속 작업에서는 Windows + Android NDK 크로스컴파일 최소 재현을 만들고, 호스트 Vulkan

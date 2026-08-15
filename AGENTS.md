@@ -16,6 +16,8 @@
 3. **소스 주도 개발.** Expo SDK 57 / React Native 0.86.2의 최신 아키텍처를 사용 중입니다. 구형 지식에 의존하지 말고, 반드시 [공식 문서](https://docs.expo.dev/versions/v57.0.0/)를 확인하세요.
 4. **성능 최우선.** 메모리, 배터리, 빌드 속도를 항상 고려하세요.
 5. **의존성 버전 동기화.** 루트 앱과 `stable-diffusion/` 모듈의 Expo, React, React Native, TypeScript 버전을 같은 SDK 57 호환 세대로 유지하세요. 버전 변경 후 두 lockfile을 모두 갱신하세요.
+6. **UI와 테마 경계.** 화면 배치와 커스텀 상호작용은 React Native로 구현하고, 네이티브 컨트롤이 유리한 곳만 Expo UI를 사용하세요. 색상은 `src/constants/theme.ts`의 `Colors.light`와 `Colors.dark`에서만 정의하며 두 팔레트의 토큰 키를 동일하게 유지하세요.
+7. **린트와 포맷 분리.** ESLint(`expo lint`)는 코드 오류와 규칙 위반을 검사하고 Prettier는 코드 모양만 통일합니다. 경고를 숨기기 위해 ESLint/Reanimated strict 설정을 끄지 말고 원인을 수정하세요.
 
 ## 명령어
 
@@ -26,6 +28,8 @@
 | 프로젝트 진단 | `npx expo-doctor` |
 | 타입 검사 | `npx tsc --noEmit` |
 | 앱 린트 | `npm run lint` |
+| 코드 포맷 | `npm run format` |
+| 코드 포맷 검사 | `npm run format:check` |
 | TS 모듈 빌드 | `cd stable-diffusion && npm run build` |
 | 모듈 의존성 설치 | `cd stable-diffusion && npm install` |
 | 클린 빌드 (Windows) | `cd android && .\gradlew.bat clean` |
@@ -42,6 +46,7 @@
 | [ADR-002](docs/decisions/ADR-002-vulkan-ndk-build.md) | Vulkan NDK 빌드 | `ANDROID_PLATFORM=28`, `arm64-v8a` only |
 | [ADR-003](docs/decisions/ADR-003-poc-benchmark-results.md) | SD 1.5 PoC 결과 | Q4_K + LCM-LoRA 기능 PoC 성공, 전체 116초 |
 | [ADR-004](docs/decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전 및 루트–모듈 동기화 |
+| [ADR-005](docs/decisions/ADR-005-ui-composition-and-theme.md) | 생성 UI 구성과 테마 | React Native 중심 하이브리드 UI + 단일 `Colors` 팔레트 |
 
 ## 절대 하지 말 것 (Boundaries)
 
@@ -69,6 +74,11 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 ### 🔄 TS 모듈 변경 미반영
 - **원인:** 앱은 `stable-diffusion/build/index.js`를 참조 (TS 원본이 아님)
 - **해결:** `cd stable-diffusion && npm run build` 실행
+
+### 🎨 생성 UI와 네이티브 추론 연결 범위
+- 모델, LoRA, 가중치, 추론 스텝 선택은 현재 UI 상태만 변경하며 `generateImage()`에는 아직 전달되지 않음
+- 현재 네이티브 호출 계약은 `generateImage(prompt)`뿐임. UI 값을 임의로 연결하지 말고 TS → Kotlin → JNI 계약을 함께 확장한 뒤 단계별로 검증
+- 테마 전환 UI는 아직 없음. 생성 화면은 `Colors.dark`를 명시적으로 사용하며 `Colors.light`는 전환 구현을 위한 준비 상태
 
 ### 🛠️ Manifest Merger 에러: `minSdkVersion 24 < 28`
 - **원인:** 모듈에서 `minSdkVersion 28`을 직접 선언하면 루트(24)와 충돌

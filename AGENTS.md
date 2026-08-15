@@ -28,7 +28,7 @@
 | 앱 린트 | `npm run lint` |
 | TS 모듈 빌드 | `cd stable-diffusion && npm run build` |
 | 모듈 의존성 설치 | `cd stable-diffusion && npm install` |
-| 클린 빌드 | `cd android && ./gradlew clean` |
+| 클린 빌드 (Windows) | `cd android && .\gradlew.bat clean` |
 | 모델 전송 | `adb push <model>.safetensors /data/user/0/com.anonymous.pocketcanvas/files/` |
 | C++ 로그 모니터링 | `adb logcat -s StableDiffusionBridge:I *:S` |
 
@@ -73,6 +73,17 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 ### 🛠️ Manifest Merger 에러: `minSdkVersion 24 < 28`
 - **원인:** 모듈에서 `minSdkVersion 28`을 직접 선언하면 루트(24)와 충돌
 - **해결:** 모듈에서 `minSdkVersion` 제거, CMake에 `-DANDROID_PLATFORM=28`만 사용
+
+### 🧹 stale NDK/CMake 캐시
+- **증상:** Expo/RN은 NDK `27.1.12297006`을 선택하지만 `stable-diffusion/android/.cxx/**/compile_commands.json`은 이전 NDK `27.0.12077973`의 `clang++`을 참조
+- **원인:** SDK/NDK 변경 전 생성된 외부 네이티브 빌드 모델을 AGP가 재사용
+- **해결:** `cd android && .\gradlew.bat clean` 실행 후 재빌드. RN codegen 디렉터리 삭제 순서 때문에 app clean이 실패하면, 경로가 프로젝트 내부인지 확인한 뒤 `stable-diffusion/android/.cxx`와 `android/app/.cxx`만 삭제
+- **검증:** 새 `stable-diffusion/android/.cxx/**/compile_commands.json`의 NDK 경로가 `27.1.12297006`이고 target이 `aarch64-none-linux-android28`인지 확인
+
+### ⚠️ 업스트림 컴파일 경고
+- `wstring_convert` deprecated 및 missing `override`는 `stable-diffusion.cpp` 업스트림 C++ 경고이며 현재 빌드 실패나 ABI 불일치가 아님
+- Expo Kotlin deprecated API 및 Gradle 10 호환성 경고는 Expo/RN/서드파티 플러그인에서 발생함
+- **대응:** 서브모듈이나 `node_modules`를 로컬 수정하거나 경고를 숨기지 말고, Expo/RN 및 업스트림 업데이트로 해결
 
 ### 💥 32비트 빌드 에러: `vk::Buffer` 관련 C++ 템플릿 에러
 - **원인:** `vulkan.hpp`가 32비트에서 핸들을 `uint64_t`로 처리 → 타입 호환성 깨짐

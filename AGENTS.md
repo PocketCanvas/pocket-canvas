@@ -46,7 +46,7 @@
 | [ADR-002](docs/decisions/ADR-002-vulkan-ndk-build.md) | Vulkan NDK 빌드 | `ANDROID_PLATFORM=28`, `arm64-v8a` only |
 | [ADR-003](docs/decisions/ADR-003-poc-benchmark-results.md) | SD 1.5 PoC 결과 | Q4_K + LCM-LoRA 기능 PoC 성공, 전체 116초 |
 | [ADR-004](docs/decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전 및 루트–모듈 동기화 |
-| [ADR-005](docs/decisions/ADR-005-ui-composition-and-theme.md) | 생성 UI 구성과 테마 | React Native 중심 하이브리드 UI + 단일 `Colors` 팔레트 |
+| [ADR-005](docs/decisions/ADR-005-ui-composition-and-theme.md) | UI 구성과 테마 | React Native 중심 화면 구성 + 화면·컴포넌트 책임 분리 + 단일 `Colors` 팔레트 |
 
 ## 절대 하지 말 것 (Boundaries)
 
@@ -79,6 +79,12 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 - 모델, LoRA, 가중치, 추론 스텝 선택은 현재 UI 상태만 변경하며 `generateImage()`에는 아직 전달되지 않음
 - 현재 네이티브 호출 계약은 `generateImage(prompt)`뿐임. UI 값을 임의로 연결하지 말고 TS → Kotlin → JNI 계약을 함께 확장한 뒤 단계별로 검증
 - 테마 전환 UI는 아직 없음. 생성 화면은 `Colors.dark`를 명시적으로 사용하며 `Colors.light`는 전환 구현을 위한 준비 상태
+
+### 🗂️ 모델 관리 UI 구현 범위
+
+- `src/app/models.tsx`는 화면 상태와 이벤트 조정을 담당하고, 카드·상세 모달·관련 타입은 `src/components/model-management.tsx`에 둠
+- 현재 목록은 로컬 목 데이터이며 이름·설명·분류 변경과 삭제도 메모리 상태만 갱신함. 실제 파일 탐색, 메타데이터 판별, 영구 저장 및 파일 삭제와 연결하지 말 것
+- 모델/LoRA 선택과 LoRA 가중치 설정은 생성 화면의 책임이며 모델 관리 화면에 추가하지 말 것
 
 ### 🛠️ Manifest Merger 에러: `minSdkVersion 24 < 28`
 - **원인:** 모듈에서 `minSdkVersion 28`을 직접 선언하면 루트(24)와 충돌

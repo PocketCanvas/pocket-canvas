@@ -35,11 +35,12 @@ pocket-canvas/
 │   ├── app/
 │   │   ├── _layout.tsx          # 루트 레이아웃 (Theme + Tabs)
 │   │   ├── index.tsx            # 생성 화면 상태와 네이티브 호출
-│   │   ├── models.tsx           # 모델 탭 자리표시자
+│   │   ├── models.tsx           # 모델 파일 관리 화면
 │   │   ├── history.tsx          # 히스토리 탭 자리표시자
 │   │   └── settings.tsx         # 설정 탭 자리표시자
 │   ├── components/              # 생성 컨트롤, 선택기, LoRA 정렬 목록, 공통 UI
 │   ├── constants/theme.ts       # Colors, Spacing, Fonts 디자인 토큰
+│   ├── lib/                     # 모델 저장소와 파일 형식 판별
 │   └── hooks/                   # useTheme, useColorScheme
 │
 ├── stable-diffusion/            # Expo 로컬 네이티브 모듈
@@ -63,7 +64,8 @@ pocket-canvas/
 │       ├── ADR-002-vulkan-ndk-build.md
 │       ├── ADR-003-poc-benchmark-results.md
 │       ├── ADR-004-expo-dependency-version-policy.md
-│       └── ADR-005-ui-composition-and-theme.md
+│       ├── ADR-005-ui-composition-and-theme.md
+│       └── ADR-006-app-storage-and-model-import.md
 ├── tasks/                       # 작업 계획 (spec, plan, todo)
 ├── AGENTS.md                    # AI 에이전트 지침 (최상위 규칙)
 └── package.json                 # 루트 앱 의존성
@@ -80,6 +82,72 @@ pocket-canvas/
 7. `"file://" + outputPath` → JS로 반환 → `<Image>` 컴포넌트에 렌더링
 
 현재 생성 화면의 모델, LoRA, 가중치, 추론 스텝은 프런트엔드 상태와 상호작용만 구현되어 있습니다. 네이티브 모듈의 공개 계약은 아직 `generateImage(prompt)`이므로 이 값들은 추론 코어로 전달되지 않습니다.
+
+## 앱 저장소
+
+Pocket Canvas의 영구 파일은 Expo FileSystem의 `Paths.document` 아래에 기능별 디렉터리로 저장합니다. 이 영역은 앱 전용 저장소이며 앱 삭제 전까지 유지됩니다. 캐시와 임시 생성물은 영구 데이터로 취급하지 않습니다.
+
+```text
+Paths.document/
+└── models/
+    ├── models.json
+    ├── <내부 ID>.safetensors
+    └── <내부 ID>.gguf
+```
+
+| 위치 | 용도 | 수명 |
+|---|---|---|
+| `Paths.document/models/` | 가져온 모델 파일과 `models.json` | 사용자가 삭제하거나 앱을 제거할 때까지 |
+| `Paths.cache` / 네이티브 `cacheDir` | 다시 만들 수 있는 생성 결과·작업 파일 | OS가 회수할 수 있음 |
+
+향후 생성 이미지를 영구 보관할 때는 `models/`에 섞지 않고 `images/`처럼 별도 최상위 디렉터리를 추가합니다. 각 기능은 자기 디렉터리와 인덱스를 소유하며 다른 기능의 파일을 직접 변경하지 않습니다.
+
+### 모델 가져오기
+
+1. `expo-document-picker`로 파일을 선택하고 picker의 `asset.name`을 원본 표시 이름으로 사용합니다. Android의 `content://` URI basename은 실제 파일명을 보존하지 않을 수 있습니다.
+2. 표시 이름의 확장자가 `.safetensors` 또는 `.gguf`인지 확인합니다. 확장자는 빠른 필터일 뿐 신뢰 경계가 아닙니다.
+3. 원본을 `.importing-<ID>.<확장자>`로 앱 저장소에 복사합니다.
+4. 복사본의 magic/header와 tensor directory를 부분 읽기하여 실제 형식과 모델·LoRA 여부를 판별합니다. 전체 tensor payload는 읽지 않습니다.
+5. 유효하면 `<ID>.<확장자>`로 이동하고 `models.json`을 갱신합니다. 실패하면 임시 파일을 삭제합니다.
+
+유효한 GGUF/SafeTensors지만 tensor signature로 종류를 확정하지 못한 파일만 `unknown`으로 저장합니다. PNG, 손상된 파일, 확장자만 바꾼 파일처럼 실제 형식 검증에 실패한 입력은 저장하지 않습니다.
+
+앱 시작 시 남아 있는 `.importing-*` 파일을 정리합니다. 인덱스는 `.models.json.tmp`에 먼저 쓴 뒤 `models.json`으로 이동하여 중간 상태가 노출되는 시간을 줄입니다.
+
+### `models.json`
+
+`models.json`은 배열 하나이며 모델 바이너리와 사용자가 편집하는 정보를 분리합니다.
+
+```json
+[
+  {
+    "id": "m1-example",
+    "fileName": "original.safetensors",
+    "storedFileName": "m1-example.safetensors",
+    "alias": "My model",
+    "kind": "model",
+    "detectedKind": "model",
+    "format": "safetensors",
+    "sizeBytes": 2134567890,
+    "description": "",
+    "createdAt": "2026-08-17T00:00:00.000Z"
+  }
+]
+```
+
+- `fileName`: 선택 당시 원본 표시 이름
+- `storedFileName`: 앱 내부에서 충돌 없이 사용하는 파일명
+- `alias`, `description`, `kind`: 사용자가 변경할 수 있는 값
+- `detectedKind`: 가져오기 시 자동 판별 결과
+- `format`: header로 확인한 실제 파일 형식
+
+현재 인덱스는 스키마 버전이나 마이그레이션 계층을 두지 않습니다. 스키마를 변경해야 할 때 데이터 호환 요구가 생기면 그 시점에 버전과 마이그레이션을 추가합니다.
+
+### 삭제와 일관성
+
+모델 삭제는 먼저 인덱스를 갱신하고 파일 삭제가 실패하면 이전 인덱스를 복원합니다. 가져오기 중 인덱스 기록이 실패하면 이미 이동한 모델 파일도 삭제합니다. `models.json` 자체가 손상되었거나 예상 스키마와 다르면 빈 목록으로 덮어쓰지 않고 오류를 표시합니다.
+
+구현 진입점은 `src/lib/model-files.ts`, 형식 판별기는 `src/lib/model-file-inspection.ts`입니다. 설계 배경은 [ADR-006](decisions/ADR-006-app-storage-and-model-import.md)을 참고하세요.
 
 ## 생성 UI 구성
 
@@ -105,6 +173,7 @@ pocket-canvas/
 | [ADR-003](decisions/ADR-003-poc-benchmark-results.md) | SD 1.5 온디바이스 PoC | Q4_K + LCM-LoRA 기능 PoC 성공, VAE decode가 병목 |
 | [ADR-004](decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전과 루트–모듈 lockfile 동기화 |
 | [ADR-005](decisions/ADR-005-ui-composition-and-theme.md) | 생성 UI 구성과 테마 | React Native 중심 하이브리드 UI, 자체 LoRA 정렬, 단일 `Colors` 팔레트 |
+| [ADR-006](decisions/ADR-006-app-storage-and-model-import.md) | 앱 저장소와 모델 가져오기 | Expo 문서 저장소, header 검증, JSON 인덱스와 실패 롤백 |
 
 ## 의존성 및 검증 경계
 

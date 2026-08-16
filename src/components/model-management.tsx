@@ -63,7 +63,7 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
           {item.format} · {item.size}
         </Text>
         <Text numberOfLines={2} style={styles.description}>
-          {item.description}
+          {item.description || '설명이 없습니다.'}
         </Text>
       </View>
       <Text style={styles.chevron}>›</Text>
@@ -76,6 +76,7 @@ type ModelDetailModalProps = {
   onClose: () => void;
   onDelete: () => void;
   onDescriptionChange: (description: string) => void;
+  onDescriptionCommit: () => void;
   onKindChange: (kind: ModelKind) => void;
   onRename: (name: string) => void;
 };
@@ -85,6 +86,7 @@ export function ModelDetailModal({
   onClose,
   onDelete,
   onDescriptionChange,
+  onDescriptionCommit,
   onKindChange,
   onRename,
 }: ModelDetailModalProps) {
@@ -133,6 +135,7 @@ export function ModelDetailModal({
                 maxLength={300}
                 multiline
                 onChangeText={onDescriptionChange}
+                onEndEditing={onDescriptionCommit}
                 placeholder="이 모델에 대한 설명을 입력하세요"
                 placeholderTextColor={Colors.dark.placeholder}
                 style={styles.descriptionInput}

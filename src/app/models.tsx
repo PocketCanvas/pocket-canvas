@@ -1,5 +1,13 @@
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -10,81 +18,88 @@ import {
   ModelKind,
 } from '@/components/model-management';
 import { Colors } from '@/constants/theme';
-
-const INITIAL_ITEMS: ManagedModel[] = [
-  // {
-  //   id: 'perfect-deliberate',
-  //   name: 'PerfectDeliberate_v5',
-  //   kind: 'model',
-  //   detectedKind: 'model',
-  //   format: 'GGUF · Q4_K',
-  //   size: '2.1 GB',
-  //   filename: 'perfectdeliberate_v5_q4_k.gguf',
-  //   description: '사실적인 표현과 섬세한 디테일에 적합한 모델',
-  //   color: '#4D6577',
-  // },
-  {
-    id: 'counterfeit',
-    name: 'Counterfeit-V3.0',
-    kind: 'model',
-    detectedKind: 'model',
-    format: 'SafeTensors',
-    size: '2.0 GB',
-    filename: 'counterfeit-v3.0.safetensors',
-    description: '인물과 캐릭터 생성에 적합한 범용 모델',
-    color: '#536A63',
-  },
-  {
-    id: 'lcm-lora',
-    name: 'LCM-LoRA',
-    kind: 'lora',
-    detectedKind: 'lora',
-    format: 'SafeTensors',
-    size: '135 MB',
-    filename: 'lcm-lora.safetensors',
-    description: '적은 스텝으로 빠르게 생성하기 위한 가속 LoRA',
-    color: '#665786',
-  },
-  {
-    id: 'unclassified',
-    name: 'portrait_style_v2',
-    kind: 'unknown',
-    detectedKind: 'unknown',
-    format: 'SafeTensors',
-    size: '144 MB',
-    filename: 'portrait_style_v2.safetensors',
-    description: '메타데이터만으로 종류를 판별하지 못했습니다.',
-    color: '#6A606A',
-  },
-];
+import {
+  deleteStoredModel,
+  loadModels,
+  pickAndImportModel,
+  StoredModel,
+  updateStoredModel,
+} from '@/lib/model-files';
 
 export default function ModelsScreen() {
-  const [items, setItems] = useState(INITIAL_ITEMS);
+  const [items, setItems] = useState<StoredModel[]>([]);
   const [section, setSection] = useState<ModelKind>('model');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = items.find((item) => item.id === selectedId) ?? null;
+  const [isLoading, setIsLoading] = useState(true);
+  const [isImporting, setIsImporting] = useState(false);
+  const selectedRecord = items.find((item) => item.id === selectedId) ?? null;
+  const selected = selectedRecord ? toManagedModel(selectedRecord) : null;
   const visibleItems = items.filter((item) => item.kind === section);
 
-  const updateSelected = (changes: Partial<ManagedModel>) => {
-    if (!selected) return;
+  useEffect(() => {
+    loadModels()
+      .then(setItems)
+      .catch(showError)
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const updateLocal = (changes: Partial<StoredModel>) => {
+    if (!selectedRecord) return;
     setItems((current) =>
-      current.map((item) => (item.id === selected.id ? { ...item, ...changes } : item)),
+      current.map((item) => (item.id === selectedRecord.id ? { ...item, ...changes } : item)),
     );
   };
 
+  const persistSelected = async (changes: Partial<StoredModel> = {}) => {
+    if (!selectedRecord) return;
+    const next = { ...selectedRecord, ...changes };
+    updateLocal(changes);
+    try {
+      setItems(
+        await updateStoredModel(next.id, {
+          alias: next.alias,
+          kind: next.kind,
+          description: next.description,
+        }),
+      );
+    } catch (error) {
+      showError(error);
+      setItems(await loadModels());
+    }
+  };
+
   const remove = () => {
-    if (!selected) return;
-    Alert.alert('파일을 삭제할까요?', selected.filename, [
+    if (!selectedRecord) return;
+    Alert.alert('파일을 삭제할까요?', selectedRecord.fileName, [
       { text: '취소', style: 'cancel' },
       {
         text: '삭제',
         style: 'destructive',
-        onPress: () => {
-          setItems((current) => current.filter((item) => item.id !== selected.id));
-          setSelectedId(null);
+        onPress: async () => {
+          try {
+            setItems(await deleteStoredModel(selectedRecord.id));
+            setSelectedId(null);
+          } catch (error) {
+            showError(error);
+          }
         },
       },
     ]);
+  };
+
+  const importModel = async () => {
+    setIsImporting(true);
+    try {
+      const imported = await pickAndImportModel();
+      if (imported) {
+        setItems((current) => [...current, imported]);
+        setSection(imported.kind);
+      }
+    } catch (error) {
+      showError(error);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -117,30 +132,58 @@ export default function ModelsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {!visibleItems.length ? (
+        {isLoading ? (
+          <ActivityIndicator color={Colors.dark.accent} size="large" style={styles.loading} />
+        ) : !visibleItems.length ? (
           <View style={styles.empty}>
             <Text style={styles.emptyTitle}>저장된 항목이 없습니다</Text>
             <Text style={styles.emptyText}>파일을 불러오면 자동으로 분류됩니다.</Text>
           </View>
         ) : (
           visibleItems.map((item) => (
-            <ModelCard item={item} key={item.id} onPress={() => setSelectedId(item.id)} />
+            <ModelCard
+              item={toManagedModel(item)}
+              key={item.id}
+              onPress={() => setSelectedId(item.id)}
+            />
           ))
         )}
       </ScrollView>
+
+      <Pressable
+        accessibilityLabel="모델 파일 추가"
+        accessibilityRole="button"
+        disabled={isImporting}
+        onPress={importModel}
+        style={({ pressed }) => [
+          styles.fab,
+          pressed && styles.pressed,
+          isImporting && styles.disabled,
+        ]}
+      >
+        {isImporting ? (
+          <ActivityIndicator color={Colors.dark.onAccent} />
+        ) : (
+          <Text style={styles.fabText}>＋</Text>
+        )}
+      </Pressable>
 
       {selected && (
         <ModelDetailModal
           item={selected}
           key={selected.id}
-          onClose={() => setSelectedId(null)}
+          onClose={() => {
+            persistSelected();
+            setSelectedId(null);
+          }}
           onDelete={remove}
-          onDescriptionChange={(description) => updateSelected({ description })}
+          onDescriptionChange={(description) => updateLocal({ description })}
+          onDescriptionCommit={() => persistSelected()}
           onKindChange={(kind) => {
-            updateSelected({ kind });
+            persistSelected({ kind });
             setSection(kind);
           }}
-          onRename={(name) => updateSelected({ name })}
+          onRename={(alias) => persistSelected({ alias })}
         />
       )}
     </SafeAreaView>
@@ -158,7 +201,48 @@ const styles = StyleSheet.create({
   tabText: { color: Colors.dark.muted, fontSize: 13, fontWeight: '600' },
   selectedTabText: { color: Colors.dark.accentText },
   content: { padding: 20, paddingBottom: 120, gap: 10 },
+  loading: { marginTop: 64 },
   empty: { alignItems: 'center', paddingVertical: 64, gap: 8 },
   emptyTitle: { color: Colors.dark.text, fontSize: 15, fontWeight: '600' },
   emptyText: { color: Colors.dark.muted, fontSize: 13 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+    backgroundColor: Colors.dark.accent,
+  },
+  fabText: { color: Colors.dark.onAccent, fontSize: 30, lineHeight: 34 },
+  pressed: { opacity: 0.72 },
+  disabled: { opacity: 0.55 },
 });
+
+function toManagedModel(model: StoredModel): ManagedModel {
+  return {
+    id: model.id,
+    name: model.alias,
+    kind: model.kind,
+    detectedKind: model.detectedKind,
+    format: model.format === 'gguf' ? 'GGUF' : 'SafeTensors',
+    size: formatBytes(model.sizeBytes),
+    filename: model.fileName,
+    description: model.description,
+    color: Colors.dark.accentSoft,
+  };
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
+}
+
+function showError(error: unknown) {
+  Alert.alert(
+    '모델을 처리하지 못했습니다.',
+    error instanceof Error ? error.message : String(error),
+  );
+}

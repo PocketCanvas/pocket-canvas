@@ -47,6 +47,7 @@
 | [ADR-003](docs/decisions/ADR-003-poc-benchmark-results.md) | SD 1.5 PoC 결과 | Q4_K + LCM-LoRA 기능 PoC 성공, 전체 116초 |
 | [ADR-004](docs/decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전 및 루트–모듈 동기화 |
 | [ADR-005](docs/decisions/ADR-005-ui-composition-and-theme.md) | UI 구성과 테마 | React Native 중심 화면 구성 + 화면·컴포넌트 책임 분리 + 단일 `Colors` 팔레트 |
+| [ADR-006](docs/decisions/ADR-006-app-storage-and-model-import.md) | 앱 저장소와 모델 가져오기 | Expo 문서 저장소 + header 검증 + JSON 인덱스와 실패 롤백 |
 
 ## 절대 하지 말 것 (Boundaries)
 
@@ -83,7 +84,8 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 ### 🗂️ 모델 관리 UI 구현 범위
 
 - `src/app/models.tsx`는 화면 상태와 이벤트 조정을 담당하고, 카드·상세 모달·관련 타입은 `src/components/model-management.tsx`에 둠
-- 현재 목록은 로컬 목 데이터이며 이름·설명·분류 변경과 삭제도 메모리 상태만 갱신함. 실제 파일 탐색, 메타데이터 판별, 영구 저장 및 파일 삭제와 연결하지 말 것
+- 파일 선택·복사·`models.json` 영속화와 삭제는 `src/lib/model-files.ts`, GGUF/SafeTensors header 및 tensor signature 판별은 `src/lib/model-file-inspection.ts`가 담당함
+- 모델은 Expo `Paths.document/models/`에 저장하며 저장 구조와 실패 복구 규칙은 `docs/architecture.md`의 앱 저장소 절 및 `ADR-006`을 따름
 - 모델/LoRA 선택과 LoRA 가중치 설정은 생성 화면의 책임이며 모델 관리 화면에 추가하지 말 것
 
 ### 🛠️ Manifest Merger 에러: `minSdkVersion 24 < 28`

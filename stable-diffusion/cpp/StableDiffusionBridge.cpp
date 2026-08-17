@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <cstring>
 #include <string>
 #include <vector>
 #include <chrono>
@@ -12,24 +13,54 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-static void android_sd_log_callback(sd_log_level_t level, const char* text, void*) {
+struct ProgressLogContext {
+    std::chrono::steady_clock::time_point started_at;
+    JNIEnv* env;
+    jobject module;
+    jmethodID emit_progress;
+    int steps;
+    enum class Stage { Loading, Encoding, Sampling, Decoding } stage = Stage::Loading;
+    bool decoding_emitted = false;
+};
+
+static void emit_progress(ProgressLogContext* context, const char* stage, int step = 0, int steps = 0) {
+    jstring j_stage = context->env->NewStringUTF(stage);
+    context->env->CallVoidMethod(context->module, context->emit_progress, j_stage, step, steps);
+    context->env->DeleteLocalRef(j_stage);
+    if (context->env->ExceptionCheck()) {
+        LOGE("Failed to emit progress event");
+        context->env->ExceptionClear();
+    }
+}
+
+static void android_sd_log_callback(sd_log_level_t level, const char* text, void* data) {
     const int priority = level == SD_LOG_ERROR ? ANDROID_LOG_ERROR
                        : level == SD_LOG_WARN  ? ANDROID_LOG_WARN
                                                : ANDROID_LOG_INFO;
     __android_log_print(priority, LOG_TAG, "[stable-diffusion.cpp] %s", text);
+    auto* context = static_cast<ProgressLogContext*>(data);
+    if (std::strstr(text, "get_learned_condition completed") != nullptr) {
+        context->stage = ProgressLogContext::Stage::Sampling;
+        emit_progress(context, "sampling", 0, context->steps);
+    } else if (!context->decoding_emitted && std::strstr(text, "decoding ") != nullptr) {
+        context->stage = ProgressLogContext::Stage::Decoding;
+        context->decoding_emitted = true;
+        emit_progress(context, "decoding");
+    }
 }
 
-struct ProgressLogContext {
-    std::chrono::steady_clock::time_point started_at;
-};
-
 static void android_progress_callback(int step, int steps, float step_seconds, void* data) {
-    const auto* context = static_cast<ProgressLogContext*>(data);
+    auto* context = static_cast<ProgressLogContext*>(data);
     const auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - context->started_at
     ).count();
     LOGI("[progress] step %d/%d completed in %.2fs (total=%lld ms)",
          step, steps, step_seconds, static_cast<long long>(total_ms));
+    if (context->stage == ProgressLogContext::Stage::Loading) {
+        emit_progress(context, "loading", step, steps);
+    } else if (context->stage == ProgressLogContext::Stage::Sampling) {
+        emit_progress(context, "sampling", step, steps);
+    }
 }
 
 static void log_available_devices() {
@@ -47,11 +78,30 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_getSystemInfo(JNIEnv *en
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(JNIEnv *env, jobject thiz, jstring jPrompt, jstring jModelPath, jstring jLoraPath, jstring jOutputPath) {
+Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
+    JNIEnv *env,
+    jobject thiz,
+    jstring jPrompt,
+    jstring jModelPath,
+    jobjectArray jLoraPaths,
+    jdoubleArray jLoraWeights,
+    jint steps,
+    jstring jOutputPath
+) {
     const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
     const char *model_path = env->GetStringUTFChars(jModelPath, nullptr);
-    const char *lora_path = env->GetStringUTFChars(jLoraPath, nullptr);
     const char *output_path = env->GetStringUTFChars(jOutputPath, nullptr);
+    const jsize lora_count = env->GetArrayLength(jLoraPaths);
+    std::vector<std::string> lora_paths;
+    lora_paths.reserve(lora_count);
+    for (jsize i = 0; i < lora_count; ++i) {
+        auto j_path = static_cast<jstring>(env->GetObjectArrayElement(jLoraPaths, i));
+        const char* path = env->GetStringUTFChars(j_path, nullptr);
+        lora_paths.emplace_back(path);
+        env->ReleaseStringUTFChars(j_path, path);
+        env->DeleteLocalRef(j_path);
+    }
+    jdouble* lora_weights = env->GetDoubleArrayElements(jLoraWeights, nullptr);
 
     // ── Diagnostic: elapsed time tracker ──
     auto t_start = std::chrono::steady_clock::now();
@@ -64,13 +114,20 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(JNIEnv *en
     LOGI("========================================");
     LOGI("[%lld ms] generateImage() JNI entry", elapsed_ms());
     LOGI("[%lld ms] Model: %s", elapsed_ms(), model_path);
-    LOGI("[%lld ms] LCM-LoRA: %s", elapsed_ms(), lora_path);
+    LOGI("[%lld ms] LoRAs: %d", elapsed_ms(), static_cast<int>(lora_count));
     LOGI("[%lld ms] Prompt: %s", elapsed_ms(), prompt);
     LOGI("========================================");
 
-    sd_set_log_callback(android_sd_log_callback, nullptr);
-    ProgressLogContext progress_context{t_start};
+    jclass module_class = env->GetObjectClass(thiz);
+    jmethodID emit_progress_method = env->GetMethodID(
+        module_class,
+        "emitProgress",
+        "(Ljava/lang/String;II)V"
+    );
+    ProgressLogContext progress_context{t_start, env, thiz, emit_progress_method, steps};
+    sd_set_log_callback(android_sd_log_callback, &progress_context);
     sd_set_progress_callback(android_progress_callback, &progress_context);
+    emit_progress(&progress_context, "loading");
     log_available_devices();
 
     sd_ctx_params_t ctx_params;
@@ -90,20 +147,28 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(JNIEnv *en
         sd_set_log_callback(nullptr, nullptr);
         env->ReleaseStringUTFChars(jPrompt, prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
-        env->ReleaseStringUTFChars(jLoraPath, lora_path);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
+        env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
+        env->DeleteLocalRef(module_class);
         return env->NewStringUTF("Error: Failed to create SD context");
     }
 
+    progress_context.stage = ProgressLogContext::Stage::Encoding;
+    emit_progress(&progress_context, "encoding");
+
     sd_img_gen_params_t img_params;
     sd_img_gen_params_init(&img_params);
-    const sd_lora_t lcm_lora{false, 1.0f, lora_path};
-    img_params.loras = &lcm_lora;
-    img_params.lora_count = 1;
+    std::vector<sd_lora_t> loras;
+    loras.reserve(lora_count);
+    for (jsize i = 0; i < lora_count; ++i) {
+        loras.push_back({false, static_cast<float>(lora_weights[i]), lora_paths[i].c_str()});
+    }
+    img_params.loras = loras.empty() ? nullptr : loras.data();
+    img_params.lora_count = static_cast<int>(loras.size());
     img_params.prompt = prompt;
     img_params.width = 512;
     img_params.height = 512;
-    img_params.sample_params.sample_steps = 4;
+    img_params.sample_params.sample_steps = steps;
     img_params.sample_params.sample_method = LCM_SAMPLE_METHOD;
     img_params.sample_params.scheduler = LCM_SCHEDULER;
     img_params.sample_params.guidance.txt_cfg = 1.0f;
@@ -111,7 +176,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(JNIEnv *en
     sd_image_t* results = nullptr;
     int num_images = 0;
 
-    LOGI("[%lld ms] Calling generate_image() — inference starts (512x512, LCM, 4 steps, CFG 1.0)...", elapsed_ms());
+    LOGI("[%lld ms] Calling generate_image() — inference starts (512x512, LCM, %d steps, CFG 1.0)...", elapsed_ms(), steps);
     bool success = generate_image(sd_ctx, &img_params, &results, &num_images);
     LOGI("[%lld ms] generate_image() returned (success=%d, num_images=%d)", elapsed_ms(), success, num_images);
 
@@ -138,8 +203,9 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(JNIEnv *en
 
     env->ReleaseStringUTFChars(jPrompt, prompt);
     env->ReleaseStringUTFChars(jModelPath, model_path);
-    env->ReleaseStringUTFChars(jLoraPath, lora_path);
     env->ReleaseStringUTFChars(jOutputPath, output_path);
+    env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
+    env->DeleteLocalRef(module_class);
 
     LOGI("========================================");
     LOGI("[%lld ms] generateImage() TOTAL completed", elapsed_ms());

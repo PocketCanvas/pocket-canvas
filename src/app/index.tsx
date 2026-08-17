@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   ActivityIndicator,
   Image,
@@ -12,19 +13,19 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { generateImage } from 'stable-diffusion';
+import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
 
 import { GenerationControls } from '@/components/generation-controls';
 import { LoraPicker, ModelPicker } from '@/components/generation-pickers';
 import { LoraSelection, LoraSortableList } from '@/components/lora-sortable-list';
 import { Colors } from '@/constants/theme';
-
-const MODELS = ['SD 2.1', 'SD 1.5 Q4_K'];
-const AVAILABLE_LORAS = ['Cartoon Style LoRA', 'Detail Enhancer', 'LCM-LoRA SD 1.5'];
+import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
+import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';
 
 export default function GenerateScreen() {
   const [prompt, setPrompt] = useState('');
-  const [model, setModel] = useState(MODELS[0]);
+  const [availableModels, setAvailableModels] = useState<StoredModel[]>([]);
+  const [model, setModel] = useState<StoredModel | null>(null);
   const [showModels, setShowModels] = useState(false);
   const [loras, setLoras] = useState<LoraSelection[]>([]);
   const [showLoraPicker, setShowLoraPicker] = useState(false);
@@ -32,19 +33,70 @@ export default function GenerateScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<GenerationProgressEvent | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadModels()
+        .then((models) => {
+          setAvailableModels(models);
+          setModel((current) => models.find(({ id }) => id === current?.id) ?? null);
+          setLoras((current) =>
+            current.flatMap((lora) => {
+              const stored = models.find(({ id }) => id === lora.model.id);
+              return stored ? [{ ...lora, model: stored }] : [];
+            }),
+          );
+        })
+        .catch((reason) =>
+          setError(reason instanceof Error ? reason.message : '모델 목록을 불러오지 못했습니다.'),
+        );
+    }, []),
+  );
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || !model) return;
     setIsGenerating(true);
     setError(null);
+    setProgress({ stage: 'loading' });
+    let destination: ReturnType<typeof createImageDestination> | null = null;
+    let progressSubscription: ReturnType<typeof addProgressListener> | null = null;
     try {
-      const uri = await generateImage(prompt.trim());
-      if (uri.startsWith('Error')) setError(uri);
-      else setImageUri(uri);
+      destination = createImageDestination({
+        prompt: prompt.trim(),
+        model: { id: model.id, name: model.alias, storedFileName: model.storedFileName },
+        loras: loras.map(({ model: lora, weight }) => ({
+          id: lora.id,
+          name: lora.alias,
+          storedFileName: lora.storedFileName,
+          weight,
+        })),
+        steps,
+      });
+      progressSubscription = addProgressListener(setProgress);
+      const uri = await generateImage({
+        prompt: prompt.trim(),
+        modelUri: getStoredModelUri(model),
+        loras: loras.map(({ model: lora, weight }) => ({
+          uri: getStoredModelUri(lora),
+          weight,
+        })),
+        steps,
+        outputUri: destination.file.uri,
+      });
+      setImageUri(uri);
+      try {
+        await saveImageMetadata(destination.metadata);
+      } catch (reason) {
+        console.warn('이미지 메타데이터를 저장하지 못했습니다.', reason);
+      }
     } catch (reason) {
+      if (destination?.file.exists) destination.file.delete();
       setError(reason instanceof Error ? reason.message : '이미지를 생성하지 못했습니다.');
     } finally {
+      progressSubscription?.remove();
       setIsGenerating(false);
+      setProgress(null);
     }
   };
 
@@ -72,7 +124,7 @@ export default function GenerateScreen() {
             {isGenerating ? (
               <View style={styles.previewEmpty}>
                 <ActivityIndicator color={Colors.dark.accent} size="large" />
-                <RNText style={styles.previewCaption}>이미지를 그리고 있어요</RNText>
+                <GenerationProgress progress={progress} />
               </View>
             ) : imageUri ? (
               <Image source={{ uri: imageUri }} resizeMode="cover" style={styles.generatedImage} />
@@ -120,7 +172,7 @@ export default function GenerateScreen() {
               </View>
               <View style={styles.selectText}>
                 <RNText numberOfLines={1} style={styles.selectValue}>
-                  {model}
+                  {model?.alias ?? '모델을 선택하세요'}
                 </RNText>
                 <RNText style={styles.selectHint}>Stable Diffusion 모델</RNText>
               </View>
@@ -150,7 +202,7 @@ export default function GenerateScreen() {
         </ScrollView>
 
         <GenerationControls
-          canGenerate={Boolean(prompt.trim())}
+          canGenerate={Boolean(prompt.trim() && model)}
           isGenerating={isGenerating}
           onGenerate={handleGenerate}
           onStepsChange={setSteps}
@@ -159,7 +211,7 @@ export default function GenerateScreen() {
       </KeyboardAvoidingView>
 
       <ModelPicker
-        models={MODELS}
+        models={availableModels}
         onClose={() => setShowModels(false)}
         onSelect={(selected) => {
           setModel(selected);
@@ -171,7 +223,7 @@ export default function GenerateScreen() {
       <LoraPicker
         onChange={setLoras}
         onClose={() => setShowLoraPicker(false)}
-        options={AVAILABLE_LORAS}
+        options={availableModels}
         selected={loras}
         visible={showLoraPicker}
       />
@@ -207,6 +259,13 @@ const styles = StyleSheet.create({
   sparkleText: { color: Colors.dark.accentIcon, fontSize: 20 },
   previewTitle: { color: Colors.dark.text, fontSize: 16, fontWeight: '600' },
   previewCaption: { color: Colors.dark.muted, fontSize: 13, textAlign: 'center' },
+  progressBlock: { alignItems: 'center', gap: 8 },
+  progressStages: { flexDirection: 'row', alignItems: 'center' },
+  progressStage: { color: Colors.dark.muted, fontSize: 12, fontWeight: '600' },
+  progressStageActive: { color: Colors.dark.accentText },
+  progressStageDone: { color: Colors.dark.textSecondary },
+  progressArrow: { color: Colors.dark.border, fontSize: 12, marginHorizontal: 5 },
+  progressDetail: { color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
   generatedImage: { width: '100%', height: '100%' },
   section: { gap: 10 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -258,3 +317,52 @@ const styles = StyleSheet.create({
   error: { color: Colors.dark.error, fontSize: 13 },
   pressed: { opacity: 0.72 },
 });
+
+const GENERATION_STAGES: { stage: GenerationProgressEvent['stage']; label: string }[] = [
+  { stage: 'loading', label: 'Loading' },
+  { stage: 'encoding', label: 'Encoding' },
+  { stage: 'sampling', label: 'Steps' },
+  { stage: 'decoding', label: 'Decoding' },
+];
+
+function GenerationProgress({ progress }: { progress: GenerationProgressEvent | null }) {
+  const current = Math.max(
+    0,
+    GENERATION_STAGES.findIndex(({ stage }) => stage === progress?.stage),
+  );
+  const step = progress?.step ?? 0;
+  const steps = progress?.steps ?? 0;
+  const detail =
+    progress?.stage === 'loading' && steps > 0
+      ? `Loading ${Math.min(100, Math.round((step / steps) * 100))}%`
+      : progress?.stage === 'sampling'
+        ? `Steps ${step}/${steps}`
+        : GENERATION_STAGES[current].label;
+
+  return (
+    <View
+      accessibilityLabel={detail}
+      accessibilityLiveRegion="polite"
+      accessibilityRole="progressbar"
+      style={styles.progressBlock}
+    >
+      <View accessible={false} style={styles.progressStages}>
+        {GENERATION_STAGES.map(({ stage, label }, index) => (
+          <View key={stage} style={styles.progressStages}>
+            {index > 0 && <RNText style={styles.progressArrow}>›</RNText>}
+            <RNText
+              style={[
+                styles.progressStage,
+                index < current && styles.progressStageDone,
+                index === current && styles.progressStageActive,
+              ]}
+            >
+              {label}
+            </RNText>
+          </View>
+        ))}
+      </View>
+      <RNText style={styles.progressDetail}>{detail}</RNText>
+    </View>
+  );
+}

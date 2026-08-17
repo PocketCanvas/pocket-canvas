@@ -1,5 +1,7 @@
 import { registerWebModule, NativeModule } from 'expo';
 
-class StableDiffusionModule extends NativeModule<{}> {}
+import { StableDiffusionModuleEvents } from './StableDiffusion.types';
+
+class StableDiffusionModule extends NativeModule<StableDiffusionModuleEvents> {}
 
 export default registerWebModule(StableDiffusionModule, 'StableDiffusionModule');

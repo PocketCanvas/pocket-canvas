@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+이 문서에서 후속 범위로 둔 생성 이미지 저장소는 [ADR-007](ADR-007-generation-contract-progress-and-image-storage.md)에서 구체화되었습니다.
+
 ## Date
 2026-08-17
 

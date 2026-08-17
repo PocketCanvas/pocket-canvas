@@ -24,6 +24,10 @@ export type StoredModel = {
 const modelsDirectory = new Directory(Paths.document, 'models');
 const indexFile = new File(modelsDirectory, 'models.json');
 
+export function getStoredModelUri(model: StoredModel) {
+  return new File(modelsDirectory, model.storedFileName).uri;
+}
+
 export async function loadModels(): Promise<StoredModel[]> {
   ensureDirectory();
   cleanupIncompleteImports();

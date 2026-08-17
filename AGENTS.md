@@ -48,6 +48,7 @@
 | [ADR-004](docs/decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전 및 루트–모듈 동기화 |
 | [ADR-005](docs/decisions/ADR-005-ui-composition-and-theme.md) | UI 구성과 테마 | React Native 중심 화면 구성 + 화면·컴포넌트 책임 분리 + 단일 `Colors` 팔레트 |
 | [ADR-006](docs/decisions/ADR-006-app-storage-and-model-import.md) | 앱 저장소와 모델 가져오기 | Expo 문서 저장소 + header 검증 + JSON 인덱스와 실패 롤백 |
+| [ADR-007](docs/decisions/ADR-007-generation-contract-progress-and-image-storage.md) | 생성 계약과 결과 저장 | 커스텀 모델·LoRA·steps + 단계별 진행 이벤트 + 영구 PNG |
 
 ## 절대 하지 말 것 (Boundaries)
 
@@ -77,8 +78,12 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 - **해결:** `cd stable-diffusion && npm run build` 실행
 
 ### 🎨 생성 UI와 네이티브 추론 연결 범위
-- 모델, LoRA, 가중치, 추론 스텝 선택은 현재 UI 상태만 변경하며 `generateImage()`에는 아직 전달되지 않음
-- 현재 네이티브 호출 계약은 `generateImage(prompt)`뿐임. UI 값을 임의로 연결하지 말고 TS → Kotlin → JNI 계약을 함께 확장한 뒤 단계별로 검증
+- 생성 화면은 모델, LoRA 0개 이상과 각 가중치·순서, 프롬프트, 추론 스텝, 출력 URI를 TS → Kotlin → JNI → C++로 전달함
+- 진행 UI는 `Loading → Encoding → Steps → Decoding` 순서임. loading은 tensor 전체 개수가 있을 때만 실제 `%`, sampling은 `N/M`을 표시하고 encoding·decoding에는 가짜 퍼센트를 만들지 말 것
+- `stable-diffusion.cpp` progress callback은 모델 로딩과 sampling에 함께 사용됨. 브리지의 현재 단계와 `get_learned_condition completed` 경계를 무시하고 callback 숫자를 전부 sampling steps로 취급하지 말 것
+- 결과는 `Paths.document/images/YYYYMMDD-HHMMSS-<id>.png`에 저장하고 `images/meta.json`에 생성 설정을 기록함. 메타데이터 기록 실패 시에도 PNG는 보존할 것
+- 모델·LoRA 선택기의 자동 분류는 기본 필터일 뿐이며 `전체 보기`에서는 모든 가져온 파일을 선택할 수 있음
+- 현재 해상도 512×512, LCM sampler/scheduler, CFG 1.0과 생성별 context 생성·해제는 PoC 설정으로 고정되어 있음. 임의로 UI 상태를 추가하지 말고 전체 네이티브 계약을 함께 확장할 것
 - 테마 전환 UI는 아직 없음. 생성 화면은 `Colors.dark`를 명시적으로 사용하며 `Colors.light`는 전환 구현을 위한 준비 상태
 
 ### 🗂️ 모델 관리 UI 구현 범위

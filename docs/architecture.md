@@ -8,7 +8,7 @@ Pocket Canvas는 안드로이드 기기에서 Stable Diffusion 모델을 온디�
 ```
 ┌─ React Native (Expo SDK 57) ─────────────────────┐
 │  src/app/index.tsx                                │
-│  └─ generateImage(prompt) 호출                     │
+│  └─ 모델·LoRA·steps·출력 경로로 generateImage 호출   │
 ├───────────────────────────────────────────────────┤
 │  stable-diffusion/src/index.ts                    │
 │  └─ requireNativeModule('StableDiffusion')        │
@@ -65,7 +65,8 @@ pocket-canvas/
 │       ├── ADR-003-poc-benchmark-results.md
 │       ├── ADR-004-expo-dependency-version-policy.md
 │       ├── ADR-005-ui-composition-and-theme.md
-│       └── ADR-006-app-storage-and-model-import.md
+│       ├── ADR-006-app-storage-and-model-import.md
+│       └── ADR-007-generation-contract-progress-and-image-storage.md
 ├── tasks/                       # 작업 계획 (spec, plan, todo)
 ├── AGENTS.md                    # AI 에이전트 지침 (최상위 규칙)
 └── package.json                 # 루트 앱 의존성
@@ -74,14 +75,23 @@ pocket-canvas/
 ## 데이터 플로우: 이미지 생성
 
 1. 사용자가 프롬프트 입력 → Generate 버튼 클릭
-2. `generateImage(prompt)` → Expo Modules 비동기 호출
-3. Kotlin이 모델 경로(`filesDir`) + 출력 경로(`cacheDir`) 결정
+2. 모델, LoRA 목록·가중치, steps와 영구 출력 경로를 Expo Modules 비동기 호출로 전달
+3. Kotlin이 URI를 앱 전용 저장소 내부 경로인지 검증한 뒤 JNI로 전달
 4. JNI로 C++ 진입 → `new_sd_ctx(mmap=true, vulkan)` → 모델 로드
 5. `generate_image()` → Vulkan GPU에서 디노이징 루프 실행
-6. `stbi_write_png()` → 캐시 디렉토리에 PNG 저장
-7. `"file://" + outputPath` → JS로 반환 → `<Image>` 컴포넌트에 렌더링
+6. 브리지가 `Loading → Encoding → Steps → Decoding` 진행 이벤트를 JS에 전송
+7. `stbi_write_png()` → `Paths.document/images/YYYYMMDD-HHMMSS-<id>.png`에 저장
+8. 파일 URI를 JS로 반환해 `<Image>`에 렌더링하고 `images/meta.json`에 생성 설정 기록
 
-현재 생성 화면의 모델, LoRA, 가중치, 추론 스텝은 프런트엔드 상태와 상호작용만 구현되어 있습니다. 네이티브 모듈의 공개 계약은 아직 `generateImage(prompt)`이므로 이 값들은 추론 코어로 전달되지 않습니다.
+모델과 LoRA 선택기는 자동 분류를 기본 필터로 사용하지만 `전체 보기`를 켜면 모든 가져온 파일을 선택할 수 있습니다. 호환성 자동 판별은 하지 않으며 잘못된 조합은 네이티브 추론 오류로 처리합니다.
+
+progress callback은 모델 tensor 로딩과 sampling에 함께 사용됩니다. C++ 브리지는 현재 단계를
+별도로 추적하고 `get_learned_condition completed` 이후 callback만 sampling으로 전달합니다.
+loading은 전체 tensor 개수가 제공될 때 실제 백분율을, sampling은 `N/M`을 표시합니다.
+encoding과 decoding은 총 작업량을 알 수 없어 백분율 없이 현재 단계만 표시합니다.
+
+현재 선택 가능한 추론 인자는 모델, LoRA·가중치와 steps입니다. 해상도 512×512, LCM
+sampler/scheduler와 CFG 1.0은 PoC 설정을 유지하며 생성마다 context를 만들고 해제합니다.
 
 ## 앱 저장소
 
@@ -89,18 +99,26 @@ Pocket Canvas의 영구 파일은 Expo FileSystem의 `Paths.document` 아래에 
 
 ```text
 Paths.document/
-└── models/
-    ├── models.json
-    ├── <내부 ID>.safetensors
-    └── <내부 ID>.gguf
+├── models/
+│   ├── models.json
+│   ├── <내부 ID>.safetensors
+│   └── <내부 ID>.gguf
+└── images/
+    ├── meta.json
+    └── YYYYMMDD-HHMMSS-<id>.png
 ```
 
 | 위치 | 용도 | 수명 |
 |---|---|---|
 | `Paths.document/models/` | 가져온 모델 파일과 `models.json` | 사용자가 삭제하거나 앱을 제거할 때까지 |
+| `Paths.document/images/` | 생성 PNG와 최선 노력으로 기록하는 `meta.json` | 사용자가 삭제하거나 앱을 제거할 때까지 |
 | `Paths.cache` / 네이티브 `cacheDir` | 다시 만들 수 있는 생성 결과·작업 파일 | OS가 회수할 수 있음 |
 
-향후 생성 이미지를 영구 보관할 때는 `models/`에 섞지 않고 `images/`처럼 별도 최상위 디렉터리를 추가합니다. 각 기능은 자기 디렉터리와 인덱스를 소유하며 다른 기능의 파일을 직접 변경하지 않습니다.
+PNG 저장 성공이 최우선이며 `meta.json` 기록 실패는 PNG를 삭제하지 않습니다. 각 기능은 자기 디렉터리와 인덱스를 소유하며 다른 기능의 파일을 직접 변경하지 않습니다.
+
+`meta.json`에는 이미지 ID와 파일명, 생성 시각, prompt, steps, 사용한 모델의 ID·표시 이름·내부
+파일명, 순서가 보존된 LoRA 목록과 각 가중치를 기록합니다. 현재 history 화면은 이 데이터를
+아직 읽지 않습니다.
 
 ### 모델 가져오기
 
@@ -174,6 +192,7 @@ Paths.document/
 | [ADR-004](decisions/ADR-004-expo-dependency-version-policy.md) | Expo 의존성 버전 정책 | SDK 57 호환 버전과 루트–모듈 lockfile 동기화 |
 | [ADR-005](decisions/ADR-005-ui-composition-and-theme.md) | 생성 UI 구성과 테마 | React Native 중심 하이브리드 UI, 자체 LoRA 정렬, 단일 `Colors` 팔레트 |
 | [ADR-006](decisions/ADR-006-app-storage-and-model-import.md) | 앱 저장소와 모델 가져오기 | Expo 문서 저장소, header 검증, JSON 인덱스와 실패 롤백 |
+| [ADR-007](decisions/ADR-007-generation-contract-progress-and-image-storage.md) | 생성 계약, 진행 상태와 이미지 저장 | 커스텀 모델·LoRA·steps 계약, 4단계 진행 이벤트, 영구 PNG와 best-effort 메타데이터 |
 
 ## 의존성 및 검증 경계
 

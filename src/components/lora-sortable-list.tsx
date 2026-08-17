@@ -13,8 +13,9 @@ import type { SharedValue } from 'react-native-reanimated';
 
 import { CompactSlider } from '@/components/compact-slider';
 import { Colors } from '@/constants/theme';
+import { StoredModel } from '@/lib/model-files';
 
-export type LoraSelection = { name: string; weight: number };
+export type LoraSelection = { model: StoredModel; weight: number };
 
 const ROW_HEIGHT = 82;
 const ROW_GAP = 8;
@@ -49,11 +50,11 @@ function SortableRow({
   const scale = useSharedValue(1);
 
   useAnimatedReaction(
-    () => positions.get()[item.name],
+    () => positions.get()[item.model.id],
     (index) => {
       if (!active.get()) top.set(withTiming(index * SLOT_HEIGHT, { duration: 140 }));
     },
-    [item.name],
+    [item.model.id],
   );
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -70,12 +71,12 @@ function SortableRow({
     .onStart(() => {
       active.set(true);
       scale.set(withTiming(1.025, { duration: 70 }));
-      startY.set(positions.get()[item.name] * SLOT_HEIGHT);
+      startY.set(positions.get()[item.model.id] * SLOT_HEIGHT);
       dragY.set(startY.get());
     })
     .onUpdate(({ translationY }) => {
       dragY.set(Math.max(0, Math.min((count - 1) * SLOT_HEIGHT, startY.get() + translationY)));
-      const from = positions.get()[item.name];
+      const from = positions.get()[item.model.id];
       const to = Math.max(0, Math.min(count - 1, Math.round(dragY.get() / SLOT_HEIGHT)));
       if (from === to) return;
 
@@ -86,11 +87,11 @@ function SortableRow({
           break;
         }
       }
-      next[item.name] = to;
+      next[item.model.id] = to;
       positions.set(next);
     })
     .onEnd(() => {
-      const destination = positions.get()[item.name] * SLOT_HEIGHT;
+      const destination = positions.get()[item.model.id] * SLOT_HEIGHT;
       scale.set(withTiming(1, { duration: 70 }));
       top.set(dragY.get());
       active.set(false);
@@ -107,11 +108,11 @@ function SortableRow({
               { name: 'decrement', label: '위로 이동' },
               { name: 'increment', label: '아래로 이동' },
             ]}
-            accessibilityLabel={`${item.name} 순서 변경`}
+            accessibilityLabel={`${item.model.alias} 순서 변경`}
             accessibilityRole="adjustable"
             onAccessibilityAction={(event) =>
               onMove(
-                item.name,
+                item.model.id,
                 event.nativeEvent.actionName === 'decrement'
                   ? Math.max(0, index - 1)
                   : Math.min(count - 1, index + 1),
@@ -125,13 +126,13 @@ function SortableRow({
         <View style={styles.body}>
           <View style={styles.header}>
             <Text numberOfLines={1} style={styles.name}>
-              {item.name}
+              {item.model.alias}
             </Text>
             <View style={styles.badge}>
               <Text style={styles.weight}>{item.weight.toFixed(1)}</Text>
             </View>
             <Pressable
-              accessibilityLabel={`${item.name} 제거`}
+              accessibilityLabel={`${item.model.alias} 제거`}
               accessibilityRole="button"
               hitSlop={8}
               onPress={onRemove}
@@ -162,15 +163,15 @@ export function LoraSortableList({
   onChange: (loras: LoraSelection[]) => void;
 }) {
   const positions = useSharedValue<Positions>(
-    Object.fromEntries(loras.map((item, index) => [item.name, index])),
+    Object.fromEntries(loras.map((item, index) => [item.model.id, index])),
   );
 
   useEffect(() => {
-    positions.set(Object.fromEntries(loras.map((item, index) => [item.name, index])));
+    positions.set(Object.fromEntries(loras.map((item, index) => [item.model.id, index])));
   }, [loras, positions]);
 
   const move = (name: string, to: number) => {
-    const from = loras.findIndex((item) => item.name === name);
+    const from = loras.findIndex((item) => item.model.id === name);
     if (from < 0 || from === to) return;
     const next = [...loras];
     next.splice(to, 0, next.splice(from, 1)[0]);
@@ -178,7 +179,7 @@ export function LoraSortableList({
   };
 
   const commit = (nextPositions: Positions) => {
-    onChange([...loras].sort((a, b) => nextPositions[a.name] - nextPositions[b.name]));
+    onChange([...loras].sort((a, b) => nextPositions[a.model.id] - nextPositions[b.model.id]));
   };
 
   if (!loras.length) return <Text style={styles.empty}>선택된 LoRA가 없습니다.</Text>;
@@ -190,12 +191,14 @@ export function LoraSortableList({
           count={loras.length}
           index={index}
           item={item}
-          key={item.name}
+          key={item.model.id}
           onDragEnd={commit}
           onMove={move}
-          onRemove={() => onChange(loras.filter((lora) => lora.name !== item.name))}
+          onRemove={() => onChange(loras.filter((lora) => lora.model.id !== item.model.id))}
           onWeightChange={(weight) =>
-            onChange(loras.map((lora) => (lora.name === item.name ? { ...lora, weight } : lora)))
+            onChange(
+              loras.map((lora) => (lora.model.id === item.model.id ? { ...lora, weight } : lora)),
+            )
           }
           positions={positions}
         />

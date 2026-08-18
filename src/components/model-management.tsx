@@ -100,9 +100,19 @@ export function ModelDetailModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modal}
       >
-        <Pressable onPress={onClose} style={styles.backdrop}>
-          <Pressable accessibilityViewIsModal onPress={() => {}} style={styles.sheet}>
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.backdrop}>
+          <Pressable
+            accessibilityLabel="배경 터치하여 닫기"
+            onPress={onClose}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.sheet}>
+            <ScrollView
+              bounces
+              contentContainerStyle={styles.sheetScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
               <View style={styles.sheetHeader}>
                 <TextInput
                   accessibilityHint="터치하여 이름을 변경합니다"
@@ -194,8 +204,8 @@ export function ModelDetailModal({
                 <Text style={styles.deleteButtonText}>삭제</Text>
               </Pressable>
             </ScrollView>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -243,8 +253,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     backgroundColor: Colors.dark.surfaceRaised,
+    overflow: 'hidden',
+  },
+  sheetScrollContent: {
     padding: 20,
-    paddingBottom: 32,
+    paddingBottom: 48,
   },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   sheetNameInput: {

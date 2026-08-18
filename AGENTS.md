@@ -49,6 +49,7 @@
 | [ADR-005](docs/decisions/ADR-005-ui-composition-and-theme.md) | UI 구성과 테마 | React Native 중심 화면 구성 + 화면·컴포넌트 책임 분리 + 단일 `Colors` 팔레트 |
 | [ADR-006](docs/decisions/ADR-006-app-storage-and-model-import.md) | 앱 저장소와 모델 가져오기 | Expo 문서 저장소 + header 검증 + JSON 인덱스와 실패 롤백 |
 | [ADR-007](docs/decisions/ADR-007-generation-contract-progress-and-image-storage.md) | 생성 계약과 결과 저장 | 커스텀 모델·LoRA·steps + 단계별 진행 이벤트 + 영구 PNG |
+| [ADR-008](docs/decisions/ADR-008-history-ui-and-image-management.md) | 히스토리 화면과 이미지 관리 | 3열 그리드, 2탭 필터, expo-sharing 이미지 공유, 모달 스크롤 분리, 고아 파일 자동 복구 |
 
 ## 절대 하지 말 것 (Boundaries)
 
@@ -92,6 +93,14 @@ Android Vulkan 크로스컴파일 시 SPIRV-Headers 탐색 오류를 우회하�
 - 파일 선택·복사·`models.json` 영속화와 삭제는 `src/lib/model-files.ts`, GGUF/SafeTensors header 및 tensor signature 판별은 `src/lib/model-file-inspection.ts`가 담당함
 - 모델은 Expo `Paths.document/models/`에 저장하며 저장 구조와 실패 복구 규칙은 `docs/architecture.md`의 앱 저장소 절 및 `ADR-006`을 따름
 - 모델/LoRA 선택과 LoRA 가중치 설정은 생성 화면의 책임이며 모델 관리 화면에 추가하지 말 것
+
+### 🖼️ 히스토리 UI 및 이미지 관리 범위
+
+- `src/app/history.tsx`는 화면 상태와 이벤트 조정을 담당하고, 3열 그리드 카드·상세 모달은 `src/components/history-management.tsx`에 둠
+- 탭은 '전체'와 '즐겨찾기' 2개이며, 카드 우상단 하트 오버레이를 통해 즉각적인 즐겨찾기 토글 및 `meta.json` 영속화를 수행함
+- 이미지 공유는 `expo-sharing`을 사용하여 실제 PNG 파일 바이너리를 네이티브 시스템 공유 시트로 전달함
+- 상세 바텀시트 모달은 배경 터치 닫기와 내부 `ScrollView` 스크롤 제스처를 분리하여 하단 삭제 버튼까지 스크롤이 차단되지 않도록 함
+- `src/lib/image-files.ts`는 `meta.json`과 `Paths.document/images/` 디렉토리 스캔을 병행하여 고아 PNG 파일도 타임스탬프로 자동 복구함 (ADR-008)
 
 ### 🛠️ Manifest Merger 에러: `minSdkVersion 24 < 28`
 - **원인:** 모듈에서 `minSdkVersion 28`을 직접 선언하면 루트(24)와 충돌

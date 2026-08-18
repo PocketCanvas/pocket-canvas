@@ -10,6 +10,7 @@ Pocket Canvas는 안드로이드 기기에서 Stable Diffusion 모델을 온디�
 │  src/app/index.tsx                                │
 │  └─ 모델·LoRA·steps·출력 경로로 generateImage 호출   │
 ├───────────────────────────────────────────────────┤
+├───────────────────────────────────────────────────┤
 │  stable-diffusion/src/index.ts                    │
 │  └─ requireNativeModule('StableDiffusion')        │
 ├─ Kotlin (Expo Modules API) ───────────────────────┤
@@ -36,26 +37,10 @@ pocket-canvas/
 │   │   ├── _layout.tsx          # 루트 레이아웃 (Theme + Tabs)
 │   │   ├── index.tsx            # 생성 화면 상태와 네이티브 호출
 │   │   ├── models.tsx           # 모델 파일 관리 화면
-│   │   ├── history.tsx          # 히스토리 탭 자리표시자
+│   │   ├── history.tsx          # 생성 이미지 히스토리 화면
 │   │   └── settings.tsx         # 설정 탭 자리표시자
-│   ├── components/              # 생성 컨트롤, 선택기, LoRA 정렬 목록, 공통 UI
+│   ├── components/              # 생성 컨트롤, 선택기, LoRA 정렬, 모델 관리, 히스토리 컴포넌트
 │   ├── constants/theme.ts       # Colors, Spacing, Fonts 디자인 토큰
-│   ├── lib/                     # 모델 저장소와 파일 형식 판별
-│   └── hooks/                   # useTheme, useColorScheme
-│
-├── stable-diffusion/            # Expo 로컬 네이티브 모듈
-│   ├── src/
-│   │   ├── index.ts             # JS 인터페이스 (generateImage, getSystemInfo)
-│   │   └── StableDiffusionModule.ts  # requireNativeModule 바인딩
-│   ├── cpp/
-│   │   ├── StableDiffusionBridge.cpp  # JNI 브릿지 (커스텀 코드)
-│   │   └── stable-diffusion.cpp/      # git submodule (수정 금지)
-│   ├── android/
-│   │   ├── build.gradle               # NDK 설정 (arm64-v8a, ANDROID_PLATFORM=28)
-│   │   ├── CMakeLists.txt             # C++ 빌드 (Vulkan ON, glslc 경로)
-│   │   └── src/.../StableDiffusionModule.kt  # Kotlin 브릿지
-│   └── package.json             # main: "build/index.js"
-│
 ├── android/                     # Expo prebuild/run 시 생성되는 앱 레벨 Android 설정 (gitignore)
 ├── docs/
 │   ├── architecture.md          # 이 문서
@@ -117,8 +102,8 @@ Paths.document/
 PNG 저장 성공이 최우선이며 `meta.json` 기록 실패는 PNG를 삭제하지 않습니다. 각 기능은 자기 디렉터리와 인덱스를 소유하며 다른 기능의 파일을 직접 변경하지 않습니다.
 
 `meta.json`에는 이미지 ID와 파일명, 생성 시각, prompt, steps, 사용한 모델의 ID·표시 이름·내부
-파일명, 순서가 보존된 LoRA 목록과 각 가중치를 기록합니다. 현재 history 화면은 이 데이터를
-아직 읽지 않습니다.
+파일명, 순서가 보존된 LoRA 목록과 각 가중치, 즐겨찾기(`favorite`) 상태를 기록합니다. history 화면은
+이 데이터를 읽고 디렉토리 스캔을 병행하여 고아 이미지를 자동 복구합니다.
 
 ### 모델 가져오기
 
@@ -174,6 +159,15 @@ PNG 저장 성공이 최우선이며 `meta.json` 기록 실패는 PNG를 삭제�
 - `lora-sortable-list.tsx`는 Gesture Handler와 Reanimated로 멀티 LoRA 순서 변경을 구현합니다.
 - 일반 배치, 텍스트, 카드, 모달은 React Native를 사용하고 슬라이더·버튼처럼 네이티브 동작이 유리한 부분만 Expo UI Jetpack Compose를 사용합니다.
 
+## 히스토리 화면 및 이미지 관리
+
+- `src/app/history.tsx`는 화면 상태, 검색/정렬 필터링, `useFocusEffect` 갱신을 담당합니다.
+- `src/components/history-management.tsx`는 3열 그리드 카드(`HistoryCard`), 상세 바텀시트 모달(`HistoryDetailModal`)을 제공합니다.
+- '전체'와 '즐겨찾기' 2개 탭으로 구성되며, 카드 우상단 하트 오버레이를 통해 즉각적인 즐겨찾기 토글이 가능합니다.
+- 이미지 파일 공유는 `expo-sharing`을 사용하여 실제 PNG 파일을 네이티브 시스템 공유 시트로 전달합니다.
+- 상세 모달은 배경 터치 닫기와 내부 `ScrollView` 스크롤 제스처를 명확히 분리하여 하단 삭제 버튼까지 부드럽게 스크롤할 수 있습니다.
+- `src/lib/image-files.ts`는 `meta.json`과 `Paths.document/images/` 디렉토리 스캔을 병행하여 누락된 고아 PNG도 타임스탬프로 자동 복구합니다. 설계 배경은 [ADR-008](decisions/ADR-008-history-ui-and-image-management.md)을 참고하세요.
+
 ## 테마 토큰
 
 모든 앱 색상은 `src/constants/theme.ts`의 `Colors.light`와 `Colors.dark`에 정의합니다. 두 팔레트는 같은 의미 기반 키를 가지며 컴포넌트 내부에 색상 리터럴을 두지 않습니다.
@@ -193,6 +187,7 @@ PNG 저장 성공이 최우선이며 `meta.json` 기록 실패는 PNG를 삭제�
 | [ADR-005](decisions/ADR-005-ui-composition-and-theme.md) | 생성 UI 구성과 테마 | React Native 중심 하이브리드 UI, 자체 LoRA 정렬, 단일 `Colors` 팔레트 |
 | [ADR-006](decisions/ADR-006-app-storage-and-model-import.md) | 앱 저장소와 모델 가져오기 | Expo 문서 저장소, header 검증, JSON 인덱스와 실패 롤백 |
 | [ADR-007](decisions/ADR-007-generation-contract-progress-and-image-storage.md) | 생성 계약, 진행 상태와 이미지 저장 | 커스텀 모델·LoRA·steps 계약, 4단계 진행 이벤트, 영구 PNG와 best-effort 메타데이터 |
+| [ADR-008](decisions/ADR-008-history-ui-and-image-management.md) | 히스토리 화면과 이미지 관리 | 3열 그리드, 2탭 필터, expo-sharing 이미지 공유, 모달 스크롤 제스처 분리, 고아 파일 자동 복구 |
 
 ## 의존성 및 검증 경계
 

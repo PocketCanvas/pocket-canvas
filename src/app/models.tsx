@@ -18,7 +18,7 @@ import {
   ModelDetailModal,
   ModelKind,
 } from '@/components/model-management';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import {
   deleteStoredModel,
   loadModels,
@@ -28,13 +28,14 @@ import {
 } from '@/lib/model-files';
 
 export default function ModelsScreen() {
+  const colors = useTheme();
   const [items, setItems] = useState<StoredModel[]>([]);
   const [section, setSection] = useState<ModelKind>('model');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const selectedRecord = items.find((item) => item.id === selectedId) ?? null;
-  const selected = selectedRecord ? toManagedModel(selectedRecord) : null;
+  const selected = selectedRecord ? toManagedModel(selectedRecord, colors.accentSoft) : null;
   const visibleItems = items.filter((item) => item.kind === section);
 
   useEffect(() => {
@@ -104,14 +105,14 @@ export default function ModelsScreen() {
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
+    <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text accessibilityRole="header" style={styles.title}>
+        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
           모델 관리
         </Text>
       </View>
 
-      <View accessibilityRole="tablist" style={styles.tabs}>
+      <View accessibilityRole="tablist" style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {MODEL_KINDS.map(([value, label]) => {
           const selectedTab = section === value;
           const count = items.filter((item) => item.kind === value).length;
@@ -121,9 +122,14 @@ export default function ModelsScreen() {
               accessibilityState={{ selected: selectedTab }}
               key={value}
               onPress={() => setSection(value)}
-              style={[styles.tab, selectedTab && styles.selectedTab]}
+              style={[
+                styles.tab,
+                selectedTab && [styles.selectedTab, { borderBottomColor: colors.accent }],
+              ]}
             >
-              <Text style={[styles.tabText, selectedTab && styles.selectedTabText]}>
+              <Text
+                style={[styles.tabText, { color: selectedTab ? colors.accentText : colors.muted }]}
+              >
                 {label} {count}
               </Text>
             </Pressable>
@@ -133,16 +139,18 @@ export default function ModelsScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {isLoading ? (
-          <ActivityIndicator color={Colors.dark.accent} size="large" style={styles.loading} />
+          <ActivityIndicator color={colors.accent} size="large" style={styles.loading} />
         ) : !visibleItems.length ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>저장된 항목이 없습니다</Text>
-            <Text style={styles.emptyText}>파일을 불러오면 자동으로 분류됩니다.</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>저장된 항목이 없습니다</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>
+              파일을 불러오면 자동으로 분류됩니다.
+            </Text>
           </View>
         ) : (
           visibleItems.map((item) => (
             <ModelCard
-              item={toManagedModel(item)}
+              item={toManagedModel(item, colors.accentSoft)}
               key={item.id}
               onPress={() => setSelectedId(item.id)}
             />
@@ -157,14 +165,15 @@ export default function ModelsScreen() {
         onPress={importModel}
         style={({ pressed }) => [
           styles.fab,
+          { backgroundColor: colors.accent },
           pressed && styles.pressed,
           isImporting && styles.disabled,
         ]}
       >
         {isImporting ? (
-          <ActivityIndicator color={Colors.dark.onAccent} />
+          <ActivityIndicator color={colors.onAccent} />
         ) : (
-          <Plus color={Colors.dark.onAccent} size={28} strokeWidth={2.2} />
+          <Plus color={colors.onAccent} size={28} strokeWidth={2.2} />
         )}
       </Pressable>
 
@@ -191,19 +200,25 @@ export default function ModelsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.dark.background },
+  screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  title: { color: Colors.dark.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2 },
-  selectedTab: { borderBottomColor: Colors.dark.accent },
-  tabText: { color: Colors.dark.muted, fontSize: 13, fontWeight: '600' },
-  selectedTabText: { color: Colors.dark.accentText },
+  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  tabs: { flexDirection: 'row', borderBottomWidth: 1 },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  selectedTab: {},
+  tabText: { fontSize: 13, fontWeight: '600' },
+  selectedTabText: {},
   content: { padding: 20, paddingBottom: 120, gap: 10 },
   loading: { marginTop: 64 },
   empty: { alignItems: 'center', paddingVertical: 64, gap: 8 },
-  emptyTitle: { color: Colors.dark.text, fontSize: 15, fontWeight: '600' },
-  emptyText: { color: Colors.dark.muted, fontSize: 13 },
+  emptyTitle: { fontSize: 15, fontWeight: '600' },
+  emptyText: { fontSize: 13 },
   fab: {
     position: 'absolute',
     right: 20,
@@ -213,14 +228,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 28,
-    backgroundColor: Colors.dark.accent,
   },
-  fabText: { color: Colors.dark.onAccent, fontSize: 30, lineHeight: 34 },
   pressed: { opacity: 0.72 },
   disabled: { opacity: 0.55 },
 });
 
-function toManagedModel(model: StoredModel): ManagedModel {
+function toManagedModel(model: StoredModel, accentSoftColor: string): ManagedModel {
   return {
     id: model.id,
     name: model.alias,
@@ -230,7 +243,7 @@ function toManagedModel(model: StoredModel): ManagedModel {
     size: formatBytes(model.sizeBytes),
     filename: model.fileName,
     description: model.description,
-    color: Colors.dark.accentSoft,
+    color: accentSoftColor,
   };
 }
 

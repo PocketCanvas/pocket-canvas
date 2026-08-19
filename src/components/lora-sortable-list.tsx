@@ -12,7 +12,8 @@ import Animated, {
 import type { SharedValue } from 'react-native-reanimated';
 
 import { CompactSlider } from '@/components/compact-slider';
-import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
 import { StoredModel } from '@/lib/model-files';
 
 export type LoraSelection = { model: StoredModel; weight: number };
@@ -42,6 +43,8 @@ function SortableRow({
   onRemove: () => void;
   onWeightChange: (weight: number) => void;
 }) {
+  const colors = useTheme();
+  const colorScheme = useColorScheme();
   const initialTop = index * SLOT_HEIGHT;
   const top = useSharedValue(initialTop);
   const dragY = useSharedValue(initialTop);
@@ -101,7 +104,15 @@ function SortableRow({
 
   return (
     <Animated.View style={[styles.rowSlot, animatedStyle]}>
-      <View style={styles.card}>
+      <View
+        style={[
+          styles.card,
+          {
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+          },
+        ]}
+      >
         <GestureDetector gesture={gesture}>
           <Pressable
             accessibilityActions={[
@@ -118,18 +129,26 @@ function SortableRow({
                   : Math.min(count - 1, index + 1),
               )
             }
-            style={styles.handle}
+            style={[
+              styles.handle,
+              {
+                borderRightColor: colors.border,
+                backgroundColor: colors.surfaceRaised,
+              },
+            ]}
           >
-            <Text style={styles.handleText}>≡</Text>
+            <Text style={[styles.handleText, { color: colors.muted }]}>≡</Text>
           </Pressable>
         </GestureDetector>
         <View style={styles.body}>
           <View style={styles.header}>
-            <Text numberOfLines={1} style={styles.name}>
+            <Text numberOfLines={1} style={[styles.name, { color: colors.text }]}>
               {item.model.alias}
             </Text>
-            <View style={styles.badge}>
-              <Text style={styles.weight}>{item.weight.toFixed(1)}</Text>
+            <View style={[styles.badge, { backgroundColor: colors.accentSoft }]}>
+              <Text style={[styles.weight, { color: colors.accentText }]}>
+                {item.weight.toFixed(1)}
+              </Text>
             </View>
             <Pressable
               accessibilityLabel={`${item.model.alias} 제거`}
@@ -137,10 +156,10 @@ function SortableRow({
               hitSlop={8}
               onPress={onRemove}
             >
-              <Text style={styles.remove}>×</Text>
+              <Text style={[styles.remove, { color: colors.muted }]}>×</Text>
             </Pressable>
           </View>
-          <Host style={styles.slider} colorScheme="dark" seedColor={Colors.dark.accent}>
+          <Host style={styles.slider} colorScheme={colorScheme} seedColor={colors.accent}>
             <CompactSlider
               max={2}
               min={0}
@@ -162,6 +181,7 @@ export function LoraSortableList({
   loras: LoraSelection[];
   onChange: (loras: LoraSelection[]) => void;
 }) {
+  const colors = useTheme();
   const positions = useSharedValue<Positions>(
     Object.fromEntries(loras.map((item, index) => [item.model.id, index])),
   );
@@ -182,7 +202,8 @@ export function LoraSortableList({
     onChange([...loras].sort((a, b) => nextPositions[a.model.id] - nextPositions[b.model.id]));
   };
 
-  if (!loras.length) return <Text style={styles.empty}>선택된 LoRA가 없습니다.</Text>;
+  if (!loras.length)
+    return <Text style={[styles.empty, { color: colors.muted }]}>선택된 LoRA가 없습니다.</Text>;
 
   return (
     <View style={{ height: loras.length * SLOT_HEIGHT }}>
@@ -213,38 +234,32 @@ const styles = StyleSheet.create({
     height: ROW_HEIGHT,
     flexDirection: 'row',
     borderRadius: 11,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
-    backgroundColor: Colors.dark.surface,
     overflow: 'hidden',
   },
   handle: {
     width: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRightColor: Colors.dark.border,
     borderRightWidth: 1,
-    backgroundColor: Colors.dark.surfaceRaised,
   },
   handleText: {
-    color: Colors.dark.muted,
     fontSize: 22,
     fontWeight: '600',
     transform: [{ rotate: '90deg' }],
   },
   body: { flex: 1, paddingTop: 8, paddingRight: 10 },
   header: { height: 24, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 10 },
-  name: { flex: 1, color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
+  name: { flex: 1, fontSize: 14, fontWeight: '600' },
   badge: {
     minWidth: 38,
     height: 24,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 7,
-    backgroundColor: Colors.dark.accentSoft,
   },
-  weight: { color: Colors.dark.accentText, fontSize: 12, fontWeight: '700' },
-  remove: { color: Colors.dark.muted, fontSize: 22, lineHeight: 24 },
+  weight: { fontSize: 12, fontWeight: '700' },
+  remove: { fontSize: 22, lineHeight: 24 },
   slider: { width: '100%', height: 40 },
-  empty: { color: Colors.dark.muted, fontSize: 13 },
+  empty: { fontSize: 13 },
 });

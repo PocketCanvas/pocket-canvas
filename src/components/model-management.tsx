@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 export type ModelKind = 'model' | 'lora' | 'unknown';
 
@@ -43,6 +43,7 @@ type ModelCardProps = {
 };
 
 export function ModelCard({ item, onPress }: ModelCardProps) {
+  const colors = useTheme();
   const Icon = item.kind === 'model' ? Box : item.kind === 'lora' ? Layers : CircleHelp;
 
   return (
@@ -51,23 +52,30 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
       accessibilityLabel={item.name}
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+        },
+        pressed && styles.pressed,
+      ]}
     >
-      <View style={[styles.thumbnail, { backgroundColor: item.color }]}>
-        <Icon color={Colors.dark.accentIcon} size={28} />
+      <View style={[styles.thumbnail, { backgroundColor: colors.accentSoft }]}>
+        <Icon color={colors.accentIcon} size={28} />
       </View>
       <View style={styles.cardBody}>
-        <Text numberOfLines={1} style={styles.itemName}>
+        <Text numberOfLines={1} style={[styles.itemName, { color: colors.text }]}>
           {item.name}
         </Text>
-        <Text style={styles.metadata}>
+        <Text style={[styles.metadata, { color: colors.muted }]}>
           {item.format} · {item.size}
         </Text>
-        <Text numberOfLines={2} style={styles.description}>
+        <Text numberOfLines={2} style={[styles.description, { color: colors.textSecondary }]}>
           {item.description || '설명이 없습니다.'}
         </Text>
       </View>
-      <ChevronRight color={Colors.dark.muted} size={22} style={styles.chevron} />
+      <ChevronRight color={colors.muted} size={22} style={styles.chevron} />
     </Pressable>
   );
 }
@@ -91,6 +99,7 @@ export function ModelDetailModal({
   onKindChange,
   onRename,
 }: ModelDetailModalProps) {
+  const colors = useTheme();
   const [name, setName] = useState(item.name);
   const [choosingKind, setChoosingKind] = useState(false);
   const trimmedName = name.trim();
@@ -101,13 +110,13 @@ export function ModelDetailModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modal}
       >
-        <View style={styles.backdrop}>
+        <View style={[styles.backdrop, { backgroundColor: colors.backdrop }]}>
           <Pressable
             accessibilityLabel="배경 터치하여 닫기"
             onPress={onClose}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { backgroundColor: colors.surfaceRaised }]}>
             <ScrollView
               bounces
               contentContainerStyle={styles.sheetScrollContent}
@@ -121,7 +130,14 @@ export function ModelDetailModal({
                   maxLength={80}
                   onChangeText={setName}
                   selectTextOnFocus
-                  style={styles.sheetNameInput}
+                  style={[
+                    styles.sheetNameInput,
+                    {
+                      borderColor: colors.border,
+                      backgroundColor: colors.surface,
+                      color: colors.text,
+                    },
+                  ]}
                   value={name}
                 />
                 <Pressable
@@ -132,12 +148,16 @@ export function ModelDetailModal({
                     onRename(trimmedName);
                     setName(trimmedName);
                   }}
-                  style={[styles.renameButton, !trimmedName && styles.disabled]}
+                  style={[
+                    styles.renameButton,
+                    { backgroundColor: colors.accentSoft },
+                    !trimmedName && styles.disabled,
+                  ]}
                 >
-                  <Text style={styles.renameButtonText}>변경</Text>
+                  <Text style={[styles.renameButtonText, { color: colors.accentText }]}>변경</Text>
                 </Pressable>
                 <Pressable accessibilityLabel="닫기" accessibilityRole="button" onPress={onClose}>
-                  <Text style={styles.close}>✕</Text>
+                  <Text style={[styles.close, { color: colors.muted }]}>✕</Text>
                 </Pressable>
               </View>
 
@@ -148,21 +168,40 @@ export function ModelDetailModal({
                 onChangeText={onDescriptionChange}
                 onEndEditing={onDescriptionCommit}
                 placeholder="이 모델에 대한 설명을 입력하세요"
-                placeholderTextColor={Colors.dark.placeholder}
-                style={styles.descriptionInput}
+                placeholderTextColor={colors.placeholder}
+                style={[
+                  styles.descriptionInput,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                    color: colors.text,
+                  },
+                ]}
                 textAlignVertical="top"
                 value={item.description}
               />
-              <View style={[styles.detailRow, styles.classificationRow]}>
-                <Text style={styles.detailLabel}>분류</Text>
+              <View
+                style={[
+                  styles.detailRow,
+                  styles.classificationRow,
+                  { borderTopColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>분류</Text>
                 <Pressable
                   accessibilityHint="터치하여 분류를 변경합니다"
                   accessibilityRole="button"
                   accessibilityState={{ expanded: choosingKind }}
                   onPress={() => setChoosingKind((current) => !current)}
-                  style={({ pressed }) => [styles.classificationButton, pressed && styles.pressed]}
+                  style={({ pressed }) => [
+                    styles.classificationButton,
+                    { backgroundColor: colors.accentSoft },
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.classificationValue}>{modelKindLabel(item.kind)}</Text>
+                  <Text style={[styles.classificationValue, { color: colors.accentText }]}>
+                    {modelKindLabel(item.kind)}
+                  </Text>
                 </Pressable>
               </View>
               {choosingKind && (
@@ -178,9 +217,18 @@ export function ModelDetailModal({
                           onKindChange(value);
                           setChoosingKind(false);
                         }}
-                        style={[styles.kindOption, checked && styles.selectedKindOption]}
+                        style={[
+                          styles.kindOption,
+                          { borderColor: checked ? colors.accent : colors.border },
+                          checked && { backgroundColor: colors.accentSoft },
+                        ]}
                       >
-                        <Text style={[styles.kindText, checked && styles.selectedKindText]}>
+                        <Text
+                          style={[
+                            styles.kindText,
+                            { color: checked ? colors.accentText : colors.muted },
+                          ]}
+                        >
                           {label}
                         </Text>
                       </Pressable>
@@ -189,21 +237,32 @@ export function ModelDetailModal({
                 </View>
               )}
               {item.kind !== item.detectedKind && (
-                <Text style={styles.overrideNotice}>
+                <Text
+                  style={[
+                    styles.overrideNotice,
+                    {
+                      color: colors.accentText,
+                      backgroundColor: colors.accentSoft,
+                    },
+                  ]}
+                >
                   자동 판별은 {modelKindLabel(item.detectedKind)}이며 사용자가 분류를 변경했습니다.
                 </Text>
               )}
               <DetailRow label="파일 형식" value={item.format} />
               <DetailRow label="파일 크기" value={item.size} />
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>원본 파일명</Text>
-                <Text selectable style={styles.filename}>
+              <View style={[styles.detailRow, { borderTopColor: colors.border }]}>
+                <Text style={[styles.detailLabel, { color: colors.muted }]}>원본 파일명</Text>
+                <Text selectable style={[styles.filename, { color: colors.text }]}>
                   {item.filename}
                 </Text>
               </View>
-              <Pressable onPress={onDelete} style={styles.deleteButton}>
-                <Trash2 color={Colors.dark.error} size={16} />
-                <Text style={styles.deleteButtonText}>삭제</Text>
+              <Pressable
+                onPress={onDelete}
+                style={[styles.deleteButton, { borderColor: colors.error }]}
+              >
+                <Trash2 color={colors.error} size={16} />
+                <Text style={[styles.deleteButtonText, { color: colors.error }]}>삭제</Text>
               </Pressable>
             </ScrollView>
           </View>
@@ -214,10 +273,12 @@ export function ModelDetailModal({
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const colors = useTheme();
+
   return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+    <View style={[styles.detailRow, { borderTopColor: colors.border }]}>
+      <Text style={[styles.detailLabel, { color: colors.muted }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -229,9 +290,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
     borderRadius: 12,
-    backgroundColor: Colors.dark.surface,
     padding: 10,
   },
   thumbnail: {
@@ -241,20 +300,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 9,
   },
-  thumbnailText: { color: Colors.dark.onAccent, fontSize: 18, fontWeight: '800' },
   cardBody: { flex: 1 },
-  itemName: { color: Colors.dark.text, fontSize: 14, fontWeight: '700' },
-  metadata: { color: Colors.dark.muted, fontSize: 12, marginTop: 5 },
-  description: { color: Colors.dark.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 5 },
-  chevron: { color: Colors.dark.muted, fontSize: 28, marginHorizontal: 4 },
+  itemName: { fontSize: 14, fontWeight: '700' },
+  metadata: { fontSize: 12, marginTop: 5 },
+  description: { fontSize: 12, lineHeight: 17, marginTop: 5 },
+  chevron: { marginHorizontal: 4 },
   pressed: { opacity: 0.7 },
   modal: { flex: 1 },
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: Colors.dark.backdrop },
+  backdrop: { flex: 1, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '90%',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    backgroundColor: Colors.dark.surfaceRaised,
     overflow: 'hidden',
   },
   sheetScrollContent: {
@@ -266,10 +323,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 42,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
     borderRadius: 8,
-    backgroundColor: Colors.dark.surface,
-    color: Colors.dark.text,
     fontSize: 19,
     fontWeight: '700',
     paddingHorizontal: 12,
@@ -282,19 +336,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: Colors.dark.accentSoft,
     marginRight: 14,
   },
-  renameButtonText: { color: Colors.dark.accentText, fontSize: 13, fontWeight: '700' },
-  close: { color: Colors.dark.muted, fontSize: 20, padding: 4 },
+  renameButtonText: { fontSize: 13, fontWeight: '700' },
+  close: { fontSize: 20, padding: 4 },
   descriptionInput: {
     minHeight: 88,
     maxHeight: 140,
     borderWidth: 1,
-    borderColor: Colors.dark.border,
     borderRadius: 10,
-    backgroundColor: Colors.dark.surface,
-    color: Colors.dark.text,
     fontSize: 13,
     lineHeight: 19,
     padding: 12,
@@ -305,18 +355,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
     paddingVertical: 12,
   },
-  detailLabel: { color: Colors.dark.muted, fontSize: 13 },
-  detailValue: { color: Colors.dark.text, fontSize: 13, fontWeight: '600' },
+  detailLabel: { fontSize: 13 },
+  detailValue: { fontSize: 13, fontWeight: '600' },
   classificationButton: {
-    backgroundColor: Colors.dark.accentSoft,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  classificationValue: { color: Colors.dark.accentText, fontSize: 13, fontWeight: '700' },
+  classificationValue: { fontSize: 13, fontWeight: '700' },
   kindOptions: { flexDirection: 'row', gap: 8 },
   kindOption: {
     flex: 1,
@@ -324,22 +372,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: Colors.dark.border,
     borderRadius: 9,
   },
-  selectedKindOption: { borderColor: Colors.dark.accent, backgroundColor: Colors.dark.accentSoft },
-  kindText: { color: Colors.dark.muted, fontSize: 13, fontWeight: '600' },
-  selectedKindText: { color: Colors.dark.accentText },
+  kindText: { fontSize: 13, fontWeight: '600' },
   overrideNotice: {
-    color: Colors.dark.accentText,
     fontSize: 12,
     lineHeight: 18,
-    backgroundColor: Colors.dark.accentSoft,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
   },
-  filename: { flex: 1, color: Colors.dark.text, fontSize: 12, marginLeft: 16, textAlign: 'right' },
+  filename: { flex: 1, fontSize: 12, marginLeft: 16, textAlign: 'right' },
   deleteButton: {
     minHeight: 48,
     flexDirection: 'row',
@@ -347,10 +390,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: Colors.dark.error,
     borderRadius: 10,
     marginTop: 24,
   },
-  deleteButtonText: { color: Colors.dark.error, fontSize: 14, fontWeight: '700' },
+  deleteButtonText: { fontSize: 14, fontWeight: '700' },
   disabled: { opacity: 0.45 },
 });

@@ -4,7 +4,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { CompactSlider } from '@/components/compact-slider';
-import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
 
 export function GenerationControls({
   steps,
@@ -19,6 +20,8 @@ export function GenerationControls({
   canGenerate: boolean;
   onGenerate: () => void;
 }) {
+  const colors = useTheme();
+  const colorScheme = useColorScheme();
   const height = useSharedValue(0);
   const translateY = useSharedValue(0);
   const startY = useSharedValue(0);
@@ -48,7 +51,14 @@ export function GenerationControls({
       onLayout={({ nativeEvent }) => {
         height.set(nativeEvent.layout.height);
       }}
-      style={[styles.container, animatedStyle]}
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+        },
+        animatedStyle,
+      ]}
     >
       <GestureDetector gesture={gesture}>
         <Pressable
@@ -58,19 +68,19 @@ export function GenerationControls({
           onPress={toggle}
           style={styles.handle}
         >
-          <View style={styles.handleBar} />
+          <View style={[styles.handleBar, { backgroundColor: colors.muted }]} />
         </Pressable>
       </GestureDetector>
       <View style={styles.stepHeader}>
         <View>
-          <RNText style={styles.label}>추론 스텝</RNText>
-          <RNText style={styles.stepHint}>LCM · 낮을수록 빠르게</RNText>
+          <RNText style={[styles.label, { color: colors.text }]}>추론 스텝</RNText>
+          <RNText style={[styles.stepHint, { color: colors.muted }]}>LCM · 낮을수록 빠르게</RNText>
         </View>
-        <View style={styles.stepBadge}>
-          <RNText style={styles.stepValue}>{steps}</RNText>
+        <View style={[styles.stepBadge, { backgroundColor: colors.accentSoft }]}>
+          <RNText style={[styles.stepValue, { color: colors.accentText }]}>{steps}</RNText>
         </View>
       </View>
-      <Host style={styles.sliderHost} colorScheme="dark" seedColor={Colors.dark.accent}>
+      <Host style={styles.sliderHost} colorScheme={colorScheme} seedColor={colors.accent}>
         <CompactSlider
           max={8}
           min={1}
@@ -79,12 +89,12 @@ export function GenerationControls({
           value={steps}
         />
       </Host>
-      <Host style={styles.generateHost} colorScheme="dark" seedColor={Colors.dark.accent}>
+      <Host style={styles.generateHost} colorScheme={colorScheme} seedColor={colors.accent}>
         <Button
           colors={{
-            containerColor: Colors.dark.accent,
-            contentColor: Colors.dark.onAccent,
-            disabledContainerColor: Colors.dark.disabled,
+            containerColor: colors.accent,
+            contentColor: colors.onAccent,
+            disabledContainerColor: colors.disabled,
           }}
           enabled={!isGenerating && canGenerate}
           onClick={onGenerate}
@@ -102,8 +112,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: Colors.dark.surface,
-    borderTopColor: Colors.dark.border,
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -116,19 +124,18 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
     marginTop: -12,
   },
-  handleBar: { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.dark.muted },
+  handleBar: { width: 36, height: 4, borderRadius: 2 },
   stepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
-  stepHint: { color: Colors.dark.muted, fontSize: 11, marginTop: 2 },
+  label: { fontSize: 14, fontWeight: '600' },
+  stepHint: { fontSize: 11, marginTop: 2 },
   stepBadge: {
     minWidth: 34,
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
-    backgroundColor: Colors.dark.accentSoft,
   },
-  stepValue: { color: Colors.dark.accentText, fontSize: 15, fontWeight: '700' },
+  stepValue: { fontSize: 15, fontWeight: '700' },
   sliderHost: { width: '100%', height: 42 },
   generateHost: { width: '100%', height: 50 },
 });

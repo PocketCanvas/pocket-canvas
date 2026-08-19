@@ -16,10 +16,10 @@ Pocket Canvas는 Stable Diffusion 모델을 서버나 외부 API 없이 **Androi
 
 Pocket Canvas는 이 질문에서 시작했습니다. 서버 대신 사용자의 Android 기기에서 이미지 생성 모델을 직접 실행하고, 모바일 하드웨어가 로컬 생성형 AI를 어디까지 감당할 수 있는지 탐구합니다.
 
-* 모바일 GPU로 Stable Diffusion을 어느 수준까지 실행할 수 있는가?
-* 제한된 RAM과 메모리 대역폭 안에서 대형 모델을 어떻게 다룰 것인가?
-* Vulkan 기반 inference를 실제 Android 앱 경험으로 연결할 수 있는가?
-* quantization, mmap, 적은 sampling steps 같은 기법이 모바일 환경에서 얼마나 효과적인가?
+- 모바일 GPU로 Stable Diffusion을 어느 수준까지 실행할 수 있는가?
+- 제한된 RAM과 메모리 대역폭 안에서 대형 모델을 어떻게 다룰 것인가?
+- Vulkan 기반 inference를 실제 Android 앱 경험으로 연결할 수 있는가?
+- quantization, mmap, 적은 sampling steps 같은 기법이 모바일 환경에서 얼마나 효과적인가?
 
 ---
 
@@ -29,36 +29,36 @@ Pocket Canvas는 이 질문에서 시작했습니다. 서버 대신 사용자의
 
 ### Image generation
 
-* Android 기기에서 Stable Diffusion 추론
-* Vulkan GPU backend
-* GGUF / SafeTensors 모델 가져오기
-* LoRA 가져오기 및 적용
-* 여러 LoRA 선택 및 가중치 설정
-* inference steps 설정
-* 생성 진행 단계 표시
-  * Loading
-  * Encoding
-  * Sampling
-  * Decoding
+- Android 기기에서 Stable Diffusion 추론
+- Vulkan GPU backend
+- GGUF / SafeTensors 모델 가져오기
+- LoRA 가져오기 및 적용
+- 여러 LoRA 선택 및 가중치 설정
+- inference steps 설정
+- 생성 진행 단계 표시
+  - Loading
+  - Encoding
+  - Sampling
+  - Decoding
 
 ### Model management
 
-* Android 파일 선택기를 통한 모델 가져오기
-* GGUF / SafeTensors 실제 파일 형식 검증
-* Model / LoRA 자동 분류
-* 사용자 alias 및 description 관리
-* 앱 전용 저장소를 이용한 모델 보관
-* 실패한 import rollback
+- Android 파일 선택기를 통한 모델 가져오기
+- GGUF / SafeTensors 실제 파일 형식 검증
+- Model / LoRA 자동 분류
+- 사용자 alias 및 description 관리
+- 앱 전용 저장소를 이용한 모델 보관
+- 실패한 import rollback
 
 ### Generation history
 
-* 생성 이미지 영구 저장
-* 생성 설정 metadata 기록
-* 히스토리 그리드
-* 검색 및 정렬
-* 즐겨찾기
-* 이미지 공유
-* metadata에 없는 고아 이미지 복구
+- 생성 이미지 영구 저장
+- 생성 설정 metadata 기록
+- 히스토리 그리드
+- 검색 및 정렬
+- 즐겨찾기
+- 이미지 공유
+- metadata에 없는 고아 이미지 복구
 
 ---
 
@@ -98,25 +98,25 @@ Pocket Canvas 전용 C++ integration은 `StableDiffusionBridge.cpp`에서 처리
 
 ### Application
 
-* Expo
-* React Native
-* React
-* TypeScript
+- Expo
+- React Native
+- React
+- TypeScript
 
 ### Android / Native
 
-* Kotlin
-* Expo Modules API
-* JNI
-* Android NDK
-* C++
+- Kotlin
+- Expo Modules API
+- JNI
+- Android NDK
+- C++
 
 ### Inference
 
-* stable-diffusion.cpp
-* ggml
-* Vulkan
-* mmap
+- stable-diffusion.cpp
+- ggml
+- Vulkan
+- mmap
 
 현재 사용 중인 정확한 dependency 버전은 [`package.json`](package.json)을 기준으로 합니다.
 
@@ -149,13 +149,13 @@ Pocket Canvas 전용 C++ integration은 `StableDiffusionBridge.cpp`에서 처리
 
 Android native build 환경이 필요합니다.
 
-* Node.js
-* npm
-* Android Studio
-* Android SDK
-* Android NDK
-* JDK
-* Android 기기 또는 개발 환경
+- Node.js
+- npm
+- Android Studio
+- Android SDK
+- Android NDK
+- JDK
+- Android 기기 또는 개발 환경
 
 프로젝트를 submodule과 함께 clone합니다.
 
@@ -243,9 +243,9 @@ Pocket Canvas는 오픈소스 프로젝트입니다.
 
 특히 native 영역을 변경하기 전에는 다음 문서를 확인해주세요.
 
-* [`AGENTS.md`](AGENTS.md)
-* [`docs/architecture.md`](docs/architecture.md)
-* 관련 [`docs/decisions/`](docs/decisions) ADR
+- [`AGENTS.md`](AGENTS.md)
+- [`docs/architecture.md`](docs/architecture.md)
+- 관련 [`docs/decisions/`](docs/decisions) ADR
 
 `stable-diffusion.cpp` submodule의 upstream 코드는 Pocket Canvas에서 직접 수정하지 않는 것을 기본 원칙으로 합니다.
 
@@ -255,9 +255,9 @@ Pocket Canvas는 오픈소스 프로젝트입니다.
 
 Pocket Canvas는 다음을 목표로 하지 않습니다.
 
-* 클라우드 Stable Diffusion 서비스
-* 특정 모델 제공자를 위한 전용 클라이언트
-* 자체 diffusion model 개발
+- 클라우드 Stable Diffusion 서비스
+- 특정 모델 제공자를 위한 전용 클라이언트
+- 자체 diffusion model 개발
 
 ---
 

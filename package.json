@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.11",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~57.0.13",
     "expo-constants": "~57.0.9",
     "expo-device": "~57.0.1",
@@ -31,7 +32,8 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.10.1",
-    "stable-diffusion": "file:./stable-diffusion"
+    "stable-diffusion": "file:./stable-diffusion",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

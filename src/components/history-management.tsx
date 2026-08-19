@@ -20,7 +20,7 @@ import {
   View,
 } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { getImageFileSize, getStoredImageUri } from '@/lib/image-files';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 
@@ -40,6 +40,7 @@ type HistoryCardProps = {
 };
 
 export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: HistoryCardProps) {
+  const colors = useTheme();
   const imageUri = getStoredImageUri(item.fileName);
 
   return (
@@ -50,7 +51,12 @@ export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: Hist
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
-        { width: cardWidth, height: cardWidth * (4 / 3) },
+        {
+          width: cardWidth,
+          height: cardWidth * (4 / 3),
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
         pressed && styles.pressed,
       ]}
     >
@@ -71,13 +77,13 @@ export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: Hist
         }}
         style={({ pressed }) => [
           styles.favoriteBadge,
-          item.favorite && styles.favoriteBadgeActive,
+          item.favorite && { backgroundColor: colors.accentSoft },
           pressed && styles.pressed,
         ]}
       >
         <Heart
-          color={item.favorite ? Colors.dark.error : Colors.dark.muted}
-          fill={item.favorite ? Colors.dark.error : 'transparent'}
+          color={item.favorite ? colors.error : colors.muted}
+          fill={item.favorite ? colors.error : 'transparent'}
           size={14}
         />
       </Pressable>
@@ -98,6 +104,7 @@ export function HistoryDetailModal({
   onDelete,
   onToggleFavorite,
 }: HistoryDetailModalProps) {
+  const colors = useTheme();
   const [copied, setCopied] = useState(false);
   const imageUri = getStoredImageUri(item.fileName);
   const fileSize = getImageFileSize(item.fileName);
@@ -130,13 +137,13 @@ export function HistoryDetailModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.modal}
       >
-        <View style={styles.backdrop}>
+        <View style={[styles.backdrop, { backgroundColor: colors.backdrop }]}>
           <Pressable
             accessibilityLabel="배경 터치하여 닫기"
             onPress={onClose}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, { backgroundColor: colors.surfaceRaised }]}>
             <ScrollView
               bounces
               contentContainerStyle={styles.sheetScrollContent}
@@ -144,15 +151,26 @@ export function HistoryDetailModal({
               showsVerticalScrollIndicator
             >
               <View style={styles.sheetHeader}>
-                <Text accessibilityRole="header" style={styles.sheetTitle}>
+                <Text
+                  accessibilityRole="header"
+                  style={[styles.sheetTitle, { color: colors.text }]}
+                >
                   생성 상세 정보
                 </Text>
                 <Pressable accessibilityLabel="닫기" accessibilityRole="button" onPress={onClose}>
-                  <X color={Colors.dark.muted} size={20} />
+                  <X color={colors.muted} size={20} />
                 </Pressable>
               </View>
 
-              <View style={styles.previewContainer}>
+              <View
+                style={[
+                  styles.previewContainer,
+                  {
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
                 <Image
                   accessibilityIgnoresInvertColors
                   resizeMode="contain"
@@ -167,19 +185,26 @@ export function HistoryDetailModal({
                   onPress={onToggleFavorite}
                   style={({ pressed }) => [
                     styles.actionButton,
-                    item.favorite && styles.actionButtonActive,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                    item.favorite && {
+                      backgroundColor: colors.accentSoft,
+                      borderColor: colors.accent,
+                    },
                     pressed && styles.pressed,
                   ]}
                 >
                   <Heart
-                    color={item.favorite ? Colors.dark.error : Colors.dark.text}
-                    fill={item.favorite ? Colors.dark.error : 'transparent'}
+                    color={item.favorite ? colors.error : colors.text}
+                    fill={item.favorite ? colors.error : 'transparent'}
                     size={16}
                   />
                   <Text
                     style={[
                       styles.actionButtonText,
-                      item.favorite && styles.actionButtonTextActive,
+                      { color: item.favorite ? colors.accentText : colors.text },
                     ]}
                   >
                     {item.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
@@ -189,16 +214,23 @@ export function HistoryDetailModal({
                 <Pressable
                   accessibilityRole="button"
                   onPress={handleShare}
-                  style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                    pressed && styles.pressed,
+                  ]}
                 >
-                  <Share2 color={Colors.dark.text} size={16} />
-                  <Text style={styles.actionButtonText}>공유하기</Text>
+                  <Share2 color={colors.text} size={16} />
+                  <Text style={[styles.actionButtonText, { color: colors.text }]}>공유하기</Text>
                 </Pressable>
               </View>
 
               <View style={styles.section}>
                 <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>프롬프트</Text>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>프롬프트</Text>
                   <Pressable
                     accessibilityRole="button"
                     onPress={() => {
@@ -206,34 +238,51 @@ export function HistoryDetailModal({
                       setTimeout(() => setCopied(false), 2000);
                     }}
                   >
-                    <Text style={styles.copyHint}>{copied ? '복사됨!' : '길게 눌러 복사'}</Text>
+                    <Text style={[styles.copyHint, { color: colors.muted }]}>
+                      {copied ? '복사됨!' : '길게 눌러 복사'}
+                    </Text>
                   </Pressable>
                 </View>
-                <View style={styles.promptBox}>
-                  <Text selectable style={styles.promptText}>
+                <View
+                  style={[
+                    styles.promptBox,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text selectable style={[styles.promptText, { color: colors.text }]}>
                     {item.prompt}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>생성 정보</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>생성 정보</Text>
                 <DetailRow label="모델" value={item.model.name} />
                 <DetailRow label="LoRA" value={loraSummary} />
                 <DetailRow label="스텝 수" value={`${item.steps} steps`} />
                 <DetailRow label="생성 일시" value={formatDateTime(item.createdAt)} />
                 {fileSize !== null && <DetailRow label="파일 크기" value={formatBytes(fileSize)} />}
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>파일명</Text>
-                  <Text numberOfLines={1} selectable style={styles.filenameText}>
+                <View style={[styles.detailRow, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.detailLabel, { color: colors.muted }]}>파일명</Text>
+                  <Text
+                    numberOfLines={1}
+                    selectable
+                    style={[styles.filenameText, { color: colors.text }]}
+                  >
                     {item.fileName}
                   </Text>
                 </View>
               </View>
 
-              <Pressable onPress={onDelete} style={styles.deleteButton}>
-                <Trash2 color={Colors.dark.error} size={16} />
-                <Text style={styles.deleteButtonText}>삭제</Text>
+              <Pressable
+                onPress={onDelete}
+                style={[styles.deleteButton, { borderColor: colors.error }]}
+              >
+                <Trash2 color={colors.error} size={16} />
+                <Text style={[styles.deleteButtonText, { color: colors.error }]}>삭제</Text>
               </Pressable>
             </ScrollView>
           </View>
@@ -244,10 +293,12 @@ export function HistoryDetailModal({
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const colors = useTheme();
+
   return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+    <View style={[styles.detailRow, { borderTopColor: colors.border }]}>
+      <Text style={[styles.detailLabel, { color: colors.muted }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -275,8 +326,6 @@ export function formatBytes(bytes: number): string {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     overflow: 'hidden',
     position: 'relative',
@@ -296,18 +345,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  favoriteBadgeActive: {
-    backgroundColor: Colors.dark.accentSoft,
-  },
-  favoriteIcon: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
-  favoriteIconActive: {
-    color: Colors.dark.accentText,
-  },
   pressed: {
     opacity: 0.72,
   },
@@ -317,13 +354,11 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: Colors.dark.backdrop,
   },
   sheet: {
     maxHeight: '90%',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    backgroundColor: Colors.dark.surfaceRaised,
     overflow: 'hidden',
   },
   sheetScrollContent: {
@@ -337,21 +372,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetTitle: {
-    color: Colors.dark.text,
     fontSize: 19,
     fontWeight: '700',
-  },
-  close: {
-    color: Colors.dark.muted,
-    fontSize: 20,
-    padding: 4,
   },
   previewContainer: {
     width: '100%',
     height: 240,
     borderRadius: 12,
-    backgroundColor: Colors.dark.background,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     overflow: 'hidden',
     alignItems: 'center',
@@ -375,21 +402,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderRadius: 9,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
   },
-  actionButtonActive: {
-    backgroundColor: Colors.dark.accentSoft,
-    borderColor: Colors.dark.accent,
-  },
   actionButtonText: {
-    color: Colors.dark.text,
     fontSize: 13,
     fontWeight: '600',
-  },
-  actionButtonTextActive: {
-    color: Colors.dark.accentText,
   },
   section: {
     gap: 8,
@@ -401,49 +418,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitle: {
-    color: Colors.dark.text,
     fontSize: 14,
     fontWeight: '600',
   },
   copyHint: {
-    color: Colors.dark.muted,
     fontSize: 12,
   },
   promptBox: {
     borderRadius: 10,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     padding: 12,
   },
   promptText: {
-    color: Colors.dark.text,
     fontSize: 14,
     lineHeight: 20,
-  },
-  metadataSection: {
-    marginBottom: 8,
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
     paddingVertical: 11,
   },
   detailLabel: {
-    color: Colors.dark.muted,
     fontSize: 13,
   },
   detailValue: {
-    color: Colors.dark.text,
     fontSize: 13,
     fontWeight: '600',
   },
   filenameText: {
     flex: 1,
-    color: Colors.dark.text,
     fontSize: 12,
     marginLeft: 16,
     textAlign: 'right',
@@ -455,12 +460,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: Colors.dark.error,
     borderRadius: 10,
     marginTop: 20,
   },
   deleteButtonText: {
-    color: Colors.dark.error,
     fontSize: 14,
     fontWeight: '700',
   },

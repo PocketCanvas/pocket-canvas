@@ -26,11 +26,12 @@ import {
   HistorySortOrder,
   HistoryTab,
 } from '@/components/history-management';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/lib/image-files';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 
 export default function HistoryScreen() {
+  const colors = useTheme();
   const { width } = useWindowDimensions();
   const [items, setItems] = useState<StoredImageMetadata[]>([]);
   const [activeTab, setActiveTab] = useState<HistoryTab>('all');
@@ -164,10 +165,10 @@ export default function HistoryScreen() {
   const cardWidth = Math.floor((width - padding * 2 - gap * (numColumns - 1)) / numColumns);
 
   return (
-    <SafeAreaView edges={['top']} style={styles.screen}>
+    <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
-          <Text accessibilityRole="header" style={styles.title}>
+          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
             히스토리
           </Text>
         </View>
@@ -183,11 +184,18 @@ export default function HistoryScreen() {
             }}
             style={({ pressed }) => [
               styles.iconButton,
-              showSearch && styles.iconButtonActive,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+              showSearch && {
+                backgroundColor: colors.accentSoft,
+                borderColor: colors.accent,
+              },
               pressed && styles.pressed,
             ]}
           >
-            <Search color={showSearch ? Colors.dark.accentText : Colors.dark.text} size={18} />
+            <Search color={showSearch ? colors.accentText : colors.text} size={18} />
           </Pressable>
 
           <Pressable
@@ -195,9 +203,16 @@ export default function HistoryScreen() {
             accessibilityLabel="정렬 순서 변경"
             accessibilityRole="button"
             onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+              pressed && styles.pressed,
+            ]}
           >
-            <ArrowUpDown color={Colors.dark.text} size={18} />
+            <ArrowUpDown color={colors.text} size={18} />
           </Pressable>
 
           <Pressable
@@ -205,22 +220,37 @@ export default function HistoryScreen() {
             accessibilityLabel="더보기 메뉴"
             accessibilityRole="button"
             onPress={handleMoreMenu}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+              pressed && styles.pressed,
+            ]}
           >
-            <EllipsisVertical color={Colors.dark.text} size={18} />
+            <EllipsisVertical color={colors.text} size={18} />
           </Pressable>
         </View>
       </View>
 
       {showSearch && (
-        <View style={styles.searchBar}>
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <TextInput
             accessibilityLabel="히스토리 검색"
             autoFocus
             onChangeText={setSearchQuery}
             placeholder="프롬프트 또는 모델명 검색..."
-            placeholderTextColor={Colors.dark.placeholder}
-            style={styles.searchInput}
+            placeholderTextColor={colors.placeholder}
+            style={[styles.searchInput, { color: colors.text }]}
             value={searchQuery}
           />
           {Boolean(searchQuery) && (
@@ -230,13 +260,13 @@ export default function HistoryScreen() {
               onPress={() => setSearchQuery('')}
               style={styles.clearSearch}
             >
-              <X color={Colors.dark.muted} size={16} />
+              <X color={colors.muted} size={16} />
             </Pressable>
           )}
         </View>
       )}
 
-      <View accessibilityRole="tablist" style={styles.tabs}>
+      <View accessibilityRole="tablist" style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {HISTORY_TABS.map(([value, label]) => {
           const selectedTab = activeTab === value;
           const count = tabCounts[value];
@@ -246,9 +276,14 @@ export default function HistoryScreen() {
               accessibilityState={{ selected: selectedTab }}
               key={value}
               onPress={() => setActiveTab(value)}
-              style={[styles.tab, selectedTab && styles.selectedTab]}
+              style={[
+                styles.tab,
+                selectedTab && [styles.selectedTab, { borderBottomColor: colors.accent }],
+              ]}
             >
-              <Text style={[styles.tabText, selectedTab && styles.selectedTabText]}>
+              <Text
+                style={[styles.tabText, { color: selectedTab ? colors.accentText : colors.muted }]}
+              >
                 {label} {count}
               </Text>
             </Pressable>
@@ -258,21 +293,21 @@ export default function HistoryScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.dark.accent} size="large" />
+          <ActivityIndicator color={colors.accent} size="large" />
         </View>
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <View style={styles.sparkle}>
-            <Sparkles color={Colors.dark.accentIcon} size={22} />
+          <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>
+            <Sparkles color={colors.accentIcon} size={22} />
           </View>
-          <Text style={styles.emptyTitle}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {searchQuery
               ? '검색 결과가 없습니다'
               : activeTab === 'favorite'
                 ? '즐겨찾기한 이미지가 없습니다'
                 : '저장된 이미지가 없습니다'}
           </Text>
-          <Text style={styles.emptySubtitle}>
+          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
             {searchQuery
               ? '다른 검색어로 다시 시도해 보세요.'
               : activeTab === 'favorite'
@@ -318,7 +353,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.dark.background,
   },
   header: {
     flexDirection: 'row',
@@ -332,7 +366,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    color: Colors.dark.text,
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.5,
@@ -346,27 +379,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconButtonActive: {
-    backgroundColor: Colors.dark.accentSoft,
-    borderColor: Colors.dark.accent,
-  },
-  actionIcon: {
-    fontSize: 15,
-  },
-  actionIconActive: {
-    color: Colors.dark.accentText,
-  },
-  actionIconText: {
-    color: Colors.dark.text,
-    fontSize: 19,
-    fontWeight: '700',
-    lineHeight: 20,
   },
   searchBar: {
     marginHorizontal: 20,
@@ -374,28 +389,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 10,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
     height: 40,
-    color: Colors.dark.text,
     fontSize: 14,
   },
   clearSearch: {
     padding: 6,
   },
-  clearSearchText: {
-    color: Colors.dark.muted,
-    fontSize: 14,
-  },
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
   },
   tab: {
     flex: 1,
@@ -404,16 +411,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  selectedTab: {
-    borderBottomColor: Colors.dark.accent,
-  },
+  selectedTab: {},
   tabText: {
-    color: Colors.dark.muted,
     fontSize: 13,
     fontWeight: '600',
-  },
-  selectedTabText: {
-    color: Colors.dark.accentText,
   },
   gridContent: {
     paddingBottom: 130,
@@ -437,21 +438,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 22,
-    backgroundColor: Colors.dark.accentSoft,
     marginBottom: 4,
   },
-  sparkleText: {
-    color: Colors.dark.accentIcon,
-    fontSize: 22,
-  },
   emptyTitle: {
-    color: Colors.dark.text,
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
   },
   emptySubtitle: {
-    color: Colors.dark.muted,
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,

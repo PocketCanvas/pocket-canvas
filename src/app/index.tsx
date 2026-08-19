@@ -24,11 +24,12 @@ import {
 import { GenerationControls } from '@/components/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generation-pickers';
 import { LoraSelection, LoraSortableList } from '@/components/lora-sortable-list';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
 import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';
 
 export default function GenerateScreen() {
+  const colors = useTheme();
   const [prompt, setPrompt] = useState('');
   const [availableModels, setAvailableModels] = useState<StoredModel[]>([]);
   const [model, setModel] = useState<StoredModel | null>(null);
@@ -119,7 +120,7 @@ export default function GenerateScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.screen}
@@ -130,26 +131,36 @@ export default function GenerateScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <RNText accessibilityRole="header" style={styles.title}>
+            <RNText accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
               이미지 생성
             </RNText>
           </View>
 
-          <View style={styles.preview}>
+          <View
+            style={[
+              styles.preview,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             {isGenerating ? (
               <View style={styles.previewEmpty}>
-                <ActivityIndicator color={Colors.dark.accent} size="large" />
+                <ActivityIndicator color={colors.accent} size="large" />
                 <GenerationProgress progress={progress} />
               </View>
             ) : imageUri ? (
               <Image source={{ uri: imageUri }} resizeMode="cover" style={styles.generatedImage} />
             ) : (
               <View style={styles.previewEmpty}>
-                <View style={styles.sparkle}>
-                  <Sparkles color={Colors.dark.accentIcon} size={20} />
+                <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>
+                  <Sparkles color={colors.accentIcon} size={20} />
                 </View>
-                <RNText style={styles.previewTitle}>첫 이미지를 만들어 보세요</RNText>
-                <RNText style={styles.previewCaption}>
+                <RNText style={[styles.previewTitle, { color: colors.text }]}>
+                  첫 이미지를 만들어 보세요
+                </RNText>
+                <RNText style={[styles.previewCaption, { color: colors.muted }]}>
                   자세히 설명할수록 원하는 결과에 가까워집니다.
                 </RNText>
               </View>
@@ -158,8 +169,8 @@ export default function GenerateScreen() {
 
           <View style={styles.section}>
             <View style={styles.labelRow}>
-              <RNText style={styles.label}>프롬프트</RNText>
-              <RNText style={styles.counter}>{prompt.length}/500</RNText>
+              <RNText style={[styles.label, { color: colors.text }]}>프롬프트</RNText>
+              <RNText style={[styles.counter, { color: colors.muted }]}>{prompt.length}/500</RNText>
             </View>
             <TextInput
               accessibilityLabel="이미지 프롬프트"
@@ -167,46 +178,66 @@ export default function GenerateScreen() {
               multiline
               onChangeText={setPrompt}
               placeholder="예: 안개 낀 새벽 숲속의 작은 오두막, 따뜻한 불빛, 시네마틱"
-              placeholderTextColor={Colors.dark.placeholder}
-              style={styles.promptInput}
+              placeholderTextColor={colors.placeholder}
+              style={[
+                styles.promptInput,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                  color: colors.text,
+                },
+              ]}
               textAlignVertical="top"
               value={prompt}
             />
           </View>
 
           <View style={styles.section}>
-            <RNText style={styles.label}>모델</RNText>
+            <RNText style={[styles.label, { color: colors.text }]}>모델</RNText>
             <Pressable
-              accessibilityHint="사용할 모델 목록을 엽니다"
+              accessibilityHint="사용할 모델 목록을엽니다"
               accessibilityRole="button"
               onPress={() => setShowModels(true)}
-              style={({ pressed }) => [styles.select, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.select,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.surface,
+                },
+                pressed && styles.pressed,
+              ]}
             >
-              <View style={styles.modelIcon}>
-                <Box color={Colors.dark.accentIcon} size={18} />
+              <View style={[styles.modelIcon, { backgroundColor: colors.accentSoft }]}>
+                <Box color={colors.accentIcon} size={18} />
               </View>
               <View style={styles.selectText}>
-                <RNText numberOfLines={1} style={styles.selectValue}>
+                <RNText numberOfLines={1} style={[styles.selectValue, { color: colors.text }]}>
                   {model?.alias ?? '모델을 선택하세요'}
                 </RNText>
                 {Boolean(model) && (
-                  <RNText style={styles.selectHint}>{formatModelInfo(model!)}</RNText>
+                  <RNText style={[styles.selectHint, { color: colors.muted }]}>
+                    {formatModelInfo(model!)}
+                  </RNText>
                 )}
               </View>
-              <ChevronRight color={Colors.dark.muted} size={20} />
+              <ChevronRight color={colors.muted} size={20} />
             </Pressable>
           </View>
 
           <View style={styles.section}>
             <View style={styles.labelRow}>
-              <RNText style={styles.label}>LoRA</RNText>
+              <RNText style={[styles.label, { color: colors.text }]}>LoRA</RNText>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setShowLoraPicker(true)}
-                style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.addButton,
+                  { backgroundColor: colors.accentSoft },
+                  pressed && styles.pressed,
+                ]}
               >
-                <Plus color={Colors.dark.accentText} size={14} strokeWidth={2.5} />
-                <RNText style={styles.addButtonText}>추가</RNText>
+                <Plus color={colors.accentText} size={14} strokeWidth={2.5} />
+                <RNText style={[styles.addButtonText, { color: colors.accentText }]}>추가</RNText>
               </Pressable>
             </View>
             <LoraSortableList loras={loras} onChange={setLoras} />
@@ -230,7 +261,7 @@ export default function GenerateScreen() {
           />
 
           {error && (
-            <RNText accessibilityRole="alert" style={styles.error}>
+            <RNText accessibilityRole="alert" style={[styles.error, { color: colors.error }]}>
               {error}
             </RNText>
           )}
@@ -291,15 +322,13 @@ export default function GenerateScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: Colors.dark.background },
+  screen: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 190, gap: 24 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { color: Colors.dark.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
   preview: {
     height: 200,
     borderRadius: 14,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     overflow: 'hidden',
     justifyContent: 'center',
@@ -311,31 +340,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: Colors.dark.accentSoft,
     marginBottom: 2,
   },
-  sparkleText: { color: Colors.dark.accentIcon, fontSize: 20 },
-  previewTitle: { color: Colors.dark.text, fontSize: 16, fontWeight: '600' },
-  previewCaption: { color: Colors.dark.muted, fontSize: 13, textAlign: 'center' },
+  previewTitle: { fontSize: 16, fontWeight: '600' },
+  previewCaption: { fontSize: 13, textAlign: 'center' },
   progressBlock: { alignItems: 'center', gap: 8 },
   progressStages: { flexDirection: 'row', alignItems: 'center' },
-  progressStage: { color: Colors.dark.muted, fontSize: 12, fontWeight: '600' },
-  progressStageActive: { color: Colors.dark.accentText },
-  progressStageDone: { color: Colors.dark.textSecondary },
-  progressArrow: { color: Colors.dark.border, fontSize: 12, marginHorizontal: 5 },
-  progressDetail: { color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
+  progressStage: { fontSize: 12, fontWeight: '600' },
+  progressArrow: { fontSize: 12, marginHorizontal: 5 },
+  progressDetail: { fontSize: 14, fontWeight: '600' },
   generatedImage: { width: '100%', height: '100%' },
   section: { gap: 10 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
-  counter: { color: Colors.dark.muted, fontSize: 12 },
+  label: { fontSize: 14, fontWeight: '600' },
+  counter: { fontSize: 12 },
   promptInput: {
     minHeight: 120,
     borderRadius: 12,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
-    backgroundColor: Colors.dark.surface,
-    color: Colors.dark.text,
     fontSize: 15,
     lineHeight: 22,
     padding: 16,
@@ -346,9 +368,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderRadius: 12,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
-    backgroundColor: Colors.dark.surface,
     paddingHorizontal: 14,
   },
   modelIcon: {
@@ -357,13 +377,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 9,
-    backgroundColor: Colors.dark.accentSoft,
   },
-  modelIconText: { color: Colors.dark.accentIcon, fontSize: 23 },
   selectText: { flex: 1, gap: 3 },
-  selectValue: { color: Colors.dark.text, fontSize: 14, fontWeight: '600' },
-  selectHint: { color: Colors.dark.muted, fontSize: 12 },
-  chevron: { color: Colors.dark.muted, fontSize: 27 },
+  selectValue: { fontSize: 14, fontWeight: '600' },
+  selectHint: { fontSize: 12 },
   addButton: {
     minHeight: 36,
     flexDirection: 'row',
@@ -371,11 +388,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     borderRadius: 9,
-    backgroundColor: Colors.dark.accentSoft,
     paddingHorizontal: 12,
   },
-  addButtonText: { color: Colors.dark.accentText, fontSize: 13, fontWeight: '600' },
-  error: { color: Colors.dark.error, fontSize: 13 },
+  addButtonText: { fontSize: 13, fontWeight: '600' },
+  error: { fontSize: 13 },
   pressed: { opacity: 0.72 },
 });
 
@@ -387,6 +403,7 @@ const GENERATION_STAGES: { stage: GenerationProgressEvent['stage']; label: strin
 ];
 
 function GenerationProgress({ progress }: { progress: GenerationProgressEvent | null }) {
+  const colors = useTheme();
   const current = Math.max(
     0,
     GENERATION_STAGES.findIndex(({ stage }) => stage === progress?.stage),
@@ -410,12 +427,20 @@ function GenerationProgress({ progress }: { progress: GenerationProgressEvent | 
       <View accessible={false} style={styles.progressStages}>
         {GENERATION_STAGES.map(({ stage, label }, index) => (
           <View key={stage} style={styles.progressStages}>
-            {index > 0 && <RNText style={styles.progressArrow}>›</RNText>}
+            {index > 0 && (
+              <RNText style={[styles.progressArrow, { color: colors.border }]}>›</RNText>
+            )}
             <RNText
               style={[
                 styles.progressStage,
-                index < current && styles.progressStageDone,
-                index === current && styles.progressStageActive,
+                {
+                  color:
+                    index === current
+                      ? colors.accentText
+                      : index < current
+                        ? colors.textSecondary
+                        : colors.muted,
+                },
               ]}
             >
               {label}
@@ -423,7 +448,7 @@ function GenerationProgress({ progress }: { progress: GenerationProgressEvent | 
           </View>
         ))}
       </View>
-      <RNText style={styles.progressDetail}>{detail}</RNText>
+      <RNText style={[styles.progressDetail, { color: colors.text }]}>{detail}</RNText>
     </View>
   );
 }

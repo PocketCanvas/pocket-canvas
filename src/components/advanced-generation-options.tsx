@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 
 import { CompactSlider } from '@/components/compact-slider';
-import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
 import { StoredModel } from '@/lib/model-files';
 
 export type ImageSizeOption = {
@@ -78,6 +79,8 @@ export function AdvancedGenerationOptions({
   isFixedSeed,
   onToggleFixedSeed,
 }: AdvancedGenerationOptionsProps) {
+  const colors = useTheme();
+  const colorScheme = useColorScheme();
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(false);
   const [showSamplerModal, setShowSamplerModal] = useState(false);
@@ -108,46 +111,65 @@ export function AdvancedGenerationOptions({
         onPress={() => setIsExpanded((prev) => !prev)}
         style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
       >
-        <Text style={styles.headerTitle}>고급 옵션</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>고급 옵션</Text>
         {isExpanded ? (
-          <ChevronDown color={Colors.dark.muted} size={20} />
+          <ChevronDown color={colors.muted} size={20} />
         ) : (
-          <ChevronRight color={Colors.dark.muted} size={20} />
+          <ChevronRight color={colors.muted} size={20} />
         )}
       </Pressable>
 
       {isExpanded && (
-        <View style={styles.card}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           {/* 1. 경량 디코더 (TAESD / VAE) */}
           <Pressable
             accessibilityHint="TAESD 가중치 목록을 엽니다"
             accessibilityRole="button"
             onPress={onOpenTaesdPicker}
-            style={({ pressed }) => [styles.row, styles.borderBottom, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.row,
+              styles.borderBottom,
+              { borderBottomColor: colors.border },
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.rowLabel}>경량 디코더 (TAESD)</Text>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>경량 디코더 (TAESD)</Text>
             <View style={styles.rowValueGroup}>
-              <Text numberOfLines={1} style={styles.rowValue}>
+              <Text numberOfLines={1} style={[styles.rowValue, { color: colors.muted }]}>
                 {taesd?.alias ?? '기본 VAE'}
               </Text>
-              <ChevronRight color={Colors.dark.muted} size={18} />
+              <ChevronRight color={colors.muted} size={18} />
             </View>
           </Pressable>
 
           {/* 2. 기본 이미지 사이즈 */}
-          <View style={styles.borderBottom}>
+          <View style={[styles.borderBottom, { borderBottomColor: colors.border }]}>
             <Pressable
               accessibilityHint="이미지 해상도를 선택합니다"
               accessibilityRole="button"
               onPress={() => setShowSizeModal(true)}
               style={({ pressed }) => [styles.row, pressed && styles.pressed]}
             >
-              <Text style={styles.rowLabel}>기본 이미지 사이즈</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>기본 이미지 사이즈</Text>
               <View style={styles.rowValueGroup}>
-                <Text style={[styles.rowValue, Boolean(imageSize.warning) && styles.warningText]}>
+                <Text
+                  style={[
+                    styles.rowValue,
+                    { color: colors.muted },
+                    Boolean(imageSize.warning) && styles.warningText,
+                  ]}
+                >
                   {imageSize.label}
                 </Text>
-                <ChevronRight color={Colors.dark.muted} size={18} />
+                <ChevronRight color={colors.muted} size={18} />
               </View>
             </Pressable>
             {Boolean(imageSize.warning) && (
@@ -163,14 +185,19 @@ export function AdvancedGenerationOptions({
             accessibilityHint="업스케일러 모델 목록을 엽니다"
             accessibilityRole="button"
             onPress={onOpenUpscalerPicker}
-            style={({ pressed }) => [styles.row, styles.borderBottom, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.row,
+              styles.borderBottom,
+              { borderBottomColor: colors.border },
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.rowLabel}>업스케일러 (Upscaler)</Text>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>업스케일러 (Upscaler)</Text>
             <View style={styles.rowValueGroup}>
-              <Text numberOfLines={1} style={styles.rowValue}>
+              <Text numberOfLines={1} style={[styles.rowValue, { color: colors.muted }]}>
                 {upscaler?.alias ?? '사용 안 함'}
               </Text>
-              <ChevronRight color={Colors.dark.muted} size={18} />
+              <ChevronRight color={colors.muted} size={18} />
             </View>
           </Pressable>
 
@@ -179,22 +206,33 @@ export function AdvancedGenerationOptions({
             accessibilityHint="샘플러 알고리즘을 선택합니다"
             accessibilityRole="button"
             onPress={() => setShowSamplerModal(true)}
-            style={({ pressed }) => [styles.row, styles.borderBottom, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.row,
+              styles.borderBottom,
+              { borderBottomColor: colors.border },
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.rowLabel}>샘플링 방법</Text>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>샘플링 방법</Text>
             <View style={styles.rowValueGroup}>
-              <Text style={styles.rowValue}>{sampler}</Text>
-              <ChevronRight color={Colors.dark.muted} size={18} />
+              <Text style={[styles.rowValue, { color: colors.muted }]}>{sampler}</Text>
+              <ChevronRight color={colors.muted} size={18} />
             </View>
           </Pressable>
 
-          {/* 4. CFG Scale 슬라이더 */}
-          <View style={[styles.sliderSection, styles.borderBottom]}>
+          {/* 5. CFG Scale 슬라이더 */}
+          <View
+            style={[
+              styles.sliderSection,
+              styles.borderBottom,
+              { borderBottomColor: colors.border },
+            ]}
+          >
             <View style={styles.sliderHeader}>
-              <Text style={styles.rowLabel}>CFG Scale</Text>
-              <Text style={styles.scaleValue}>{cfgScale.toFixed(1)}</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>CFG Scale</Text>
+              <Text style={[styles.scaleValue, { color: colors.text }]}>{cfgScale.toFixed(1)}</Text>
             </View>
-            <Host colorScheme="dark" seedColor={Colors.dark.accent} style={styles.sliderHost}>
+            <Host colorScheme={colorScheme} seedColor={colors.accent} style={styles.sliderHost}>
               <CompactSlider
                 max={20}
                 min={1}
@@ -204,15 +242,15 @@ export function AdvancedGenerationOptions({
               />
             </Host>
             <View style={styles.sliderRange}>
-              <Text style={styles.rangeText}>1.0</Text>
-              <Text style={styles.rangeText}>20.0</Text>
+              <Text style={[styles.rangeText, { color: colors.muted }]}>1.0</Text>
+              <Text style={[styles.rangeText, { color: colors.muted }]}>20.0</Text>
             </View>
           </View>
 
-          {/* 5. 시드 */}
-          <View style={[styles.row, styles.borderBottom]}>
+          {/* 6. 시드 */}
+          <View style={[styles.row, styles.borderBottom, { borderBottomColor: colors.border }]}>
             <View style={styles.seedRow}>
-              <Text style={styles.rowLabel}>시드</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>시드</Text>
               <TextInput
                 accessibilityLabel="시드 입력"
                 keyboardType="numeric"
@@ -231,8 +269,15 @@ export function AdvancedGenerationOptions({
                   }
                 }}
                 placeholder="-1"
-                placeholderTextColor={Colors.dark.placeholder}
-                style={styles.seedInput}
+                placeholderTextColor={colors.placeholder}
+                style={[
+                  styles.seedInput,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.surfaceRaised,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={isFixedSeed && seed !== -1 ? String(seed) : '-1'}
               />
             </View>
@@ -242,23 +287,29 @@ export function AdvancedGenerationOptions({
               accessibilityRole="button"
               hitSlop={8}
               onPress={handleRandomizeSeed}
-              style={({ pressed }) => [styles.diceButton, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.diceButton,
+                { backgroundColor: colors.accentSoft },
+                pressed && styles.pressed,
+              ]}
             >
-              <Dices color={Colors.dark.accentText} size={20} />
+              <Dices color={colors.accentText} size={20} />
             </Pressable>
           </View>
 
-          {/* 6. 고정 시드 토글 */}
+          {/* 7. 고정 시드 토글 */}
           <View style={styles.row}>
             <View style={styles.rowLabelGroup}>
-              <Text style={styles.rowLabel}>고정 시드</Text>
-              <Text style={styles.rowSubLabel}>활성화 시 동일한 시드로 재현 가능</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>고정 시드</Text>
+              <Text style={[styles.rowSubLabel, { color: colors.muted }]}>
+                활성화 시 동일한 시드로 재현 가능
+              </Text>
             </View>
             <Switch
               accessibilityLabel="고정 시드 활성화"
               onValueChange={handleToggleFixedSeed}
               thumbColor="#FFFFFF"
-              trackColor={{ false: Colors.dark.border, true: Colors.dark.accent }}
+              trackColor={{ false: colors.border, true: colors.accent }}
               value={isFixedSeed}
             />
           </View>
@@ -272,14 +323,22 @@ export function AdvancedGenerationOptions({
         transparent
         visible={showSizeModal}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { backgroundColor: colors.backdrop }]}>
           <Pressable
             accessibilityLabel="닫기"
             onPress={() => setShowSizeModal(false)}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>기본 이미지 사이즈</Text>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>기본 이미지 사이즈</Text>
             <ScrollView style={styles.modalList}>
               {IMAGE_SIZE_OPTIONS.map((opt) => {
                 const isSelected = opt.label === imageSize.label;
@@ -290,13 +349,17 @@ export function AdvancedGenerationOptions({
                       onSelectImageSize(opt);
                       setShowSizeModal(false);
                     }}
-                    style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
+                    style={[
+                      styles.modalOption,
+                      isSelected && { backgroundColor: colors.accentSoft },
+                    ]}
                   >
                     <View style={styles.modalOptionRow}>
                       <Text
                         style={[
                           styles.modalOptionText,
-                          isSelected && styles.modalOptionTextSelected,
+                          { color: isSelected ? colors.accentText : colors.textSecondary },
+                          isSelected && { fontWeight: '700' },
                         ]}
                       >
                         {opt.label}
@@ -322,14 +385,22 @@ export function AdvancedGenerationOptions({
         transparent
         visible={showSamplerModal}
       >
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { backgroundColor: colors.backdrop }]}>
           <Pressable
             accessibilityLabel="닫기"
             onPress={() => setShowSamplerModal(false)}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>샘플링 방법</Text>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surfaceRaised,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>샘플링 방법</Text>
             <ScrollView style={styles.modalList}>
               {SAMPLER_OPTIONS.map((opt) => {
                 const isSelected = opt === sampler;
@@ -340,10 +411,17 @@ export function AdvancedGenerationOptions({
                       onSelectSampler(opt);
                       setShowSamplerModal(false);
                     }}
-                    style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
+                    style={[
+                      styles.modalOption,
+                      isSelected && { backgroundColor: colors.accentSoft },
+                    ]}
                   >
                     <Text
-                      style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}
+                      style={[
+                        styles.modalOptionText,
+                        { color: isSelected ? colors.accentText : colors.textSecondary },
+                        isSelected && { fontWeight: '700' },
+                      ]}
                     >
                       {opt}
                     </Text>
@@ -371,14 +449,11 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   headerTitle: {
-    color: Colors.dark.text,
     fontSize: 14,
     fontWeight: '600',
   },
   card: {
     borderRadius: 14,
-    backgroundColor: Colors.dark.surface,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -393,19 +468,16 @@ const styles = StyleSheet.create({
   },
   borderBottom: {
     borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
   },
   rowLabelGroup: {
     flex: 1,
     gap: 3,
   },
   rowLabel: {
-    color: Colors.dark.text,
     fontSize: 14,
     fontWeight: '500',
   },
   rowSubLabel: {
-    color: Colors.dark.muted,
     fontSize: 11,
   },
   rowValueGroup: {
@@ -414,7 +486,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowValue: {
-    color: Colors.dark.muted,
     fontSize: 13,
     fontWeight: '500',
   },
@@ -428,7 +499,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   scaleValue: {
-    color: Colors.dark.text,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -441,7 +511,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   rangeText: {
-    color: Colors.dark.muted,
     fontSize: 11,
   },
   seedRow: {
@@ -452,11 +521,8 @@ const styles = StyleSheet.create({
   },
   seedInput: {
     minWidth: 90,
-    color: Colors.dark.text,
     fontSize: 14,
     fontWeight: '600',
-    backgroundColor: Colors.dark.surfaceRaised,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -468,26 +534,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 9,
-    backgroundColor: Colors.dark.accentSoft,
   },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.dark.backdrop,
     padding: 24,
   },
   modalCard: {
     width: '100%',
     maxHeight: 380,
     borderRadius: 16,
-    backgroundColor: Colors.dark.surfaceRaised,
-    borderColor: Colors.dark.border,
     borderWidth: 1,
     padding: 16,
   },
   modalTitle: {
-    color: Colors.dark.text,
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 12,
@@ -502,16 +563,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 4,
   },
-  modalOptionSelected: {
-    backgroundColor: Colors.dark.accentSoft,
-  },
   modalOptionText: {
-    color: Colors.dark.textSecondary,
     fontSize: 14,
-  },
-  modalOptionTextSelected: {
-    color: Colors.dark.accentText,
-    fontWeight: '700',
   },
   warningText: {
     color: '#FBBF24',

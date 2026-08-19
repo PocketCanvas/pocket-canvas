@@ -6,17 +6,21 @@ import { Colors } from '@/constants/theme';
 import { StoredModel } from '@/lib/model-files';
 
 export function ModelPicker({
+  title = '모델 선택',
   visible,
   models,
   selected,
   onClose,
   onSelect,
+  defaultOptionLabel,
 }: {
+  title?: string;
   visible: boolean;
   models: StoredModel[];
   selected: StoredModel | null;
   onClose: () => void;
-  onSelect: (model: StoredModel) => void;
+  onSelect: (model: StoredModel | null) => void;
+  defaultOptionLabel?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
   const visibleModels = showAll ? models : models.filter(({ kind }) => kind === 'model');
@@ -25,8 +29,19 @@ export function ModelPicker({
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
       <Pressable onPress={onClose} style={styles.backdrop}>
         <Pressable accessibilityViewIsModal onPress={() => {}} style={styles.sheet}>
-          <Text style={styles.title}>모델 선택</Text>
+          <Text style={styles.title}>{title}</Text>
           <ShowAll checked={showAll} onChange={setShowAll} />
+          {defaultOptionLabel && (
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected === null }}
+              onPress={() => onSelect(null)}
+              style={({ pressed }) => [styles.option, pressed && styles.pressed]}
+            >
+              <Text style={styles.optionText}>{defaultOptionLabel}</Text>
+              <View style={[styles.radio, selected === null && styles.radioSelected]} />
+            </Pressable>
+          )}
           <ScrollView style={styles.options}>
             {visibleModels.map((model) => (
               <Pressable

@@ -13,6 +13,7 @@ export type StableDiffusionModuleEvents = {
 export type GenerateImageOptions = {
   prompt: string;
   modelUri: string;
+  taesdUri?: string;
   loras: { uri: string; weight: number }[];
   steps: number;
   outputUri: string;

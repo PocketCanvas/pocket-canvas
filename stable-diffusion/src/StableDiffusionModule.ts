@@ -7,6 +7,7 @@ declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEv
   generateImage(
     prompt: string,
     modelUri: string,
+    taesdUri: string,
     loraUris: string[],
     loraWeights: number[],
     steps: number,

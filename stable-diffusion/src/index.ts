@@ -11,6 +11,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<stri
   const result = await StableDiffusionModule.generateImage(
     options.prompt,
     options.modelUri,
+    options.taesdUri ?? '',
     options.loras.map(({ uri }) => uri),
     options.loras.map(({ weight }) => weight),
     options.steps,

@@ -18,6 +18,7 @@ class StableDiffusionModule : Module() {
   private external fun generateImage(
     prompt: String,
     modelPath: String,
+    taesdPath: String,
     loraPaths: Array<String>,
     loraWeights: DoubleArray,
     steps: Int,
@@ -40,6 +41,7 @@ class StableDiffusionModule : Module() {
     AsyncFunction("generateImage") {
         prompt: String,
         modelUri: String,
+        taesdUri: String,
         loraUris: List<String>,
         loraWeights: List<Double>,
         steps: Int,
@@ -61,6 +63,7 @@ class StableDiffusionModule : Module() {
       }
 
       val modelPath = appFile(modelUri, true).absolutePath
+      val taesdPath = if (taesdUri.isBlank()) "" else appFile(taesdUri, true).absolutePath
       val loraPaths = loraUris.map { appFile(it, true).absolutePath }.toTypedArray()
       val outputFile = appFile(outputUri, false)
       require(outputFile.parentFile?.isDirectory == true) { "Output directory not found" }
@@ -68,6 +71,7 @@ class StableDiffusionModule : Module() {
       return@AsyncFunction generateImage(
         prompt.trim(),
         modelPath,
+        taesdPath,
         loraPaths,
         loraWeights.toDoubleArray(),
         steps,

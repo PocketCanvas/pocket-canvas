@@ -27,6 +27,8 @@ export default function GenerateScreen() {
   const [availableModels, setAvailableModels] = useState<StoredModel[]>([]);
   const [model, setModel] = useState<StoredModel | null>(null);
   const [showModels, setShowModels] = useState(false);
+  const [taesd, setTaesd] = useState<StoredModel | null>(null);
+  const [showTaesd, setShowTaesd] = useState(false);
   const [loras, setLoras] = useState<LoraSelection[]>([]);
   const [showLoraPicker, setShowLoraPicker] = useState(false);
   const [steps, setSteps] = useState(4);
@@ -41,6 +43,7 @@ export default function GenerateScreen() {
         .then((models) => {
           setAvailableModels(models);
           setModel((current) => models.find(({ id }) => id === current?.id) ?? null);
+          setTaesd((current) => models.find(({ id }) => id === current?.id) ?? null);
           setLoras((current) =>
             current.flatMap((lora) => {
               const stored = models.find(({ id }) => id === lora.model.id);
@@ -77,6 +80,7 @@ export default function GenerateScreen() {
       const uri = await generateImage({
         prompt: prompt.trim(),
         modelUri: getStoredModelUri(model),
+        taesdUri: taesd ? getStoredModelUri(taesd) : undefined,
         loras: loras.map(({ model: lora, weight }) => ({
           uri: getStoredModelUri(lora),
           weight,
@@ -139,6 +143,27 @@ export default function GenerateScreen() {
                 </RNText>
               </View>
             )}
+          </View>
+
+          <View style={styles.section}>
+            <RNText style={styles.label}>경량 디코더 (TAESD)</RNText>
+            <Pressable
+              accessibilityHint="TAESD 가중치 목록을 엽니다"
+              accessibilityRole="button"
+              onPress={() => setShowTaesd(true)}
+              style={({ pressed }) => [styles.select, pressed && styles.pressed]}
+            >
+              <View style={styles.modelIcon}>
+                <RNText style={styles.modelIconText}>⚡</RNText>
+              </View>
+              <View style={styles.selectText}>
+                <RNText numberOfLines={1} style={styles.selectValue}>
+                  {taesd?.alias ?? '기본 VAE 사용'}
+                </RNText>
+                <RNText style={styles.selectHint}>선택 사항 · 빠른 디코딩, 낮은 품질</RNText>
+              </View>
+              <RNText style={styles.chevron}>›</RNText>
+            </Pressable>
           </View>
 
           <View style={styles.section}>
@@ -226,6 +251,18 @@ export default function GenerateScreen() {
         options={availableModels}
         selected={loras}
         visible={showLoraPicker}
+      />
+      <ModelPicker
+        defaultOptionLabel="기본 디코더 사용"
+        models={availableModels}
+        onClose={() => setShowTaesd(false)}
+        onSelect={(selected) => {
+          setTaesd(selected);
+          setShowTaesd(false);
+        }}
+        selected={taesd}
+        title="디코더 선택"
+        visible={showTaesd}
       />
     </SafeAreaView>
   );

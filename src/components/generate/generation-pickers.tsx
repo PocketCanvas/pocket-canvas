@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { LoraSelection } from '@/components/lora-sortable-list';
+import { LoraSelection } from '@/components/generate/lora-sortable-list';
 import { useTheme } from '@/hooks/use-theme';
 import { StoredModel } from '@/lib/model-files';
 

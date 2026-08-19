@@ -20,10 +20,10 @@ import {
   IMAGE_SIZE_OPTIONS,
   type ImageSizeOption,
   SAMPLER_OPTIONS,
-} from '@/components/advanced-generation-options';
-import { GenerationControls } from '@/components/generation-controls';
-import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generation-pickers';
-import { LoraSelection, LoraSortableList } from '@/components/lora-sortable-list';
+} from '@/components/generate/advanced-generation-options';
+import { GenerationControls } from '@/components/generate/generation-controls';
+import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
+import { LoraSelection, LoraSortableList } from '@/components/generate/lora-sortable-list';
 import { useTheme } from '@/hooks/use-theme';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
 import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';

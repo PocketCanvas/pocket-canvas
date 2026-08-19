@@ -25,7 +25,7 @@ import {
   HistoryDetailModal,
   HistorySortOrder,
   HistoryTab,
-} from '@/components/history-management';
+} from '@/components/history/history-management';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/lib/image-files';
 import { StoredImageMetadata } from '@/lib/image-metadata';

@@ -17,7 +17,7 @@ import {
   ModelCard,
   ModelDetailModal,
   ModelKind,
-} from '@/components/model-management';
+} from '@/components/models/model-management';
 import { useTheme } from '@/hooks/use-theme';
 import {
   deleteStoredModel,

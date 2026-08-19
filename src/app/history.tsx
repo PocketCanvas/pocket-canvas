@@ -3,6 +3,7 @@
 // https://reactnative.dev/docs/usewindowdimensions
 // https://docs.expo.dev/router/reference/hooks/#usefocuseffect
 
+import { ArrowUpDown, EllipsisVertical, Search, Sparkles, X } from 'lucide-react-native';
 import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
@@ -169,7 +170,6 @@ export default function HistoryScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             히스토리
           </Text>
-          <Text style={styles.subtitle}>기기에 저장된 생성 이미지</Text>
         </View>
 
         <View style={styles.headerActions}>
@@ -187,7 +187,7 @@ export default function HistoryScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <Text style={[styles.actionIcon, showSearch && styles.actionIconActive]}>🔍</Text>
+            <Search color={showSearch ? Colors.dark.accentText : Colors.dark.text} size={18} />
           </Pressable>
 
           <Pressable
@@ -197,7 +197,7 @@ export default function HistoryScreen() {
             onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
             style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           >
-            <Text style={styles.actionIcon}>{sortOrder === 'newest' ? '⏳' : '⌛'}</Text>
+            <ArrowUpDown color={Colors.dark.text} size={18} />
           </Pressable>
 
           <Pressable
@@ -207,7 +207,7 @@ export default function HistoryScreen() {
             onPress={handleMoreMenu}
             style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           >
-            <Text style={styles.actionIconText}>⋮</Text>
+            <EllipsisVertical color={Colors.dark.text} size={18} />
           </Pressable>
         </View>
       </View>
@@ -230,7 +230,7 @@ export default function HistoryScreen() {
               onPress={() => setSearchQuery('')}
               style={styles.clearSearch}
             >
-              <Text style={styles.clearSearchText}>✕</Text>
+              <X color={Colors.dark.muted} size={16} />
             </Pressable>
           )}
         </View>
@@ -263,7 +263,7 @@ export default function HistoryScreen() {
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.sparkle}>
-            <Text style={styles.sparkleText}>✦</Text>
+            <Sparkles color={Colors.dark.accentIcon} size={22} />
           </View>
           <Text style={styles.emptyTitle}>
             {searchQuery
@@ -336,11 +336,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: Colors.dark.muted,
-    fontSize: 13,
-    marginTop: 4,
   },
   headerActions: {
     flexDirection: 'row',

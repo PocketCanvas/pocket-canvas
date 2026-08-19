@@ -1,3 +1,4 @@
+import { Box, ChevronRight, CircleHelp, Layers, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -30,7 +31,7 @@ export type ManagedModel = {
 export const MODEL_KINDS: readonly [ModelKind, string][] = [
   ['model', '모델'],
   ['lora', 'LoRA'],
-  ['unknown', '미분류'],
+  ['unknown', '기타'],
 ];
 
 export const modelKindLabel = (kind: ModelKind) =>
@@ -42,6 +43,8 @@ type ModelCardProps = {
 };
 
 export function ModelCard({ item, onPress }: ModelCardProps) {
+  const Icon = item.kind === 'model' ? Box : item.kind === 'lora' ? Layers : CircleHelp;
+
   return (
     <Pressable
       accessibilityHint="상세정보와 관리 메뉴를 엽니다"
@@ -51,9 +54,7 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={[styles.thumbnail, { backgroundColor: item.color }]}>
-        <Text style={styles.thumbnailText}>
-          {item.kind === 'model' ? 'SD' : item.kind === 'lora' ? 'L' : '?'}
-        </Text>
+        <Icon color={Colors.dark.accentIcon} size={28} />
       </View>
       <View style={styles.cardBody}>
         <Text numberOfLines={1} style={styles.itemName}>
@@ -66,7 +67,7 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
           {item.description || '설명이 없습니다.'}
         </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <ChevronRight color={Colors.dark.muted} size={22} style={styles.chevron} />
     </Pressable>
   );
 }
@@ -201,6 +202,7 @@ export function ModelDetailModal({
                 </Text>
               </View>
               <Pressable onPress={onDelete} style={styles.deleteButton}>
+                <Trash2 color={Colors.dark.error} size={16} />
                 <Text style={styles.deleteButtonText}>삭제</Text>
               </Pressable>
             </ScrollView>
@@ -340,8 +342,10 @@ const styles = StyleSheet.create({
   filename: { flex: 1, color: Colors.dark.text, fontSize: 12, marginLeft: 16, textAlign: 'right' },
   deleteButton: {
     minHeight: 48,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: Colors.dark.error,
     borderRadius: 10,

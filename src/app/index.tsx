@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { Box, ChevronRight, Plus, Sparkles } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -14,9 +15,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
-
+import {
+  AdvancedGenerationOptions,
+  IMAGE_SIZE_OPTIONS,
+  type ImageSizeOption,
+  SAMPLER_OPTIONS,
+} from '@/components/advanced-generation-options';
 import { GenerationControls } from '@/components/generation-controls';
-import { LoraPicker, ModelPicker } from '@/components/generation-pickers';
+import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generation-pickers';
 import { LoraSelection, LoraSortableList } from '@/components/lora-sortable-list';
 import { Colors } from '@/constants/theme';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
@@ -29,9 +35,16 @@ export default function GenerateScreen() {
   const [showModels, setShowModels] = useState(false);
   const [taesd, setTaesd] = useState<StoredModel | null>(null);
   const [showTaesd, setShowTaesd] = useState(false);
+  const [upscaler, setUpscaler] = useState<StoredModel | null>(null);
+  const [showUpscaler, setShowUpscaler] = useState(false);
   const [loras, setLoras] = useState<LoraSelection[]>([]);
   const [showLoraPicker, setShowLoraPicker] = useState(false);
   const [steps, setSteps] = useState(4);
+  const [imageSize, setImageSize] = useState<ImageSizeOption>(IMAGE_SIZE_OPTIONS[2]);
+  const [sampler, setSampler] = useState<string>(SAMPLER_OPTIONS[0]);
+  const [cfgScale, setCfgScale] = useState<number>(7.0);
+  const [seed, setSeed] = useState<number>(-1);
+  const [isFixedSeed, setIsFixedSeed] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +57,7 @@ export default function GenerateScreen() {
           setAvailableModels(models);
           setModel((current) => models.find(({ id }) => id === current?.id) ?? null);
           setTaesd((current) => models.find(({ id }) => id === current?.id) ?? null);
+          setUpscaler((current) => models.find(({ id }) => id === current?.id) ?? null);
           setLoras((current) =>
             current.flatMap((lora) => {
               const stored = models.find(({ id }) => id === lora.model.id);
@@ -116,12 +130,9 @@ export default function GenerateScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <View>
-              <RNText accessibilityRole="header" style={styles.title}>
-                이미지 생성
-              </RNText>
-              <RNText style={styles.subtitle}>기기 안에서 빠르고 안전하게</RNText>
-            </View>
+            <RNText accessibilityRole="header" style={styles.title}>
+              이미지 생성
+            </RNText>
           </View>
 
           <View style={styles.preview}>
@@ -135,7 +146,7 @@ export default function GenerateScreen() {
             ) : (
               <View style={styles.previewEmpty}>
                 <View style={styles.sparkle}>
-                  <RNText style={styles.sparkleText}>✦</RNText>
+                  <Sparkles color={Colors.dark.accentIcon} size={20} />
                 </View>
                 <RNText style={styles.previewTitle}>첫 이미지를 만들어 보세요</RNText>
                 <RNText style={styles.previewCaption}>
@@ -143,27 +154,6 @@ export default function GenerateScreen() {
                 </RNText>
               </View>
             )}
-          </View>
-
-          <View style={styles.section}>
-            <RNText style={styles.label}>경량 디코더 (TAESD)</RNText>
-            <Pressable
-              accessibilityHint="TAESD 가중치 목록을 엽니다"
-              accessibilityRole="button"
-              onPress={() => setShowTaesd(true)}
-              style={({ pressed }) => [styles.select, pressed && styles.pressed]}
-            >
-              <View style={styles.modelIcon}>
-                <RNText style={styles.modelIconText}>⚡</RNText>
-              </View>
-              <View style={styles.selectText}>
-                <RNText numberOfLines={1} style={styles.selectValue}>
-                  {taesd?.alias ?? '기본 VAE 사용'}
-                </RNText>
-                <RNText style={styles.selectHint}>선택 사항 · 빠른 디코딩, 낮은 품질</RNText>
-              </View>
-              <RNText style={styles.chevron}>›</RNText>
-            </Pressable>
           </View>
 
           <View style={styles.section}>
@@ -193,15 +183,17 @@ export default function GenerateScreen() {
               style={({ pressed }) => [styles.select, pressed && styles.pressed]}
             >
               <View style={styles.modelIcon}>
-                <RNText style={styles.modelIconText}>◇</RNText>
+                <Box color={Colors.dark.accentIcon} size={18} />
               </View>
               <View style={styles.selectText}>
                 <RNText numberOfLines={1} style={styles.selectValue}>
                   {model?.alias ?? '모델을 선택하세요'}
                 </RNText>
-                <RNText style={styles.selectHint}>Stable Diffusion 모델</RNText>
+                {Boolean(model) && (
+                  <RNText style={styles.selectHint}>{formatModelInfo(model!)}</RNText>
+                )}
               </View>
-              <RNText style={styles.chevron}>›</RNText>
+              <ChevronRight color={Colors.dark.muted} size={20} />
             </Pressable>
           </View>
 
@@ -213,11 +205,29 @@ export default function GenerateScreen() {
                 onPress={() => setShowLoraPicker(true)}
                 style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
               >
-                <RNText style={styles.addButtonText}>+ 추가</RNText>
+                <Plus color={Colors.dark.accentText} size={14} strokeWidth={2.5} />
+                <RNText style={styles.addButtonText}>추가</RNText>
               </Pressable>
             </View>
             <LoraSortableList loras={loras} onChange={setLoras} />
           </View>
+
+          <AdvancedGenerationOptions
+            cfgScale={cfgScale}
+            imageSize={imageSize}
+            isFixedSeed={isFixedSeed}
+            onChangeCfgScale={setCfgScale}
+            onChangeSeed={setSeed}
+            onOpenTaesdPicker={() => setShowTaesd(true)}
+            onOpenUpscalerPicker={() => setShowUpscaler(true)}
+            onSelectImageSize={setImageSize}
+            onSelectSampler={setSampler}
+            onToggleFixedSeed={setIsFixedSeed}
+            sampler={sampler}
+            seed={seed}
+            taesd={taesd}
+            upscaler={upscaler}
+          />
 
           {error && (
             <RNText accessibilityRole="alert" style={styles.error}>
@@ -264,6 +274,18 @@ export default function GenerateScreen() {
         title="디코더 선택"
         visible={showTaesd}
       />
+      <ModelPicker
+        defaultOptionLabel="사용 안 함"
+        models={availableModels}
+        onClose={() => setShowUpscaler(false)}
+        onSelect={(selected) => {
+          setUpscaler(selected);
+          setShowUpscaler(false);
+        }}
+        selected={upscaler}
+        title="업스케일러 선택"
+        visible={showUpscaler}
+      />
     </SafeAreaView>
   );
 }
@@ -273,7 +295,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 190, gap: 24 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { color: Colors.dark.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  subtitle: { color: Colors.dark.muted, fontSize: 13, marginTop: 4 },
   preview: {
     height: 200,
     borderRadius: 14,
@@ -345,7 +366,10 @@ const styles = StyleSheet.create({
   chevron: { color: Colors.dark.muted, fontSize: 27 },
   addButton: {
     minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
     borderRadius: 9,
     backgroundColor: Colors.dark.accentSoft,
     paddingHorizontal: 12,

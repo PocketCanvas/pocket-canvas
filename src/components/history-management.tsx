@@ -4,6 +4,7 @@
 // https://reactnative.dev/docs/pressable
 // https://docs.expo.dev/versions/v57.0.0/sdk/sharing/
 
+import { Heart, Share2, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import * as Sharing from 'expo-sharing';
 import {
@@ -74,9 +75,11 @@ export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: Hist
           pressed && styles.pressed,
         ]}
       >
-        <Text style={[styles.favoriteIcon, item.favorite && styles.favoriteIconActive]}>
-          {item.favorite ? '♥' : '♡'}
-        </Text>
+        <Heart
+          color={item.favorite ? Colors.dark.error : Colors.dark.muted}
+          fill={item.favorite ? Colors.dark.error : 'transparent'}
+          size={14}
+        />
       </Pressable>
     </Pressable>
   );
@@ -145,7 +148,7 @@ export function HistoryDetailModal({
                   생성 상세 정보
                 </Text>
                 <Pressable accessibilityLabel="닫기" accessibilityRole="button" onPress={onClose}>
-                  <Text style={styles.close}>✕</Text>
+                  <X color={Colors.dark.muted} size={20} />
                 </Pressable>
               </View>
 
@@ -168,13 +171,18 @@ export function HistoryDetailModal({
                     pressed && styles.pressed,
                   ]}
                 >
+                  <Heart
+                    color={item.favorite ? Colors.dark.error : Colors.dark.text}
+                    fill={item.favorite ? Colors.dark.error : 'transparent'}
+                    size={16}
+                  />
                   <Text
                     style={[
                       styles.actionButtonText,
                       item.favorite && styles.actionButtonTextActive,
                     ]}
                   >
-                    {item.favorite ? '♥ 즐겨찾기 해제' : '♡ 즐겨찾기'}
+                    {item.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
                   </Text>
                 </Pressable>
 
@@ -183,6 +191,7 @@ export function HistoryDetailModal({
                   onPress={handleShare}
                   style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
                 >
+                  <Share2 color={Colors.dark.text} size={16} />
                   <Text style={styles.actionButtonText}>공유하기</Text>
                 </Pressable>
               </View>
@@ -207,10 +216,11 @@ export function HistoryDetailModal({
                 </View>
               </View>
 
-              <View style={styles.metadataSection}>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>생성 정보</Text>
                 <DetailRow label="모델" value={item.model.name} />
                 <DetailRow label="LoRA" value={loraSummary} />
-                <DetailRow label="추론 스텝" value={`${item.steps} steps`} />
+                <DetailRow label="스텝 수" value={`${item.steps} steps`} />
                 <DetailRow label="생성 일시" value={formatDateTime(item.createdAt)} />
                 {fileSize !== null && <DetailRow label="파일 크기" value={formatBytes(fileSize)} />}
                 <View style={styles.detailRow}>
@@ -222,6 +232,7 @@ export function HistoryDetailModal({
               </View>
 
               <Pressable onPress={onDelete} style={styles.deleteButton}>
+                <Trash2 color={Colors.dark.error} size={16} />
                 <Text style={styles.deleteButtonText}>삭제</Text>
               </Pressable>
             </ScrollView>
@@ -359,8 +370,10 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
     height: 40,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
     borderRadius: 9,
     backgroundColor: Colors.dark.surface,
     borderColor: Colors.dark.border,
@@ -437,8 +450,10 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     minHeight: 46,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
     borderWidth: 1,
     borderColor: Colors.dark.error,
     borderRadius: 10,

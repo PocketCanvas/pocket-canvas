@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -108,7 +109,6 @@ export default function ModelsScreen() {
         <Text accessibilityRole="header" style={styles.title}>
           모델 관리
         </Text>
-        <Text style={styles.subtitle}>기기에 저장된 생성 리소스</Text>
       </View>
 
       <View accessibilityRole="tablist" style={styles.tabs}>
@@ -164,7 +164,7 @@ export default function ModelsScreen() {
         {isImporting ? (
           <ActivityIndicator color={Colors.dark.onAccent} />
         ) : (
-          <Text style={styles.fabText}>＋</Text>
+          <Plus color={Colors.dark.onAccent} size={28} strokeWidth={2.2} />
         )}
       </Pressable>
 
@@ -194,7 +194,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.dark.background },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { color: Colors.dark.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
-  subtitle: { color: Colors.dark.muted, fontSize: 13, marginTop: 4 },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 13, borderBottomWidth: 2 },
   selectedTab: { borderBottomColor: Colors.dark.accent },

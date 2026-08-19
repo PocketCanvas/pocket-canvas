@@ -38,7 +38,7 @@ export function ModelPicker({
               onPress={() => onSelect(null)}
               style={({ pressed }) => [styles.option, pressed && styles.pressed]}
             >
-              <Text style={styles.optionText}>{defaultOptionLabel}</Text>
+              <Text style={styles.defaultOptionText}>{defaultOptionLabel}</Text>
               <View style={[styles.radio, selected === null && styles.radioSelected]} />
             </Pressable>
           )}
@@ -53,7 +53,7 @@ export function ModelPicker({
               >
                 <View style={styles.optionCopy}>
                   <Text style={styles.optionText}>{model.alias}</Text>
-                  <Text style={styles.hint}>{model.fileName}</Text>
+                  <Text style={styles.hint}>{formatModelInfo(model)}</Text>
                 </View>
                 <View style={[styles.radio, selected?.id === model.id && styles.radioSelected]} />
               </Pressable>
@@ -108,7 +108,7 @@ export function LoraPicker({
                 >
                   <View style={styles.optionCopy}>
                     <Text style={styles.optionText}>{model.alias}</Text>
-                    <Text style={styles.hint}>{model.fileName}</Text>
+                    <Text style={styles.hint}>{formatModelInfo(model)}</Text>
                   </View>
                   <View style={[styles.checkbox, checked && styles.checkboxSelected]}>
                     {checked && <Text style={styles.checkmark}>✓</Text>}
@@ -166,16 +166,18 @@ const styles = StyleSheet.create({
   showAll: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10 },
   showAllText: { color: Colors.dark.text, fontSize: 14 },
   option: {
-    minHeight: 56,
+    minHeight: 52,
+    paddingVertical: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: 10,
     paddingHorizontal: 12,
   },
-  optionText: { flex: 1, color: Colors.dark.text, fontSize: 14 },
-  optionCopy: { flex: 1, gap: 3 },
-  hint: { color: Colors.dark.muted, fontSize: 12 },
+  defaultOptionText: { flex: 1, color: Colors.dark.text, fontSize: 14 },
+  optionCopy: { flex: 1, gap: 2, marginRight: 12 },
+  optionText: { color: Colors.dark.text, fontSize: 14, fontWeight: '500', lineHeight: 18 },
+  hint: { color: Colors.dark.muted, fontSize: 12, lineHeight: 16 },
   radio: { width: 18, height: 18, borderRadius: 9, borderColor: Colors.dark.muted, borderWidth: 2 },
   radioSelected: { borderColor: Colors.dark.accent, borderWidth: 5 },
   checkbox: {
@@ -199,3 +201,14 @@ const styles = StyleSheet.create({
   },
   doneText: { color: Colors.dark.onAccent, fontWeight: '700' },
 });
+
+export function formatBytes(bytes: number) {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
+}
+
+export function formatModelInfo(model: StoredModel) {
+  const format = model.format === 'gguf' ? 'GGUF' : 'SafeTensors';
+  const size = formatBytes(model.sizeBytes);
+  return `${format} · ${size}`;
+}

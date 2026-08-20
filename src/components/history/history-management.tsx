@@ -77,6 +77,7 @@ export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: Hist
         }}
         style={({ pressed }) => [
           styles.favoriteBadge,
+          { backgroundColor: colors.imageOverlay },
           item.favorite && { backgroundColor: colors.accentSoft },
           pressed && styles.pressed,
         ]}
@@ -341,7 +342,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -245,7 +245,7 @@ export function AdvancedGenerationOptions({
                   style={[
                     styles.rowValue,
                     { color: colors.muted },
-                    Boolean(imageSize.warning) && styles.warningText,
+                    Boolean(imageSize.warning) && { color: colors.warning, fontWeight: '700' },
                   ]}
                 >
                   {imageSize.label}
@@ -254,9 +254,16 @@ export function AdvancedGenerationOptions({
               </View>
             </Pressable>
             {Boolean(imageSize.warning) && (
-              <View style={styles.warningBox}>
-                <TriangleAlert color="#FBBF24" size={15} style={styles.warningIcon} />
-                <Text style={styles.warningBoxText}>{imageSize.warning}</Text>
+              <View
+                style={[
+                  styles.warningBox,
+                  { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder },
+                ]}
+              >
+                <TriangleAlert color={colors.warning} size={15} style={styles.warningIcon} />
+                <Text style={[styles.warningBoxText, { color: colors.warning }]}>
+                  {imageSize.warning}
+                </Text>
               </View>
             )}
           </View>
@@ -467,7 +474,7 @@ export function AdvancedGenerationOptions({
             <Switch
               accessibilityLabel="고정 시드 활성화"
               onValueChange={handleToggleFixedSeed}
-              thumbColor="#FFFFFF"
+              thumbColor={colors.onAccent}
               trackColor={{ false: colors.border, true: colors.accent }}
               value={isFixedSeed}
             />
@@ -524,8 +531,18 @@ export function AdvancedGenerationOptions({
                         {opt.label}
                       </Text>
                       {Boolean(opt.warning) && (
-                        <View style={styles.warningBadge}>
-                          <Text style={styles.warningBadgeText}>주의</Text>
+                        <View
+                          style={[
+                            styles.warningBadge,
+                            {
+                              backgroundColor: colors.warningSoft,
+                              borderColor: colors.warningBorder,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.warningBadgeText, { color: colors.warning }]}>
+                            주의
+                          </Text>
                         </View>
                       )}
                     </View>
@@ -797,15 +814,9 @@ const styles = StyleSheet.create({
   modalOptionText: {
     fontSize: 14,
   },
-  warningText: {
-    color: '#FBBF24',
-    fontWeight: '700',
-  },
   warningBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-    borderColor: 'rgba(251, 191, 36, 0.3)',
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 10,
@@ -818,7 +829,6 @@ const styles = StyleSheet.create({
   },
   warningBoxText: {
     flex: 1,
-    color: '#FBBF24',
     fontSize: 12,
     lineHeight: 17,
   },
@@ -828,15 +838,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   warningBadge: {
-    backgroundColor: 'rgba(251, 191, 36, 0.2)',
-    borderColor: 'rgba(251, 191, 36, 0.4)',
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   warningBadgeText: {
-    color: '#FBBF24',
     fontSize: 11,
     fontWeight: '700',
   },

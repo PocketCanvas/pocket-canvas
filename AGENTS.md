@@ -42,6 +42,7 @@
 | ADR-009 | 생성 병목 계측과 TAESD PoC | Vulkan 정상 확인, VAE decode 병목, TAESD는 빠르지만 최종 품질 부족 |
 | ADR-010 | 생성 옵션과 내장 Hires 업스케일 | sampler+scheduler preset, 해상도·CFG·seed, 내장 hires 1.5×~4.0× |
 | ADR-011 | 생성 요청 로그 정책 | 요청당 약 10줄: Vulkan·설정·단계별 wall time, upstream은 warning/error만 전달 |
+| ADR-012 | 생성 메타데이터 완전성과 이미지 보존 | 정상 metadata 필수 계약 + missing 복구 variant + PNG 보존 우선 |
 
 ## Known landmines
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조
@@ -51,3 +52,4 @@
 - TAESD 실행 코드는 upstream에 있지만 가중치는 번들되지 않는다. 별도 SD 1.x TAESD 파일과 `taesdUri`가 필요하며, 기본 최종 decoder로 채택하지 않는다. → ADR-009
 - 생성 로그는 `[request]`, `[settings]`, `[vulkan]`, `[stage]` 태그를 사용한다. 과거 ADR-009의 CPU/RSS 상세 계측 로그는 제거되었으며 필요할 때만 별도 계측 빌드로 복원한다. → ADR-011
 - 23개 sampling preset과 8개 내장 Hires 방식은 네이티브 빌드까지 검증됐지만, 전체 조합의 실기기 생성 성공·품질·메모리는 아직 검증되지 않았다. → ADR-010
+- 정상 생성 metadata에는 현행 옵션 전체를 필수로 기록한다. 기록 실패 PNG는 삭제하지 않고 `missing` 복구 항목으로 표시한다. → ADR-012

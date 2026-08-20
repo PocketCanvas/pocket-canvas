@@ -187,12 +187,12 @@ export function AdvancedGenerationOptions({
             <View style={styles.fieldHeader}>
               <Text style={[styles.rowLabel, { color: colors.text }]}>네거티브 프롬프트</Text>
               <Text style={[styles.fieldCounter, { color: colors.muted }]}>
-                {negativePrompt.length}/500
+                {negativePrompt.length}/1000
               </Text>
             </View>
             <TextInput
               accessibilityLabel="네거티브 프롬프트"
-              maxLength={500}
+              maxLength={1000}
               multiline
               onChangeText={onChangeNegativePrompt}
               placeholder="예: blurry, low quality"

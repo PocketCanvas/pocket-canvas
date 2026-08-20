@@ -93,6 +93,12 @@ export default function GenerateScreen() {
         prompt: prompt.trim(),
         negativePrompt: negativePrompt.trim(),
         model: { id: model.id, name: model.alias, storedFileName: model.storedFileName },
+        decoder: taesd
+          ? {
+              type: 'taesd',
+              model: { id: taesd.id, name: taesd.alias, storedFileName: taesd.storedFileName },
+            }
+          : { type: 'vae' },
         loras: loras.map(({ model: lora, weight }) => ({
           id: lora.id,
           name: lora.alias,
@@ -136,12 +142,13 @@ export default function GenerateScreen() {
         },
         outputUri: destination.file.uri,
       });
-      setImageUri(uri);
       try {
         await saveImageMetadata(destination.metadata);
       } catch (reason) {
         console.warn('이미지 메타데이터를 저장하지 못했습니다.', reason);
+        setError('이미지는 저장했지만 생성 정보를 기록하지 못했습니다.');
       }
+      setImageUri(uri);
     } catch (reason) {
       if (destination?.file.exists) destination.file.delete();
       setError(reason instanceof Error ? reason.message : '이미지를 생성하지 못했습니다.');
@@ -203,11 +210,13 @@ export default function GenerateScreen() {
           <View style={styles.section}>
             <View style={styles.labelRow}>
               <RNText style={[styles.label, { color: colors.text }]}>프롬프트</RNText>
-              <RNText style={[styles.counter, { color: colors.muted }]}>{prompt.length}/500</RNText>
+              <RNText style={[styles.counter, { color: colors.muted }]}>
+                {prompt.length}/1000
+              </RNText>
             </View>
             <TextInput
               accessibilityLabel="이미지 프롬프트"
-              maxLength={500}
+              maxLength={1000}
               multiline
               onChangeText={setPrompt}
               placeholder="예: 안개 낀 새벽 숲속의 작은 오두막, 따뜻한 불빛, 시네마틱"

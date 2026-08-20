@@ -87,9 +87,11 @@ Paths.document/
     └── YYYYMMDD-HHMMSS-<id>.png
 ```
 * `models/`: imported model 및 LoRA 와 metadata
-* `images/`: generated PNG 와 generation metadata
+* `images/`: generated PNG와 현행 생성 옵션 전체를 포함하는 metadata
 
 > 가져오기는 validation 후 commit하며 실패한 import가 정상 데이터에 영향을 주지 않도록 rollback 가능한 흐름을 사용
+>
+> PNG 보존을 우선한다. metadata 기록이 실패한 PNG는 디렉터리 스캔으로 복구하되, 알 수 없는 생성 설정을 합성하지 않고 `missing` 상태로 히스토리에 표시한다. → ADR-012
 
 
 ## UI boundaries

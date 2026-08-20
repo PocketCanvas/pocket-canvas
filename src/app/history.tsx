@@ -129,9 +129,11 @@ export default function HistoryScreen() {
     if (query) {
       result = result.filter(
         (item) =>
-          item.prompt.toLowerCase().includes(query) ||
-          item.model.name.toLowerCase().includes(query) ||
-          item.loras.some((l) => l.name.toLowerCase().includes(query)),
+          item.fileName.toLowerCase().includes(query) ||
+          (item.metadataStatus === 'complete' &&
+            (item.prompt.toLowerCase().includes(query) ||
+              item.model.name.toLowerCase().includes(query) ||
+              item.loras.some((lora) => lora.name.toLowerCase().includes(query)))),
       );
     }
 

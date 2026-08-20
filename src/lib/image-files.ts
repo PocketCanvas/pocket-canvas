@@ -6,9 +6,9 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 import {
   createImageMetadata,
+  createRecoveredImageMetadata,
   ImageGenerationMetadataInput,
   isStoredImageMetadata,
-  parseDateFromFileName,
   StoredImageMetadata,
 } from '@/lib/image-metadata';
 
@@ -62,27 +62,12 @@ export async function loadStoredImages(): Promise<StoredImageMetadata[]> {
     }
   }
 
-  // Best-effort directory scan for orphaned PNG files (ADR-007)
-  try {
-    for (const entry of imagesDirectory.list()) {
-      if (entry instanceof File && entry.name.endsWith('.png') && !entry.name.startsWith('.')) {
-        if (!known.has(entry.name)) {
-          const createdAt = parseDateFromFileName(entry.name);
-          known.set(entry.name, {
-            id: entry.name.replace(/\.png$/, ''),
-            fileName: entry.name,
-            prompt: '가져온 이미지',
-            model: { id: 'unknown', name: '알 수 없음', storedFileName: '' },
-            loras: [],
-            steps: 4,
-            createdAt,
-            favorite: false,
-          });
-        }
+  for (const entry of imagesDirectory.list()) {
+    if (entry instanceof File && entry.name.endsWith('.png') && !entry.name.startsWith('.')) {
+      if (!known.has(entry.name)) {
+        known.set(entry.name, createRecoveredImageMetadata(entry.name));
       }
     }
-  } catch (error) {
-    console.warn('이미지 디렉토리 목록 조회 실패:', error);
   }
 
   const items = Array.from(known.values());

@@ -42,11 +42,15 @@ type HistoryCardProps = {
 export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: HistoryCardProps) {
   const colors = useTheme();
   const imageUri = getStoredImageUri(item.fileName);
+  const accessibilityLabel =
+    item.metadataStatus === 'complete'
+      ? `생성된 이미지: ${item.prompt}`
+      : '생성 정보가 없는 저장 이미지';
 
   return (
     <Pressable
       accessibilityHint="생성 상세정보 모달을 엽니다"
-      accessibilityLabel={`생성된 이미지: ${item.prompt}`}
+      accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
@@ -106,9 +110,10 @@ export function HistoryDetailModal({
   onToggleFavorite,
 }: HistoryDetailModalProps) {
   const colors = useTheme();
-  const [copied, setCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<'prompt' | 'negativePrompt' | null>(null);
   const imageUri = getStoredImageUri(item.fileName);
   const fileSize = getImageFileSize(item.fileName);
+  const completeMetadata = item.metadataStatus === 'complete' ? item : null;
 
   const handleShare = async () => {
     try {
@@ -120,7 +125,9 @@ export function HistoryDetailModal({
         });
       } else {
         await Share.share({
-          message: `[Pocket Canvas]\n프롬프트: ${item.prompt}\n모델: ${item.model.name}\n스텝: ${item.steps}`,
+          message: completeMetadata
+            ? `[Pocket Canvas]\n프롬프트: ${completeMetadata.prompt}\n모델: ${completeMetadata.model.name}\n스텝: ${completeMetadata.steps}`
+            : '[Pocket Canvas] 생성 정보가 없는 저장 이미지',
           url: imageUri,
         });
       }
@@ -130,7 +137,20 @@ export function HistoryDetailModal({
   };
 
   const loraSummary =
-    item.loras.length > 0 ? item.loras.map((l) => `${l.name} (${l.weight})`).join(', ') : '없음';
+    completeMetadata && completeMetadata.loras.length > 0
+      ? completeMetadata.loras.map((lora) => `${lora.name} (${lora.weight})`).join(', ')
+      : '없음';
+  const decoderSummary =
+    completeMetadata?.decoder.type === 'taesd' ? completeMetadata.decoder.model.name : '기본 VAE';
+  const hiresSummary =
+    !completeMetadata || completeMetadata.upscaler.type === 'none'
+      ? '사용 안 함'
+      : `${completeMetadata.upscaler.type} · ${completeMetadata.upscaler.scale}× · ${completeMetadata.upscaler.steps} steps · denoise ${completeMetadata.upscaler.denoisingStrength}`;
+
+  const showCopiedFeedback = (field: 'prompt' | 'negativePrompt') => {
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
@@ -229,41 +249,98 @@ export function HistoryDetailModal({
                 </Pressable>
               </View>
 
-              <View style={styles.section}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>프롬프트</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
+              {completeMetadata ? (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>프롬프트</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => showCopiedFeedback('prompt')}
+                    >
+                      <Text style={[styles.copyHint, { color: colors.muted }]}>
+                        {copiedField === 'prompt' ? '복사됨!' : '길게 눌러 복사'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View
+                    style={[
+                      styles.promptBox,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
                   >
-                    <Text style={[styles.copyHint, { color: colors.muted }]}>
-                      {copied ? '복사됨!' : '길게 눌러 복사'}
+                    <Text selectable style={[styles.promptText, { color: colors.text }]}>
+                      {completeMetadata.prompt}
                     </Text>
-                  </Pressable>
+                  </View>
                 </View>
-                <View
-                  style={[
-                    styles.promptBox,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                    },
-                  ]}
-                >
-                  <Text selectable style={[styles.promptText, { color: colors.text }]}>
-                    {item.prompt}
-                  </Text>
+              ) : (
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>생성 정보 없음</Text>
+                  <View
+                    style={[
+                      styles.promptBox,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={[styles.promptText, { color: colors.muted }]}>
+                      이미지는 안전하게 보존됐지만 생성 설정을 기록하지 못했습니다.
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              )}
+
+              {completeMetadata && completeMetadata.negativePrompt.length > 0 && (
+                <View style={styles.section}>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                      네거티브 프롬프트
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => showCopiedFeedback('negativePrompt')}
+                    >
+                      <Text style={[styles.copyHint, { color: colors.muted }]}>
+                        {copiedField === 'negativePrompt' ? '복사됨!' : '길게 눌러 복사'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <View
+                    style={[
+                      styles.promptBox,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text selectable style={[styles.promptText, { color: colors.text }]}>
+                      {completeMetadata.negativePrompt}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>생성 정보</Text>
-                <DetailRow label="모델" value={item.model.name} />
-                <DetailRow label="LoRA" value={loraSummary} />
-                <DetailRow label="스텝 수" value={`${item.steps} steps`} />
+                {completeMetadata && (
+                  <>
+                    <DetailRow label="모델" value={completeMetadata.model.name} />
+                    <DetailRow label="디코더" value={decoderSummary} />
+                    <DetailRow label="LoRA" value={loraSummary} />
+                    <DetailRow
+                      label="해상도"
+                      value={`${completeMetadata.width}×${completeMetadata.height}`}
+                    />
+                    <DetailRow label="샘플링" value={completeMetadata.samplingPreset} />
+                    <DetailRow label="스텝 수" value={`${completeMetadata.steps} steps`} />
+                    <DetailRow label="CFG" value={String(completeMetadata.cfgScale)} />
+                    <DetailRow label="Seed" value={String(completeMetadata.seed)} />
+                    <DetailRow label="Hires" value={hiresSummary} />
+                  </>
+                )}
                 <DetailRow label="생성 일시" value={formatDateTime(item.createdAt)} />
                 {fileSize !== null && <DetailRow label="파일 크기" value={formatBytes(fileSize)} />}
                 <View style={[styles.detailRow, { borderTopColor: colors.border }]}>
@@ -444,8 +521,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   detailValue: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600',
+    marginLeft: 16,
+    textAlign: 'right',
   },
   filenameText: {
     flex: 1,

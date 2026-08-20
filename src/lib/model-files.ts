@@ -1,4 +1,4 @@
-import * as DocumentPicker from 'expo-document-picker';
+import { getDocumentAsync } from 'expo-document-picker';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 
 import {
@@ -41,7 +41,7 @@ export async function loadModels(): Promise<StoredModel[]> {
 }
 
 export async function pickAndImportModel(): Promise<StoredModel | null> {
-  const selection = await DocumentPicker.getDocumentAsync({
+  const selection = await getDocumentAsync({
     type: '*/*',
     copyToCacheDirectory: false,
     multiple: false,

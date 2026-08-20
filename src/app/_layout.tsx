@@ -1,12 +1,12 @@
+import { preventAutoHideAsync } from 'expo-splash-screen';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AnimatedSplashOverlay } from '@/components/common/animated-icon';
 import AppTabs from '@/components/common/app-tabs';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-SplashScreen.preventAutoHideAsync();
+preventAutoHideAsync();
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();

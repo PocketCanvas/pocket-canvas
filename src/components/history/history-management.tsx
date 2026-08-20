@@ -5,8 +5,8 @@
 // https://docs.expo.dev/versions/v57.0.0/sdk/sharing/
 // https://docs.expo.dev/versions/v57.0.0/sdk/clipboard/
 
-import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
+import { setStringAsync } from 'expo-clipboard';
+import { isAvailableAsync, shareAsync } from 'expo-sharing';
 import { Heart, Share2, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -122,8 +122,8 @@ export function HistoryDetailModal({
 
   const handleShare = async () => {
     try {
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(imageUri, {
+      if (await isAvailableAsync()) {
+        await shareAsync(imageUri, {
           mimeType: 'image/png',
           dialogTitle: '생성된 이미지 공유',
           UTI: 'public.png',
@@ -198,7 +198,7 @@ export function HistoryDetailModal({
   const handleCopy = async (field: 'prompt' | 'negativePrompt', text: string) => {
     if (!text) return;
     try {
-      const success = await Clipboard.setStringAsync(text);
+      const success = await setStringAsync(text);
       setCopyState({ field, status: success ? 'success' : 'error' });
     } catch (error) {
       console.warn('클립보드 복사 실패:', error);

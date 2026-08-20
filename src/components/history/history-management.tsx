@@ -3,10 +3,12 @@
 // https://reactnative.dev/docs/modal
 // https://reactnative.dev/docs/pressable
 // https://docs.expo.dev/versions/v57.0.0/sdk/sharing/
+// https://docs.expo.dev/versions/v57.0.0/sdk/clipboard/
 
+import * as Clipboard from 'expo-clipboard';
+import * as Sharing from 'expo-sharing';
 import { Heart, Share2, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
-import * as Sharing from 'expo-sharing';
 import {
   Image,
   KeyboardAvoidingView,
@@ -110,7 +112,10 @@ export function HistoryDetailModal({
   onToggleFavorite,
 }: HistoryDetailModalProps) {
   const colors = useTheme();
-  const [copiedField, setCopiedField] = useState<'prompt' | 'negativePrompt' | null>(null);
+  const [copyState, setCopyState] = useState<{
+    field: 'prompt' | 'negativePrompt';
+    status: 'success' | 'error';
+  } | null>(null);
   const imageUri = getStoredImageUri(item.fileName);
   const fileSize = getImageFileSize(item.fileName);
   const completeMetadata = item.metadataStatus === 'complete' ? item : null;
@@ -147,10 +152,65 @@ export function HistoryDetailModal({
       ? '사용 안 함'
       : `${completeMetadata.upscaler.type} · ${completeMetadata.upscaler.scale}× · ${completeMetadata.upscaler.steps} steps · denoise ${completeMetadata.upscaler.denoisingStrength}`;
 
-  const showCopiedFeedback = (field: 'prompt' | 'negativePrompt') => {
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
+  const getCopyStatus = (field: 'prompt' | 'negativePrompt'): 'idle' | 'success' | 'error' => {
+    if (copyState?.field === field) {
+      return copyState.status;
+    }
+    return 'idle';
   };
+
+  const getCopyLabel = (status: 'idle' | 'success' | 'error'): string => {
+    switch (status) {
+      case 'success':
+        return '복사됨';
+      case 'error':
+        return '복사 실패';
+      case 'idle':
+      default:
+        return '복사';
+    }
+  };
+
+  const getCopyColor = (status: 'idle' | 'success' | 'error') => {
+    switch (status) {
+      case 'success':
+        return colors.accentText;
+      case 'error':
+        return colors.error;
+      case 'idle':
+      default:
+        return colors.muted;
+    }
+  };
+
+  const getBoxBorderColor = (status: 'idle' | 'success' | 'error') => {
+    switch (status) {
+      case 'success':
+        return colors.accent;
+      case 'error':
+        return colors.error;
+      case 'idle':
+      default:
+        return colors.border;
+    }
+  };
+
+  const handleCopy = async (field: 'prompt' | 'negativePrompt', text: string) => {
+    if (!text) return;
+    try {
+      const success = await Clipboard.setStringAsync(text);
+      setCopyState({ field, status: success ? 'success' : 'error' });
+    } catch (error) {
+      console.warn('클립보드 복사 실패:', error);
+      setCopyState({ field, status: 'error' });
+    }
+    setTimeout(() => {
+      setCopyState((current) => (current?.field === field ? null : current));
+    }, 2000);
+  };
+
+  const promptCopyStatus = getCopyStatus('prompt');
+  const negativePromptCopyStatus = getCopyStatus('negativePrompt');
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible>
@@ -176,7 +236,7 @@ export function HistoryDetailModal({
                   accessibilityRole="header"
                   style={[styles.sheetTitle, { color: colors.text }]}
                 >
-                  생성 상세 정보
+                  상세 정보
                 </Text>
                 <Pressable accessibilityLabel="닫기" accessibilityRole="button" onPress={onClose}>
                   <X color={colors.muted} size={20} />
@@ -254,27 +314,43 @@ export function HistoryDetailModal({
                   <View style={styles.sectionHeaderRow}>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>프롬프트</Text>
                     <Pressable
+                      accessibilityHint="프롬프트를 클립보드에 복사합니다"
+                      accessibilityLabel={getCopyLabel(promptCopyStatus)}
                       accessibilityRole="button"
-                      onPress={() => showCopiedFeedback('prompt')}
+                      hitSlop={8}
+                      onPress={() => handleCopy('prompt', completeMetadata.prompt)}
                     >
-                      <Text style={[styles.copyHint, { color: colors.muted }]}>
-                        {copiedField === 'prompt' ? '복사됨!' : '길게 눌러 복사'}
+                      <Text
+                        style={[
+                          styles.copyHint,
+                          {
+                            color: getCopyColor(promptCopyStatus),
+                          },
+                        ]}
+                      >
+                        {getCopyLabel(promptCopyStatus)}
                       </Text>
                     </Pressable>
                   </View>
-                  <View
-                    style={[
+                  <Pressable
+                    accessibilityHint="길게 눌러 프롬프트를 복사합니다"
+                    accessibilityLabel={`프롬프트: ${completeMetadata.prompt}`}
+                    accessibilityRole="button"
+                    delayLongPress={400}
+                    onLongPress={() => handleCopy('prompt', completeMetadata.prompt)}
+                    style={({ pressed }) => [
                       styles.promptBox,
                       {
                         backgroundColor: colors.surface,
-                        borderColor: colors.border,
+                        borderColor: getBoxBorderColor(promptCopyStatus),
                       },
+                      pressed && styles.pressed,
                     ]}
                   >
                     <Text selectable style={[styles.promptText, { color: colors.text }]}>
                       {completeMetadata.prompt}
                     </Text>
-                  </View>
+                  </Pressable>
                 </View>
               ) : (
                 <View style={styles.section}>
@@ -299,27 +375,45 @@ export function HistoryDetailModal({
                       네거티브 프롬프트
                     </Text>
                     <Pressable
+                      accessibilityHint="네거티브 프롬프트를 클립보드에 복사합니다"
+                      accessibilityLabel={getCopyLabel(negativePromptCopyStatus)}
                       accessibilityRole="button"
-                      onPress={() => showCopiedFeedback('negativePrompt')}
+                      hitSlop={8}
+                      onPress={() => handleCopy('negativePrompt', completeMetadata.negativePrompt)}
                     >
-                      <Text style={[styles.copyHint, { color: colors.muted }]}>
-                        {copiedField === 'negativePrompt' ? '복사됨!' : '길게 눌러 복사'}
+                      <Text
+                        style={[
+                          styles.copyHint,
+                          {
+                            color: getCopyColor(negativePromptCopyStatus),
+                          },
+                        ]}
+                      >
+                        {getCopyLabel(negativePromptCopyStatus)}
                       </Text>
                     </Pressable>
                   </View>
-                  <View
-                    style={[
+                  <Pressable
+                    accessibilityHint="길게 눌러 네거티브 프롬프트를 복사합니다"
+                    accessibilityLabel={`네거티브 프롬프트: ${completeMetadata.negativePrompt}`}
+                    accessibilityRole="button"
+                    delayLongPress={400}
+                    onLongPress={() =>
+                      handleCopy('negativePrompt', completeMetadata.negativePrompt)
+                    }
+                    style={({ pressed }) => [
                       styles.promptBox,
                       {
                         backgroundColor: colors.surface,
-                        borderColor: colors.border,
+                        borderColor: getBoxBorderColor(negativePromptCopyStatus),
                       },
+                      pressed && styles.pressed,
                     ]}
                   >
                     <Text selectable style={[styles.promptText, { color: colors.text }]}>
                       {completeMetadata.negativePrompt}
                     </Text>
-                  </View>
+                  </Pressable>
                 </View>
               )}
 

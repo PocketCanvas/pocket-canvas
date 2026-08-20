@@ -40,6 +40,8 @@
 | ADR-007 | 생성 계약과 결과 저장 | 커스텀 모델·LoRA·steps + 단계별 진행 이벤트 + 영구 PNG |
 | ADR-008 | 히스토리 화면과 이미지 관리 | 3열 그리드, 2탭 필터, expo-sharing 이미지 공유, 모달 스크롤 분리, 고아 파일 자동 복구 |
 | ADR-009 | 생성 병목 계측과 TAESD PoC | Vulkan 정상 확인, VAE decode 병목, TAESD는 빠르지만 최종 품질 부족 |
+| ADR-010 | 생성 옵션과 내장 Hires 업스케일 | sampler+scheduler preset, 해상도·CFG·seed, 내장 hires 1.5×~4.0× |
+| ADR-011 | 생성 요청 로그 정책 | 요청당 약 10줄: Vulkan·설정·단계별 wall time, upstream은 warning/error만 전달 |
 
 ## Known landmines
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조
@@ -47,4 +49,5 @@
 - `stable-diffusion.cpp` 및 Expo/RN upstream warning을 해결하기 위해 submodule이나 `node_modules`를 수정하지 않는다
 - Android 빌드는 `arm64-v8a`만 지원
 - TAESD 실행 코드는 upstream에 있지만 가중치는 번들되지 않는다. 별도 SD 1.x TAESD 파일과 `taesdUri`가 필요하며, 기본 최종 decoder로 채택하지 않는다. → ADR-009
-- `[perf] cpu_ratio`는 모든 스레드의 CPU 시간을 합산하므로 멀티코어 구간에서 100%를 넘을 수 있다. GPU 사용률로 해석하지 않는다. → ADR-009
+- 생성 로그는 `[request]`, `[settings]`, `[vulkan]`, `[stage]` 태그를 사용한다. 과거 ADR-009의 CPU/RSS 상세 계측 로그는 제거되었으며 필요할 때만 별도 계측 빌드로 복원한다. → ADR-011
+- 23개 sampling preset과 8개 내장 Hires 방식은 네이티브 빌드까지 검증됐지만, 전체 조합의 실기기 생성 성공·품질·메모리는 아직 검증되지 않았다. → ADR-010

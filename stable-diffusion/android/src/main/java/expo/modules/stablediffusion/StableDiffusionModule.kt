@@ -4,7 +4,25 @@ import android.net.Uri
 import androidx.annotation.Keep
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
+import expo.modules.kotlin.types.OptimizedRecord
 import java.io.File
+
+@OptimizedRecord
+internal data class GenerationOptions(
+  @Field val negativePrompt: String,
+  @Field val width: Int,
+  @Field val height: Int,
+  @Field val samplingPreset: String,
+  @Field val steps: Int,
+  @Field val cfgScale: Double,
+  @Field val seed: Long,
+  @Field val upscalerType: String,
+  @Field val upscaleFactor: Double,
+  @Field val hiresSteps: Int,
+  @Field val hiresDenoisingStrength: Double
+) : Record
 
 class StableDiffusionModule : Module() {
 
@@ -17,11 +35,21 @@ class StableDiffusionModule : Module() {
   private external fun getSystemInfo(): String
   private external fun generateImage(
     prompt: String,
+    negativePrompt: String,
     modelPath: String,
     taesdPath: String,
     loraPaths: Array<String>,
     loraWeights: DoubleArray,
+    width: Int,
+    height: Int,
+    samplingPreset: String,
     steps: Int,
+    cfgScale: Double,
+    seed: Long,
+    upscalerType: String,
+    upscaleFactor: Double,
+    hiresSteps: Int,
+    hiresDenoisingStrength: Double,
     outputPath: String
   ): String
 
@@ -44,11 +72,23 @@ class StableDiffusionModule : Module() {
         taesdUri: String,
         loraUris: List<String>,
         loraWeights: List<Double>,
-        steps: Int,
+        options: GenerationOptions,
         outputUri: String ->
       val context = appContext.reactContext ?: throw Exception("React context not found")
       require(prompt.isNotBlank()) { "Prompt must not be blank" }
-      require(steps in 1..100) { "Steps must be between 1 and 100" }
+      require(options.steps in 1..100) { "Steps must be between 1 and 100" }
+      require(options.width in 64..2048 && options.height in 64..2048) { "Image size must be between 64 and 2048" }
+      require(options.samplingPreset.isNotBlank()) { "Sampling preset must not be blank" }
+      require(options.cfgScale.isFinite() && options.cfgScale in 0.0..30.0) { "CFG scale must be between 0 and 30" }
+      require(options.seed >= -1) { "Seed must be -1 or greater" }
+      require(options.upscalerType.isNotBlank()) { "Upscaler type must not be blank" }
+      require(options.upscaleFactor.isFinite() && options.upscaleFactor in 1.5..4.0 && options.upscaleFactor * 2 % 1 == 0.0) {
+        "Upscale factor must be between 1.5 and 4.0 in 0.5 increments"
+      }
+      require(options.hiresSteps in 0..100) { "Hires steps must be between 0 and 100" }
+      require(options.hiresDenoisingStrength.isFinite() && options.hiresDenoisingStrength in 0.0001..1.0) {
+        "Hires denoising strength must be between 0.0001 and 1"
+      }
       require(loraUris.size == loraWeights.size) { "LoRA paths and weights must match" }
       require(loraWeights.all { it.isFinite() && it in 0.0..2.0 }) {
         "LoRA weights must be between 0 and 2"
@@ -70,13 +110,24 @@ class StableDiffusionModule : Module() {
 
       return@AsyncFunction generateImage(
         prompt.trim(),
+        options.negativePrompt.trim(),
         modelPath,
         taesdPath,
         loraPaths,
         loraWeights.toDoubleArray(),
-        steps,
+        options.width,
+        options.height,
+        options.samplingPreset,
+        options.steps,
+        options.cfgScale,
+        options.seed,
+        options.upscalerType,
+        options.upscaleFactor,
+        options.hiresSteps,
+        options.hiresDenoisingStrength,
         outputFile.absolutePath
       )
     }
   }
+
 }

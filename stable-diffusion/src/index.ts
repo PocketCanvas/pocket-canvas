@@ -14,7 +14,19 @@ export async function generateImage(options: GenerateImageOptions): Promise<stri
     options.taesdUri ?? '',
     options.loras.map(({ uri }) => uri),
     options.loras.map(({ weight }) => weight),
-    options.steps,
+    {
+      negativePrompt: options.negativePrompt,
+      width: options.width,
+      height: options.height,
+      samplingPreset: options.samplingPreset,
+      steps: options.steps,
+      cfgScale: options.cfgScale,
+      seed: options.seed,
+      upscalerType: options.upscaler.type,
+      upscaleFactor: options.upscaler.scale,
+      hiresSteps: options.upscaler.steps,
+      hiresDenoisingStrength: options.upscaler.denoisingStrength,
+    },
     options.outputUri,
   );
   if (result.startsWith('Error')) throw new Error(result.slice(7));

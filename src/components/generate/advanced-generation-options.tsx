@@ -16,6 +16,7 @@ import { CompactSlider } from '@/components/common/compact-slider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 import { StoredModel } from '@/lib/model-files';
+import type { BuiltInUpscalerType, SamplingPreset } from 'stable-diffusion';
 
 export type ImageSizeOption = {
   label: string;
@@ -36,14 +37,42 @@ export const IMAGE_SIZE_OPTIONS: ImageSizeOption[] = [
   },
 ];
 
-export const SAMPLER_OPTIONS: string[] = [
-  'Euler a',
-  'Euler',
-  'DPM++ 2M',
-  'DPM++ 2M Karras',
-  'DPM++ SDE Karras',
-  'LCM',
-  'DDIM',
+export const SAMPLER_OPTIONS: readonly [SamplingPreset, string][] = [
+  ['euler', 'Euler'],
+  ['euler_a', 'Euler a'],
+  ['heun', 'Heun'],
+  ['dpm2', 'DPM2'],
+  ['dpmpp_2s_a', 'DPM++ 2S a'],
+  ['dpmpp_2m', 'DPM++ 2M'],
+  ['dpmpp_2m_karras', 'DPM++ 2M Karras'],
+  ['dpmpp_2m_v2', 'DPM++ 2M v2'],
+  ['ipndm', 'IPNDM'],
+  ['ipndm_v', 'IPNDM V'],
+  ['lcm', 'LCM'],
+  ['ddim', 'DDIM'],
+  ['tcd', 'TCD'],
+  ['res_multistep', 'RES Multistep'],
+  ['res_2s', 'RES 2S'],
+  ['er_sde', 'ER-SDE'],
+  ['euler_cfg_pp', 'Euler CFG++'],
+  ['euler_a_cfg_pp', 'Euler a CFG++'],
+  ['euler_ge', 'Euler GE'],
+  ['dpmpp_2m_sde', 'DPM++ 2M SDE'],
+  ['dpmpp_2m_sde_karras', 'DPM++ 2M SDE Karras'],
+  ['dpmpp_2m_sde_bt', 'DPM++ 2M SDE BT'],
+  ['lms', 'LMS'],
+];
+
+const UPSCALER_OPTIONS: readonly [BuiltInUpscalerType, string][] = [
+  ['none', '사용 안 함'],
+  ['latent', 'Latent'],
+  ['latent_nearest', 'Latent Nearest'],
+  ['latent_nearest_exact', 'Latent Nearest Exact'],
+  ['latent_antialiased', 'Latent Antialiased'],
+  ['latent_bicubic', 'Latent Bicubic'],
+  ['latent_bicubic_antialiased', 'Latent Bicubic Antialiased'],
+  ['lanczos', 'Lanczos'],
+  ['nearest', 'Nearest'],
 ];
 
 type AdvancedGenerationOptionsProps = {
@@ -51,10 +80,16 @@ type AdvancedGenerationOptionsProps = {
   onOpenTaesdPicker: () => void;
   imageSize: ImageSizeOption;
   onSelectImageSize: (size: ImageSizeOption) => void;
-  upscaler: StoredModel | null;
-  onOpenUpscalerPicker: () => void;
-  sampler: string;
-  onSelectSampler: (sampler: string) => void;
+  upscalerType: BuiltInUpscalerType;
+  onSelectUpscaler: (type: BuiltInUpscalerType) => void;
+  upscaleFactor: number;
+  onChangeUpscaleFactor: (value: number) => void;
+  hiresSteps: number;
+  onChangeHiresSteps: (value: number) => void;
+  hiresDenoisingStrength: number;
+  onChangeHiresDenoisingStrength: (value: number) => void;
+  sampler: SamplingPreset;
+  onSelectSampler: (sampler: SamplingPreset) => void;
   cfgScale: number;
   onChangeCfgScale: (value: number) => void;
   seed: number;
@@ -68,8 +103,14 @@ export function AdvancedGenerationOptions({
   onOpenTaesdPicker,
   imageSize,
   onSelectImageSize,
-  upscaler,
-  onOpenUpscalerPicker,
+  upscalerType,
+  onSelectUpscaler,
+  upscaleFactor,
+  onChangeUpscaleFactor,
+  hiresSteps,
+  onChangeHiresSteps,
+  hiresDenoisingStrength,
+  onChangeHiresDenoisingStrength,
   sampler,
   onSelectSampler,
   cfgScale,
@@ -84,6 +125,9 @@ export function AdvancedGenerationOptions({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSizeModal, setShowSizeModal] = useState(false);
   const [showSamplerModal, setShowSamplerModal] = useState(false);
+  const [showUpscalerModal, setShowUpscalerModal] = useState(false);
+  const samplerLabel = SAMPLER_OPTIONS.find(([value]) => value === sampler)?.[1] ?? sampler;
+  const upscalerLabel = UPSCALER_OPTIONS.find(([value]) => value === upscalerType)?.[1];
 
   const handleRandomizeSeed = () => {
     const randomSeed = Math.floor(Math.random() * 2147483647);
@@ -180,11 +224,11 @@ export function AdvancedGenerationOptions({
             )}
           </View>
 
-          {/* 3. 업스케일러 (Upscaler) */}
+          {/* 3. 내장 Hires 업스케일러 */}
           <Pressable
-            accessibilityHint="업스케일러 모델 목록을 엽니다"
+            accessibilityHint="내장 업스케일 방식을 선택합니다"
             accessibilityRole="button"
-            onPress={onOpenUpscalerPicker}
+            onPress={() => setShowUpscalerModal(true)}
             style={({ pressed }) => [
               styles.row,
               styles.borderBottom,
@@ -192,14 +236,92 @@ export function AdvancedGenerationOptions({
               pressed && styles.pressed,
             ]}
           >
-            <Text style={[styles.rowLabel, { color: colors.text }]}>업스케일러 (Upscaler)</Text>
+            <Text style={[styles.rowLabel, { color: colors.text }]}>Hires 업스케일러</Text>
             <View style={styles.rowValueGroup}>
               <Text numberOfLines={1} style={[styles.rowValue, { color: colors.muted }]}>
-                {upscaler?.alias ?? '사용 안 함'}
+                {upscalerLabel}
               </Text>
               <ChevronRight color={colors.muted} size={18} />
             </View>
           </Pressable>
+
+          {upscalerType !== 'none' && (
+            <>
+              <View
+                style={[
+                  styles.sliderSection,
+                  styles.borderBottom,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <View style={styles.sliderHeader}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>업스케일 배율</Text>
+                  <Text style={[styles.scaleValue, { color: colors.text }]}>
+                    {upscaleFactor.toFixed(1)}×
+                  </Text>
+                </View>
+                <Host colorScheme={colorScheme} seedColor={colors.accent} style={styles.sliderHost}>
+                  <CompactSlider
+                    max={4}
+                    min={1.5}
+                    onValueChange={(value) => onChangeUpscaleFactor(Math.round(value * 2) / 2)}
+                    steps={4}
+                    value={upscaleFactor}
+                  />
+                </Host>
+                <View style={styles.sliderRange}>
+                  <Text style={[styles.rangeText, { color: colors.muted }]}>1.5×</Text>
+                  <Text style={[styles.rangeText, { color: colors.muted }]}>4.0×</Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.sliderSection,
+                  styles.borderBottom,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <View style={styles.sliderHeader}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>Hires Steps</Text>
+                  <Text style={[styles.scaleValue, { color: colors.text }]}>{hiresSteps}</Text>
+                </View>
+                <Host colorScheme={colorScheme} seedColor={colors.accent} style={styles.sliderHost}>
+                  <CompactSlider
+                    max={50}
+                    min={1}
+                    onValueChange={(value) => onChangeHiresSteps(Math.round(value))}
+                    steps={48}
+                    value={hiresSteps}
+                  />
+                </Host>
+              </View>
+              <View
+                style={[
+                  styles.sliderSection,
+                  styles.borderBottom,
+                  { borderBottomColor: colors.border },
+                ]}
+              >
+                <View style={styles.sliderHeader}>
+                  <Text style={[styles.rowLabel, { color: colors.text }]}>Denoising Strength</Text>
+                  <Text style={[styles.scaleValue, { color: colors.text }]}>
+                    {hiresDenoisingStrength.toFixed(1)}
+                  </Text>
+                </View>
+                <Host colorScheme={colorScheme} seedColor={colors.accent} style={styles.sliderHost}>
+                  <CompactSlider
+                    max={1}
+                    min={0.1}
+                    onValueChange={(value) =>
+                      onChangeHiresDenoisingStrength(Math.round(value * 10) / 10)
+                    }
+                    steps={8}
+                    value={hiresDenoisingStrength}
+                  />
+                </Host>
+              </View>
+            </>
+          )}
 
           {/* 4. 샘플링 방법 */}
           <Pressable
@@ -215,7 +337,7 @@ export function AdvancedGenerationOptions({
           >
             <Text style={[styles.rowLabel, { color: colors.text }]}>샘플링 방법</Text>
             <View style={styles.rowValueGroup}>
-              <Text style={[styles.rowValue, { color: colors.muted }]}>{sampler}</Text>
+              <Text style={[styles.rowValue, { color: colors.muted }]}>{samplerLabel}</Text>
               <ChevronRight color={colors.muted} size={18} />
             </View>
           </Pressable>
@@ -402,13 +524,13 @@ export function AdvancedGenerationOptions({
           >
             <Text style={[styles.modalTitle, { color: colors.text }]}>샘플링 방법</Text>
             <ScrollView style={styles.modalList}>
-              {SAMPLER_OPTIONS.map((opt) => {
-                const isSelected = opt === sampler;
+              {SAMPLER_OPTIONS.map(([value, label]) => {
+                const isSelected = value === sampler;
                 return (
                   <Pressable
-                    key={opt}
+                    key={value}
                     onPress={() => {
-                      onSelectSampler(opt);
+                      onSelectSampler(value);
                       setShowSamplerModal(false);
                     }}
                     style={[
@@ -423,7 +545,58 @@ export function AdvancedGenerationOptions({
                         isSelected && { fontWeight: '700' },
                       ]}
                     >
-                      {opt}
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setShowUpscalerModal(false)}
+        transparent
+        visible={showUpscalerModal}
+      >
+        <View style={[styles.modalBackdrop, { backgroundColor: colors.backdrop }]}>
+          <Pressable
+            accessibilityLabel="닫기"
+            onPress={() => setShowUpscalerModal(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={[
+              styles.modalCard,
+              { backgroundColor: colors.surfaceRaised, borderColor: colors.border },
+            ]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>내장 Hires 업스케일러</Text>
+            <ScrollView style={styles.modalList}>
+              {UPSCALER_OPTIONS.map(([value, label]) => {
+                const isSelected = value === upscalerType;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => {
+                      onSelectUpscaler(value);
+                      setShowUpscalerModal(false);
+                    }}
+                    style={[
+                      styles.modalOption,
+                      isSelected && { backgroundColor: colors.accentSoft },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        { color: isSelected ? colors.accentText : colors.textSecondary },
+                        isSelected && { fontWeight: '700' },
+                      ]}
+                    >
+                      {label}
                     </Text>
                   </Pressable>
                 );

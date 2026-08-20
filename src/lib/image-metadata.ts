@@ -2,6 +2,8 @@
 // https://docs.expo.dev/versions/v57.0.0/sdk/filesystem/
 // TypeScript type definitions for image generation metadata & history
 
+import type { BuiltInUpscaler, SamplingPreset } from 'stable-diffusion';
+
 export type ImageResourceMetadata = {
   id: string;
   name: string;
@@ -12,17 +14,33 @@ export type ImageLoraMetadata = ImageResourceMetadata & { weight: number };
 
 export type ImageGenerationMetadataInput = {
   prompt: string;
+  negativePrompt: string;
   model: ImageResourceMetadata;
   loras: ImageLoraMetadata[];
+  width: number;
+  height: number;
+  samplingPreset: SamplingPreset;
   steps: number;
+  cfgScale: number;
+  seed: number;
+  upscaler: BuiltInUpscaler;
 };
 
-export type StoredImageMetadata = ImageGenerationMetadataInput & {
-  id: string;
-  fileName: string;
-  createdAt: string;
-  favorite?: boolean;
-};
+type ExtendedGenerationMetadata = Pick<
+  ImageGenerationMetadataInput,
+  'negativePrompt' | 'width' | 'height' | 'samplingPreset' | 'cfgScale' | 'seed' | 'upscaler'
+>;
+
+export type StoredImageMetadata = Omit<
+  ImageGenerationMetadataInput,
+  keyof ExtendedGenerationMetadata
+> &
+  Partial<ExtendedGenerationMetadata> & {
+    id: string;
+    fileName: string;
+    createdAt: string;
+    favorite?: boolean;
+  };
 
 export function createImageMetadata(
   input: ImageGenerationMetadataInput,
@@ -39,6 +57,7 @@ export function createImageMetadata(
 export function isStoredImageMetadata(value: unknown): value is StoredImageMetadata {
   if (!value || Array.isArray(value) || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
+  const upscaler = item.upscaler as Record<string, unknown> | undefined;
   return (
     typeof item.id === 'string' &&
     typeof item.fileName === 'string' &&
@@ -49,7 +68,12 @@ export function isStoredImageMetadata(value: unknown): value is StoredImageMetad
     item.model !== null &&
     typeof (item.model as Record<string, unknown>).id === 'string' &&
     typeof (item.model as Record<string, unknown>).name === 'string' &&
-    Array.isArray(item.loras)
+    Array.isArray(item.loras) &&
+    (upscaler === undefined ||
+      (typeof upscaler.type === 'string' &&
+        typeof upscaler.scale === 'number' &&
+        typeof upscaler.steps === 'number' &&
+        typeof upscaler.denoisingStrength === 'number'))
   );
 }
 

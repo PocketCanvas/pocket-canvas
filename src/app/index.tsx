@@ -14,12 +14,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
+import {
+  addProgressListener,
+  BuiltInUpscalerType,
+  generateImage,
+  GenerationProgressEvent,
+  SamplingPreset,
+} from 'stable-diffusion';
 import {
   AdvancedGenerationOptions,
   IMAGE_SIZE_OPTIONS,
   type ImageSizeOption,
-  SAMPLER_OPTIONS,
 } from '@/components/generate/advanced-generation-options';
 import { GenerationControls } from '@/components/generate/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
@@ -31,21 +36,24 @@ import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';
 export default function GenerateScreen() {
   const colors = useTheme();
   const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [availableModels, setAvailableModels] = useState<StoredModel[]>([]);
   const [model, setModel] = useState<StoredModel | null>(null);
   const [showModels, setShowModels] = useState(false);
   const [taesd, setTaesd] = useState<StoredModel | null>(null);
   const [showTaesd, setShowTaesd] = useState(false);
-  const [upscaler, setUpscaler] = useState<StoredModel | null>(null);
-  const [showUpscaler, setShowUpscaler] = useState(false);
   const [loras, setLoras] = useState<LoraSelection[]>([]);
   const [showLoraPicker, setShowLoraPicker] = useState(false);
   const [steps, setSteps] = useState(4);
   const [imageSize, setImageSize] = useState<ImageSizeOption>(IMAGE_SIZE_OPTIONS[2]);
-  const [sampler, setSampler] = useState<string>(SAMPLER_OPTIONS[0]);
-  const [cfgScale, setCfgScale] = useState<number>(7.0);
+  const [sampler, setSampler] = useState<SamplingPreset>('lcm');
+  const [cfgScale, setCfgScale] = useState<number>(1.0);
   const [seed, setSeed] = useState<number>(-1);
   const [isFixedSeed, setIsFixedSeed] = useState<boolean>(false);
+  const [upscalerType, setUpscalerType] = useState<BuiltInUpscalerType>('none');
+  const [upscaleFactor, setUpscaleFactor] = useState(2);
+  const [hiresSteps, setHiresSteps] = useState(4);
+  const [hiresDenoisingStrength, setHiresDenoisingStrength] = useState(0.7);
   const [isGenerating, setIsGenerating] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +66,6 @@ export default function GenerateScreen() {
           setAvailableModels(models);
           setModel((current) => models.find(({ id }) => id === current?.id) ?? null);
           setTaesd((current) => models.find(({ id }) => id === current?.id) ?? null);
-          setUpscaler((current) => models.find(({ id }) => id === current?.id) ?? null);
           setLoras((current) =>
             current.flatMap((lora) => {
               const stored = models.find(({ id }) => id === lora.model.id);
@@ -74,6 +81,7 @@ export default function GenerateScreen() {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !model) return;
+    const generationSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_647) : seed;
     setIsGenerating(true);
     setError(null);
     setProgress({ stage: 'loading' });
@@ -82,6 +90,7 @@ export default function GenerateScreen() {
     try {
       destination = createImageDestination({
         prompt: prompt.trim(),
+        negativePrompt: negativePrompt.trim(),
         model: { id: model.id, name: model.alias, storedFileName: model.storedFileName },
         loras: loras.map(({ model: lora, weight }) => ({
           id: lora.id,
@@ -89,18 +98,41 @@ export default function GenerateScreen() {
           storedFileName: lora.storedFileName,
           weight,
         })),
+        width: imageSize.width,
+        height: imageSize.height,
+        samplingPreset: sampler,
         steps,
+        cfgScale,
+        seed: generationSeed,
+        upscaler: {
+          type: upscalerType,
+          scale: upscaleFactor,
+          steps: hiresSteps,
+          denoisingStrength: hiresDenoisingStrength,
+        },
       });
       progressSubscription = addProgressListener(setProgress);
       const uri = await generateImage({
         prompt: prompt.trim(),
+        negativePrompt: negativePrompt.trim(),
         modelUri: getStoredModelUri(model),
         taesdUri: taesd ? getStoredModelUri(taesd) : undefined,
         loras: loras.map(({ model: lora, weight }) => ({
           uri: getStoredModelUri(lora),
           weight,
         })),
+        width: imageSize.width,
+        height: imageSize.height,
+        samplingPreset: sampler,
         steps,
+        cfgScale,
+        seed: generationSeed,
+        upscaler: {
+          type: upscalerType,
+          scale: upscaleFactor,
+          steps: hiresSteps,
+          denoisingStrength: hiresDenoisingStrength,
+        },
         outputUri: destination.file.uri,
       });
       setImageUri(uri);
@@ -193,6 +225,29 @@ export default function GenerateScreen() {
           </View>
 
           <View style={styles.section}>
+            <View style={styles.labelRow}>
+              <RNText style={[styles.label, { color: colors.text }]}>네거티브 프롬프트</RNText>
+              <RNText style={[styles.counter, { color: colors.muted }]}>
+                {negativePrompt.length}/500
+              </RNText>
+            </View>
+            <TextInput
+              accessibilityLabel="네거티브 프롬프트"
+              maxLength={500}
+              multiline
+              onChangeText={setNegativePrompt}
+              placeholder="예: blurry, low quality"
+              placeholderTextColor={colors.placeholder}
+              style={[
+                styles.promptInput,
+                { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text },
+              ]}
+              textAlignVertical="top"
+              value={negativePrompt}
+            />
+          </View>
+
+          <View style={styles.section}>
             <RNText style={[styles.label, { color: colors.text }]}>모델</RNText>
             <Pressable
               accessibilityHint="사용할 모델 목록을엽니다"
@@ -247,17 +302,23 @@ export default function GenerateScreen() {
             cfgScale={cfgScale}
             imageSize={imageSize}
             isFixedSeed={isFixedSeed}
+            hiresDenoisingStrength={hiresDenoisingStrength}
+            hiresSteps={hiresSteps}
             onChangeCfgScale={setCfgScale}
+            onChangeHiresDenoisingStrength={setHiresDenoisingStrength}
+            onChangeHiresSteps={setHiresSteps}
             onChangeSeed={setSeed}
+            onChangeUpscaleFactor={setUpscaleFactor}
             onOpenTaesdPicker={() => setShowTaesd(true)}
-            onOpenUpscalerPicker={() => setShowUpscaler(true)}
             onSelectImageSize={setImageSize}
             onSelectSampler={setSampler}
+            onSelectUpscaler={setUpscalerType}
             onToggleFixedSeed={setIsFixedSeed}
             sampler={sampler}
             seed={seed}
             taesd={taesd}
-            upscaler={upscaler}
+            upscaleFactor={upscaleFactor}
+            upscalerType={upscalerType}
           />
 
           {error && (
@@ -304,18 +365,6 @@ export default function GenerateScreen() {
         selected={taesd}
         title="디코더 선택"
         visible={showTaesd}
-      />
-      <ModelPicker
-        defaultOptionLabel="사용 안 함"
-        models={availableModels}
-        onClose={() => setShowUpscaler(false)}
-        onSelect={(selected) => {
-          setUpscaler(selected);
-          setShowUpscaler(false);
-        }}
-        selected={upscaler}
-        title="업스케일러 선택"
-        visible={showUpscaler}
       />
     </SafeAreaView>
   );

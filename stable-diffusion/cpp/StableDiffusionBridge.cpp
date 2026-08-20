@@ -1,11 +1,9 @@
 #include <jni.h>
-#include <cstdio>
 #include <cstring>
-#include <fstream>
 #include <string>
 #include <vector>
 #include <chrono>
-#include <ctime>
+#include <algorithm>
 #include <android/log.h>
 #include "stable-diffusion.cpp/include/stable-diffusion.h"
 
@@ -16,49 +14,20 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-struct PerfSnapshot {
-    std::chrono::steady_clock::time_point wall;
-    long long cpu_ms;
-    long rss_kb;
-};
+using Clock = std::chrono::steady_clock;
 
-static PerfSnapshot perf_snapshot() {
-    timespec cpu{};
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu);
-
-    long rss_kb = -1;
-    std::ifstream status("/proc/self/status");
-    std::string line;
-    while (std::getline(status, line)) {
-        if (std::sscanf(line.c_str(), "VmRSS: %ld kB", &rss_kb) == 1) break;
-    }
-    return {
-        std::chrono::steady_clock::now(),
-        static_cast<long long>(cpu.tv_sec) * 1000 + cpu.tv_nsec / 1000000,
-        rss_kb,
-    };
-}
-
-static void log_perf_span(const char* span, const PerfSnapshot& start) {
-    const auto end = perf_snapshot();
-    const auto wall_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end.wall - start.wall).count();
-    const auto cpu_ms = end.cpu_ms - start.cpu_ms;
-    const double cpu_ratio = wall_ms > 0 ? 100.0 * cpu_ms / wall_ms : 0.0;
-    LOGI("[perf] span=%s wall_ms=%lld cpu_ms=%lld cpu_ratio=%.1f rss_kb=%ld rss_delta_kb=%ld",
-         span, static_cast<long long>(wall_ms), cpu_ms, cpu_ratio,
-         end.rss_kb, start.rss_kb >= 0 && end.rss_kb >= 0 ? end.rss_kb - start.rss_kb : -1);
+static double elapsed_seconds(const Clock::time_point& start) {
+    return std::chrono::duration<double>(Clock::now() - start).count();
 }
 
 struct ProgressLogContext {
-    std::chrono::steady_clock::time_point started_at;
     JNIEnv* env;
     jobject module;
     jmethodID emit_progress;
     int steps;
     enum class Stage { Loading, Encoding, Sampling, Decoding } stage = Stage::Loading;
     bool decoding_emitted = false;
-    PerfSnapshot stage_started;
-    PerfSnapshot step_started;
+    Clock::time_point stage_started;
 };
 
 static void emit_progress(ProgressLogContext* context, const char* stage, int step = 0, int steps = 0) {
@@ -75,48 +44,30 @@ static void android_sd_log_callback(sd_log_level_t level, const char* text, void
     const int priority = level == SD_LOG_ERROR ? ANDROID_LOG_ERROR
                        : level == SD_LOG_WARN  ? ANDROID_LOG_WARN
                                                : ANDROID_LOG_INFO;
-    const bool summary = std::strstr(text, "Initializing backend") != nullptr ||
-                         std::strstr(text, "total params memory size") != nullptr ||
-                         std::strstr(text, "compute buffer size") != nullptr ||
-                         std::strstr(text, "loading tae from") != nullptr ||
-                         std::strstr(text, "using TAE for") != nullptr ||
-                         std::strstr(text, "using VAE for") != nullptr ||
-                         std::strstr(text, "apply_loras completed") != nullptr ||
-                         std::strstr(text, "sampling completed") != nullptr ||
-                         std::strstr(text, "decode_first_stage completed") != nullptr ||
-                         std::strstr(text, "generate_image completed") != nullptr;
-    if (level >= SD_LOG_WARN || summary) {
+    if (level >= SD_LOG_WARN) {
         __android_log_print(priority, LOG_TAG, "[stable-diffusion.cpp] %s", text);
     }
     auto* context = static_cast<ProgressLogContext*>(data);
     if (context->stage == ProgressLogContext::Stage::Encoding &&
         std::strstr(text, "get_learned_condition completed") != nullptr) {
-        log_perf_span("encoding", context->stage_started);
+        LOGI("[stage] encoding %.2fs", elapsed_seconds(context->stage_started));
         context->stage = ProgressLogContext::Stage::Sampling;
-        context->stage_started = perf_snapshot();
-        context->step_started = context->stage_started;
+        context->stage_started = Clock::now();
         emit_progress(context, "sampling", 0, context->steps);
     } else if (!context->decoding_emitted && std::strstr(text, "decoding ") != nullptr) {
-        log_perf_span("sampling", context->stage_started);
+        LOGI("[stage] sampling %.2fs", elapsed_seconds(context->stage_started));
         context->stage = ProgressLogContext::Stage::Decoding;
         context->decoding_emitted = true;
-        context->stage_started = perf_snapshot();
+        context->stage_started = Clock::now();
         emit_progress(context, "decoding");
     }
 }
 
-static void android_progress_callback(int step, int steps, float step_seconds, void* data) {
+static void android_progress_callback(int step, int steps, float, void* data) {
     auto* context = static_cast<ProgressLogContext*>(data);
     if (context->stage == ProgressLogContext::Stage::Loading) {
         emit_progress(context, "loading", step, steps);
     } else if (context->stage == ProgressLogContext::Stage::Sampling && steps == context->steps) {
-        const auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - context->started_at
-        ).count();
-        LOGI("[progress] step %d/%d completed in %.2fs (total=%lld ms)",
-             step, steps, step_seconds, static_cast<long long>(total_ms));
-        log_perf_span("sampling_step", context->step_started);
-        context->step_started = perf_snapshot();
         emit_progress(context, "sampling", step, steps);
     }
 }
@@ -125,7 +76,45 @@ static void log_available_devices() {
     const size_t required_size = sd_list_devices(nullptr, 0);
     std::vector<char> devices(required_size + 1, '\0');
     sd_list_devices(devices.data(), devices.size());
-    LOGI("Available backend devices:\n%s", devices.data());
+    std::replace(devices.begin(), devices.end(), '\n', ' ');
+    LOGI("[vulkan] devices=%s", devices.data());
+}
+
+static bool resolve_sampling_preset(const char* preset, sample_method_t& method, scheduler_t& scheduler) {
+    const char* method_name = preset;
+    scheduler = DISCRETE_SCHEDULER;
+    if (std::strcmp(preset, "dpmpp_2s_a") == 0) method_name = "dpm++2s_a";
+    else if (std::strcmp(preset, "dpmpp_2m") == 0) method_name = "dpm++2m";
+    else if (std::strcmp(preset, "dpmpp_2m_karras") == 0) {
+        method_name = "dpm++2m";
+        scheduler = KARRAS_SCHEDULER;
+    } else if (std::strcmp(preset, "dpmpp_2m_v2") == 0) method_name = "dpm++2mv2";
+    else if (std::strcmp(preset, "dpmpp_2m_sde") == 0) method_name = "dpm++2m_sde";
+    else if (std::strcmp(preset, "dpmpp_2m_sde_karras") == 0) {
+        method_name = "dpm++2m_sde";
+        scheduler = KARRAS_SCHEDULER;
+    } else if (std::strcmp(preset, "dpmpp_2m_sde_bt") == 0) method_name = "dpm++2m_sde_bt";
+    else if (std::strcmp(preset, "ddim") == 0) {
+        method_name = "ddim_trailing";
+        scheduler = SIMPLE_SCHEDULER;
+    } else if (std::strcmp(preset, "lcm") == 0 || std::strcmp(preset, "tcd") == 0) {
+        scheduler = LCM_SCHEDULER;
+    }
+    method = str_to_sample_method(method_name);
+    return method != SAMPLE_METHOD_COUNT;
+}
+
+static sd_hires_upscaler_t resolve_builtin_upscaler(const char* type) {
+    if (std::strcmp(type, "none") == 0) return SD_HIRES_UPSCALER_NONE;
+    if (std::strcmp(type, "latent") == 0) return SD_HIRES_UPSCALER_LATENT;
+    if (std::strcmp(type, "latent_nearest") == 0) return SD_HIRES_UPSCALER_LATENT_NEAREST;
+    if (std::strcmp(type, "latent_nearest_exact") == 0) return SD_HIRES_UPSCALER_LATENT_NEAREST_EXACT;
+    if (std::strcmp(type, "latent_antialiased") == 0) return SD_HIRES_UPSCALER_LATENT_ANTIALIASED;
+    if (std::strcmp(type, "latent_bicubic") == 0) return SD_HIRES_UPSCALER_LATENT_BICUBIC;
+    if (std::strcmp(type, "latent_bicubic_antialiased") == 0) return SD_HIRES_UPSCALER_LATENT_BICUBIC_ANTIALIASED;
+    if (std::strcmp(type, "lanczos") == 0) return SD_HIRES_UPSCALER_LANCZOS;
+    if (std::strcmp(type, "nearest") == 0) return SD_HIRES_UPSCALER_NEAREST;
+    return SD_HIRES_UPSCALER_COUNT;
 }
 
 extern "C"
@@ -140,16 +129,29 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     JNIEnv *env,
     jobject thiz,
     jstring jPrompt,
+    jstring jNegativePrompt,
     jstring jModelPath,
     jstring jTaesdPath,
     jobjectArray jLoraPaths,
     jdoubleArray jLoraWeights,
+    jint width,
+    jint height,
+    jstring jSamplingPreset,
     jint steps,
+    jdouble cfgScale,
+    jlong seed,
+    jstring jUpscalerType,
+    jdouble upscaleFactor,
+    jint hiresSteps,
+    jdouble hiresDenoisingStrength,
     jstring jOutputPath
 ) {
     const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
+    const char *negative_prompt = env->GetStringUTFChars(jNegativePrompt, nullptr);
     const char *model_path = env->GetStringUTFChars(jModelPath, nullptr);
     const char *taesd_path = env->GetStringUTFChars(jTaesdPath, nullptr);
+    const char *sampling_preset = env->GetStringUTFChars(jSamplingPreset, nullptr);
+    const char *upscaler_type = env->GetStringUTFChars(jUpscalerType, nullptr);
     const char *output_path = env->GetStringUTFChars(jOutputPath, nullptr);
     const jsize lora_count = env->GetArrayLength(jLoraPaths);
     std::vector<std::string> lora_paths;
@@ -163,21 +165,31 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     }
     jdouble* lora_weights = env->GetDoubleArrayElements(jLoraWeights, nullptr);
 
-    // ── Diagnostic: elapsed time tracker ──
-    auto t_start = std::chrono::steady_clock::now();
-    auto elapsed_ms = [&t_start]() -> long long {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - t_start
-        ).count();
-    };
+    sample_method_t sample_method;
+    scheduler_t scheduler;
+    const auto upscaler = resolve_builtin_upscaler(upscaler_type);
+    if (!resolve_sampling_preset(sampling_preset, sample_method, scheduler) ||
+        upscaler == SD_HIRES_UPSCALER_COUNT) {
+        env->ReleaseStringUTFChars(jPrompt, prompt);
+        env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
+        env->ReleaseStringUTFChars(jModelPath, model_path);
+        env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
+        env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
+        env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
+        env->ReleaseStringUTFChars(jOutputPath, output_path);
+        env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
+        return env->NewStringUTF("Error: Unsupported generation option");
+    }
 
-    LOGI("========================================");
-    LOGI("[%lld ms] generateImage() JNI entry", elapsed_ms());
-    LOGI("[%lld ms] Model: %s", elapsed_ms(), model_path);
-    LOGI("[%lld ms] TAESD: %s", elapsed_ms(), taesd_path[0] ? taesd_path : "disabled");
-    LOGI("[%lld ms] LoRAs: %d", elapsed_ms(), static_cast<int>(lora_count));
-    LOGI("[%lld ms] Prompt bytes: %zu", elapsed_ms(), std::strlen(prompt));
-    LOGI("========================================");
+    // ── Diagnostic: elapsed time tracker ──
+    const auto generation_started = Clock::now();
+    LOGI("[request] model=%s taesd=%s loras=%d", model_path,
+         taesd_path[0] ? taesd_path : "disabled", static_cast<int>(lora_count));
+    LOGI("[settings] prompt_bytes=%zu negative_bytes=%zu size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f seed=%lld",
+         std::strlen(prompt), std::strlen(negative_prompt), width, height, sampling_preset,
+         sd_scheduler_name(scheduler), steps, cfgScale, static_cast<long long>(seed));
+    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f output=%s",
+         upscaler_type, upscaleFactor, hiresSteps, hiresDenoisingStrength, output_path);
 
     jclass module_class = env->GetObjectClass(thiz);
     jmethodID emit_progress_method = env->GetMethodID(
@@ -185,10 +197,9 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         "emitProgress",
         "(Ljava/lang/String;II)V"
     );
-    const auto generation_started = perf_snapshot();
     ProgressLogContext progress_context{
-        t_start, env, thiz, emit_progress_method, steps,
-        ProgressLogContext::Stage::Loading, false, generation_started, generation_started
+        env, thiz, emit_progress_method, steps,
+        ProgressLogContext::Stage::Loading, false, generation_started
     };
     sd_set_log_callback(android_sd_log_callback, &progress_context);
     sd_set_progress_callback(android_progress_callback, &progress_context);
@@ -203,27 +214,27 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     ctx_params.backend = "vulkan";
     ctx_params.lora_apply_mode = LORA_APPLY_AT_RUNTIME;
 
-    LOGI("[%lld ms] Calling new_sd_ctx() — model loading starts...", elapsed_ms());
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
-    LOGI("[%lld ms] new_sd_ctx() returned (ptr=%p)", elapsed_ms(), sd_ctx);
-    log_perf_span("loading", progress_context.stage_started);
+    LOGI("[stage] loading %.2fs", elapsed_seconds(progress_context.stage_started));
 
     if (!sd_ctx) {
-        LOGE("[%lld ms] FAILED: sd_ctx is null — model load failed", elapsed_ms());
+        LOGE("[request] failed: model load");
         sd_set_progress_callback(nullptr, nullptr);
         sd_set_log_callback(nullptr, nullptr);
         env->ReleaseStringUTFChars(jPrompt, prompt);
+        env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
         env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
+        env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
+        env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
         env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
         env->DeleteLocalRef(module_class);
-        log_perf_span("generation_total", generation_started);
         return env->NewStringUTF("Error: Failed to create SD context");
     }
 
     progress_context.stage = ProgressLogContext::Stage::Encoding;
-    progress_context.stage_started = perf_snapshot();
+    progress_context.stage_started = Clock::now();
     emit_progress(&progress_context, "encoding");
 
     sd_img_gen_params_t img_params;
@@ -236,61 +247,60 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     img_params.loras = loras.empty() ? nullptr : loras.data();
     img_params.lora_count = static_cast<int>(loras.size());
     img_params.prompt = prompt;
-    img_params.width = 512;
-    img_params.height = 512;
+    img_params.negative_prompt = negative_prompt;
+    img_params.width = width;
+    img_params.height = height;
     img_params.sample_params.sample_steps = steps;
-    img_params.sample_params.sample_method = LCM_SAMPLE_METHOD;
-    img_params.sample_params.scheduler = LCM_SCHEDULER;
-    img_params.sample_params.guidance.txt_cfg = 1.0f;
+    img_params.sample_params.sample_method = sample_method;
+    img_params.sample_params.scheduler = scheduler;
+    img_params.sample_params.guidance.txt_cfg = static_cast<float>(cfgScale);
+    img_params.seed = seed;
+    img_params.hires.enabled = upscaler != SD_HIRES_UPSCALER_NONE;
+    img_params.hires.upscaler = upscaler;
+    img_params.hires.scale = static_cast<float>(upscaleFactor);
+    img_params.hires.steps = hiresSteps;
+    img_params.hires.denoising_strength = static_cast<float>(hiresDenoisingStrength);
 
     sd_image_t* results = nullptr;
     int num_images = 0;
 
-    LOGI("[%lld ms] Calling generate_image() — inference starts (512x512, LCM, %d steps, CFG 1.0)...", elapsed_ms(), steps);
     bool success = generate_image(sd_ctx, &img_params, &results, &num_images);
-    LOGI("[%lld ms] generate_image() returned (success=%d, num_images=%d)", elapsed_ms(), success, num_images);
-    log_perf_span(
-        progress_context.stage == ProgressLogContext::Stage::Decoding ? "decoding" :
-        progress_context.stage == ProgressLogContext::Stage::Sampling ? "sampling" : "encoding",
-        progress_context.stage_started
-    );
+    const char* final_stage = progress_context.stage == ProgressLogContext::Stage::Decoding ? "decoding" :
+                              progress_context.stage == ProgressLogContext::Stage::Sampling ? "sampling" : "encoding";
+    LOGI("[stage] %s %.2fs", final_stage, elapsed_seconds(progress_context.stage_started));
 
     std::string result_path = "";
     if (success && num_images > 0 && results != nullptr) {
-        const auto png_started = perf_snapshot();
-        LOGI("[%lld ms] Saving PNG to %s (w=%d, h=%d, ch=%d)", elapsed_ms(), output_path, results[0].width, results[0].height, results[0].channel);
+        const auto png_started = Clock::now();
         int write_res = stbi_write_png(output_path, results[0].width, results[0].height, results[0].channel, results[0].data, results[0].width * results[0].channel);
-        log_perf_span("png_write", png_started);
+        LOGI("[stage] png_write %.2fs (%dx%dx%d)", elapsed_seconds(png_started),
+             results[0].width, results[0].height, results[0].channel);
         if (write_res == 0) {
-            LOGE("[%lld ms] FAILED: stbi_write_png returned 0", elapsed_ms());
+            LOGE("[request] failed: PNG write");
             result_path = "Error: Failed to write image";
         } else {
-            LOGI("[%lld ms] PNG saved successfully", elapsed_ms());
             result_path = std::string("file://") + output_path;
         }
         free_sd_images(results, num_images);
     } else {
-        LOGE("[%lld ms] FAILED: generate_image returned success=%d, num_images=%d, results=%p", elapsed_ms(), success, num_images, results);
+        LOGE("[request] failed: generation success=%d images=%d", success, num_images);
         result_path = "Error: Image generation failed";
     }
 
-    LOGI("[%lld ms] Freeing sd_ctx...", elapsed_ms());
-    const auto free_started = perf_snapshot();
     free_sd_ctx(sd_ctx);
-    log_perf_span("context_free", free_started);
-    LOGI("[%lld ms] sd_ctx freed", elapsed_ms());
 
     env->ReleaseStringUTFChars(jPrompt, prompt);
+    env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
     env->ReleaseStringUTFChars(jModelPath, model_path);
     env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
+    env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
+    env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
     env->ReleaseStringUTFChars(jOutputPath, output_path);
     env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
     env->DeleteLocalRef(module_class);
 
-    LOGI("========================================");
-    LOGI("[%lld ms] generateImage() TOTAL completed", elapsed_ms());
-    log_perf_span("generation_total", generation_started);
-    LOGI("========================================");
+    LOGI("[request] complete success=%d total=%.2fs", result_path.rfind("file://", 0) == 0,
+         elapsed_seconds(generation_started));
 
     sd_set_progress_callback(nullptr, nullptr);
     sd_set_log_callback(nullptr, nullptr);

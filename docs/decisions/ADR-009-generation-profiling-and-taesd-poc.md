@@ -1,7 +1,7 @@
 # ADR-009: 이미지 생성 병목 계측과 TAESD PoC
 
 ## Status
-Accepted
+Accepted — logging policy superseded by ADR-011
 
 ## Date
 2026-08-19
@@ -73,6 +73,9 @@ trade-off를 판단하기에 충분하지만, 최종 성능 수치는 동일 조
 
 ## Decision
 
+> 2026-08-20: 아래 1~2번의 상세 상시 계측 정책은 ADR-011로 대체됐습니다. 이 문서의
+> 측정값과 TAESD 판단은 당시 실험 기록으로 유지합니다.
+
 1. `StableDiffusionBridge.cpp`의 `[perf]` 로그로 전체 및 단계별 wall time, CPU time,
    CPU/Wall 비율, RSS와 RSS 변화를 유지합니다.
 2. GPU 사용률을 logcat 값으로 추정하지 않습니다. backend/device, VRAM 배치,
@@ -115,11 +118,9 @@ trade-off를 판단하기에 충분하지만, 최종 성능 수치는 동일 조
 
 ## Consequences
 
-- 성능 회귀는 전체 시간만이 아니라 단계별 `[perf]` 로그로 비교할 수 있습니다.
-- `sampling_step`은 sampling 총 steps와 일치하는 callback만 계측하며 tensor loading
-  callback을 step timing으로 오인하지 않습니다.
+- 당시 상세 계측으로 단계별 CPU/RSS와 `sampling_step`을 비교할 수 있었습니다. 현재 일반
+  빌드는 ADR-011에 따라 단계별 wall time만 남깁니다.
 - TAESD 사용자는 별도 가중치를 가져와야 하며, 코드가 내장되어 있다는 이유만으로 가중치가
   앱에 번들됐다고 가정하면 안 됩니다.
 - 기본 VAE 품질을 유지하는 한 약 50초 decode가 현재 가장 큰 단일 병목입니다.
 - TAESD의 작은 메모리와 속도는 preview에 적합하지만 최종 품질 요구와는 맞지 않습니다.
-

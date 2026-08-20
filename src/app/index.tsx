@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { Box, ChevronRight, Plus, Sparkles } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -30,6 +30,7 @@ import { GenerationControls } from '@/components/generate/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
 import { LoraSelection, LoraSortableList } from '@/components/generate/lora-sortable-list';
 import { useTheme } from '@/hooks/use-theme';
+import { generationProgressDetail } from '@/lib/generation-progress';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
 import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';
 
@@ -225,29 +226,6 @@ export default function GenerateScreen() {
           </View>
 
           <View style={styles.section}>
-            <View style={styles.labelRow}>
-              <RNText style={[styles.label, { color: colors.text }]}>네거티브 프롬프트</RNText>
-              <RNText style={[styles.counter, { color: colors.muted }]}>
-                {negativePrompt.length}/500
-              </RNText>
-            </View>
-            <TextInput
-              accessibilityLabel="네거티브 프롬프트"
-              maxLength={500}
-              multiline
-              onChangeText={setNegativePrompt}
-              placeholder="예: blurry, low quality"
-              placeholderTextColor={colors.placeholder}
-              style={[
-                styles.promptInput,
-                { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text },
-              ]}
-              textAlignVertical="top"
-              value={negativePrompt}
-            />
-          </View>
-
-          <View style={styles.section}>
             <RNText style={[styles.label, { color: colors.text }]}>모델</RNText>
             <Pressable
               accessibilityHint="사용할 모델 목록을엽니다"
@@ -304,9 +282,11 @@ export default function GenerateScreen() {
             isFixedSeed={isFixedSeed}
             hiresDenoisingStrength={hiresDenoisingStrength}
             hiresSteps={hiresSteps}
+            negativePrompt={negativePrompt}
             onChangeCfgScale={setCfgScale}
             onChangeHiresDenoisingStrength={setHiresDenoisingStrength}
             onChangeHiresSteps={setHiresSteps}
+            onChangeNegativePrompt={setNegativePrompt}
             onChangeSeed={setSeed}
             onChangeUpscaleFactor={setUpscaleFactor}
             onOpenTaesdPicker={() => setShowTaesd(true)}
@@ -453,22 +433,33 @@ const GENERATION_STAGES: { stage: GenerationProgressEvent['stage']; label: strin
 
 function GenerationProgress({ progress }: { progress: GenerationProgressEvent | null }) {
   const colors = useTheme();
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const startedAt = performance.now();
+    const timer = setInterval(() => {
+      setElapsedSeconds(Math.floor((performance.now() - startedAt) / 1000));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   const current = Math.max(
     0,
     GENERATION_STAGES.findIndex(({ stage }) => stage === progress?.stage),
   );
   const step = progress?.step ?? 0;
   const steps = progress?.steps ?? 0;
-  const detail =
-    progress?.stage === 'loading' && steps > 0
-      ? `Loading ${Math.min(100, Math.round((step / steps) * 100))}%`
-      : progress?.stage === 'sampling'
-        ? `Steps ${step}/${steps}`
-        : GENERATION_STAGES[current].label;
+  const currentProgress = progress ?? { stage: 'loading' };
+  const detail = generationProgressDetail(currentProgress, elapsedSeconds);
+  const accessibilityLabel =
+    currentProgress.stage === 'sampling'
+      ? `Steps ${step}/${steps}`
+      : GENERATION_STAGES[current].label;
 
   return (
     <View
-      accessibilityLabel={detail}
+      accessibilityLabel={accessibilityLabel}
       accessibilityLiveRegion="polite"
       accessibilityRole="progressbar"
       style={styles.progressBlock}

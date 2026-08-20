@@ -76,6 +76,8 @@ const UPSCALER_OPTIONS: readonly [BuiltInUpscalerType, string][] = [
 ];
 
 type AdvancedGenerationOptionsProps = {
+  negativePrompt: string;
+  onChangeNegativePrompt: (value: string) => void;
   taesd: StoredModel | null;
   onOpenTaesdPicker: () => void;
   imageSize: ImageSizeOption;
@@ -99,6 +101,8 @@ type AdvancedGenerationOptionsProps = {
 };
 
 export function AdvancedGenerationOptions({
+  negativePrompt,
+  onChangeNegativePrompt,
   taesd,
   onOpenTaesdPicker,
   imageSize,
@@ -173,6 +177,39 @@ export function AdvancedGenerationOptions({
             },
           ]}
         >
+          <View
+            style={[
+              styles.negativePromptSection,
+              styles.borderBottom,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <View style={styles.fieldHeader}>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>네거티브 프롬프트</Text>
+              <Text style={[styles.fieldCounter, { color: colors.muted }]}>
+                {negativePrompt.length}/500
+              </Text>
+            </View>
+            <TextInput
+              accessibilityLabel="네거티브 프롬프트"
+              maxLength={500}
+              multiline
+              onChangeText={onChangeNegativePrompt}
+              placeholder="예: blurry, low quality"
+              placeholderTextColor={colors.placeholder}
+              style={[
+                styles.negativePromptInput,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.background,
+                  color: colors.text,
+                },
+              ]}
+              textAlignVertical="top"
+              value={negativePrompt}
+            />
+          </View>
+
           {/* 1. 경량 디코더 (TAESD / VAE) */}
           <Pressable
             accessibilityHint="TAESD 가중치 목록을 엽니다"
@@ -661,6 +698,27 @@ const styles = StyleSheet.create({
   rowValue: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  negativePromptSection: {
+    paddingVertical: 12,
+    gap: 8,
+  },
+  fieldHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fieldCounter: {
+    fontSize: 11,
+  },
+  negativePromptInput: {
+    minHeight: 88,
+    maxHeight: 132,
+    borderWidth: 1,
+    borderRadius: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    padding: 12,
   },
   sliderSection: {
     paddingVertical: 12,

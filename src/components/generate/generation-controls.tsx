@@ -72,20 +72,17 @@ export function GenerationControls({
         </Pressable>
       </GestureDetector>
       <View style={styles.stepHeader}>
-        <View>
-          <RNText style={[styles.label, { color: colors.text }]}>추론 스텝</RNText>
-          <RNText style={[styles.stepHint, { color: colors.muted }]}>LCM · 낮을수록 빠르게</RNText>
-        </View>
+        <RNText style={[styles.label, { color: colors.text }]}>추론 스텝</RNText>
         <View style={[styles.stepBadge, { backgroundColor: colors.accentSoft }]}>
           <RNText style={[styles.stepValue, { color: colors.accentText }]}>{steps}</RNText>
         </View>
       </View>
       <Host style={styles.sliderHost} colorScheme={colorScheme} seedColor={colors.accent}>
         <CompactSlider
-          max={8}
+          max={40}
           min={1}
           onValueChange={(value) => onStepsChange(Math.round(value))}
-          steps={6}
+          steps={38}
           value={steps}
         />
       </Host>
@@ -127,7 +124,6 @@ const styles = StyleSheet.create({
   handleBar: { width: 36, height: 4, borderRadius: 2 },
   stepHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: { fontSize: 14, fontWeight: '600' },
-  stepHint: { fontSize: 11, marginTop: 2 },
   stepBadge: {
     minWidth: 34,
     height: 28,

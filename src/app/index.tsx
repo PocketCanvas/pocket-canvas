@@ -191,7 +191,11 @@ export default function GenerateScreen() {
                 <GenerationProgress progress={progress} />
               </View>
             ) : imageUri ? (
-              <Image source={{ uri: imageUri }} resizeMode="cover" style={styles.generatedImage} />
+              <Image
+                source={{ uri: imageUri }}
+                resizeMode="contain"
+                style={styles.generatedImage}
+              />
             ) : (
               <View style={styles.previewEmpty}>
                 <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>

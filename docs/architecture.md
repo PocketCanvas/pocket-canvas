@@ -68,26 +68,6 @@ TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을
 `sd_ctx_params_t.taesd_path`로 전달되고 최종 decode의 기본 VAE를 대체한다. TAESD는
 실험 옵션이며 품질 저하 때문에 기본값으로 사용하지 않는다. → ADR-009
 
-## Performance diagnostics
-
-`StableDiffusionBridge.cpp`는 loading, encoding, sampling, decoding, PNG 저장,
-context 해제와 전체 생성에 대해 `[perf]` logcat 이벤트를 기록한다.
-
-```text
-[perf] span=decoding wall_ms=51198 cpu_ms=22809 cpu_ratio=44.6 rss_kb=597888 rss_delta_kb=-818564
-```
-
-- `wall_ms`: 실제 경과 시간
-- `cpu_ms`: 프로세스 모든 스레드의 CPU 시간 합계
-- `cpu_ratio`: `cpu_ms / wall_ms`; 멀티코어 작업은 100%를 넘을 수 있음
-- `rss_kb`: 구간 종료 시 프로세스 RSS
-- `rss_delta_kb`: 구간 시작 대비 RSS 변화
-
-이 값만으로 GPU 사용률을 계산하지 않는다. Vulkan device/backend 선택, upstream의 VRAM
-배치 및 compute buffer 로그와 함께 CPU 연산 또는 GPU 실행·동기화 대기 후보를 구분한다.
-Galaxy S26 PoC에서는 sampling 약 58초, 기본 VAE decoding 약 51초였고, TAESD는 decoding을
-약 0.62초로 줄였지만 최종 이미지 품질이 크게 저하됐다. → ADR-009
-
 ## Native boundary
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
 2. Kotlin: Android lifecycle, URI/storage validation 및 JNI 호출을 담당

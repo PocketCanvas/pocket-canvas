@@ -102,5 +102,12 @@ Native interaction의 이점이 있는 일부 control만 Expo UI를 사용하며
 
 History UI와 생성 UI는 화면 state와 reusable presentation component의 책임을 분리
 
+히스토리 그리드에서 이미지를 선택하면 현재 탭·검색·정렬 결과가 전체 화면
+`HistoryImageViewer`로 전달된다. `react-native-zoom-toolkit`의 `Gallery`가 제한 렌더링,
+좌우 페이징과 핀치 확대를 하나의 제스처 상태로 처리하고, React 화면 상태는 선택 ID와
+즐겨찾기·공유·삭제·상세 정보 액션을 관리한다. Android `Modal` 내부에는 별도의
+`GestureHandlerRootView`를 둔다.
+
 → ADR-005
 → ADR-008
+→ ADR-013

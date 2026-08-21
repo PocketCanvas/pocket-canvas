@@ -22,12 +22,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   HISTORY_TABS,
   HistoryCard,
-  HistoryDetailModal,
   HistorySortOrder,
   HistoryTab,
 } from '@/components/history/history-management';
+import { HistoryImageViewer } from '@/components/history/history-image-viewer';
 import { useTheme } from '@/hooks/use-theme';
 import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/lib/image-files';
+import { selectAfterViewerDelete } from '@/lib/history-viewer';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 
 export default function HistoryScreen() {
@@ -62,10 +63,15 @@ export default function HistoryScreen() {
   );
 
   const handleToggleFavorite = async (id: string) => {
+    const nextSelectedId =
+      activeTab === 'favorite' && selectedId === id
+        ? selectAfterViewerDelete(filteredItems, id)
+        : selectedId;
     // Optimistic update
     setItems((current) =>
       current.map((img) => (img.id === id ? { ...img, favorite: !img.favorite } : img)),
     );
+    setSelectedId(nextSelectedId);
     try {
       const updated = await toggleFavoriteImage(id);
       setItems(updated);
@@ -86,9 +92,10 @@ export default function HistoryScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            const nextSelectedId = selectAfterViewerDelete(filteredItems, item.id);
             const updated = await deleteStoredImage(item.id);
             setItems(updated);
-            setSelectedId(null);
+            setSelectedId(nextSelectedId);
           } catch (error) {
             Alert.alert(
               '이미지를 삭제하지 못했습니다.',
@@ -113,43 +120,8 @@ export default function HistoryScreen() {
     ]);
   };
 
-  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
-
   // Filter and sort items
-  const filteredItems = useMemo(() => {
-    let result = items;
-
-    // Tab filter
-    if (activeTab === 'favorite') {
-      result = result.filter((item) => item.favorite);
-    }
-
-    // Search query filter
-    const query = searchQuery.trim().toLowerCase();
-    if (query) {
-      result = result.filter(
-        (item) =>
-          item.fileName.toLowerCase().includes(query) ||
-          (item.metadataStatus === 'complete' &&
-            (item.prompt.toLowerCase().includes(query) ||
-              item.model.name.toLowerCase().includes(query) ||
-              item.loras.some((lora) => lora.name.toLowerCase().includes(query)))),
-      );
-    }
-
-    // Sort order
-    if (sortOrder === 'oldest') {
-      result = [...result].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      );
-    } else {
-      result = [...result].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-    }
-
-    return result;
-  }, [items, activeTab, searchQuery, sortOrder]);
+  const filteredItems = filterHistoryItems(items, activeTab, searchQuery, sortOrder);
 
   // Tab counts
   const tabCounts = useMemo(() => {
@@ -339,13 +311,15 @@ export default function HistoryScreen() {
         />
       )}
 
-      {selectedItem && (
-        <HistoryDetailModal
-          item={selectedItem}
-          key={selectedItem.id}
+      {selectedId && filteredItems.length > 0 && (
+        <HistoryImageViewer
+          items={filteredItems}
+          key="history-image-viewer"
           onClose={() => setSelectedId(null)}
-          onDelete={() => handleDelete(selectedItem)}
-          onToggleFavorite={() => handleToggleFavorite(selectedItem.id)}
+          onDelete={handleDelete}
+          onSelect={setSelectedId}
+          onToggleFavorite={handleToggleFavorite}
+          selectedId={selectedId}
         />
       )}
     </SafeAreaView>
@@ -456,3 +430,28 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
 });
+
+function filterHistoryItems(
+  items: StoredImageMetadata[],
+  activeTab: HistoryTab,
+  searchQuery: string,
+  sortOrder: HistorySortOrder,
+) {
+  let result = activeTab === 'favorite' ? items.filter((item) => item.favorite) : items;
+  const query = searchQuery.trim().toLowerCase();
+  if (query) {
+    result = result.filter(
+      (item) =>
+        item.fileName.toLowerCase().includes(query) ||
+        (item.metadataStatus === 'complete' &&
+          (item.prompt.toLowerCase().includes(query) ||
+            item.model.name.toLowerCase().includes(query) ||
+            item.loras.some((lora) => lora.name.toLowerCase().includes(query)))),
+    );
+  }
+
+  return [...result].sort((a, b) => {
+    const difference = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return sortOrder === 'oldest' ? difference : -difference;
+  });
+}

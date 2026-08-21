@@ -36,3 +36,9 @@
 ## 16KB 페이지 사이즈 경고
 - **증상:** Android 15+ 기기에서 ELF 정렬 경고 (`libreanimated.so` 등)
 - **대응:** RN 생태계 과도기 현상. 기능에 영향 없음. Expo/RN 및 관련 dependency 업데이트 시 재확인
+
+## 히스토리 전체 화면 뷰어에서 좌우 넘김과 핀치가 모두 무반응
+- **원인:** Android `Modal`은 앱 루트와 별도 네이티브 뷰 계층을 사용하므로, 앱 최상위의 `GestureHandlerRootView`가 모달 내부까지 적용되지 않음
+- **해결:** `HistoryImageViewer`의 `Modal` 바로 안쪽 전체를 `GestureHandlerRootView style={{ flex: 1 }}`로 감쌈
+- **주의:** 페이지 이동과 확대를 별도 `FlatList`와 zoom wrapper로 다시 분리하지 않음. `react-native-zoom-toolkit`의 `Gallery`가 두 제스처를 함께 소유해야 함
+- **검증:** 1× 좌우 넘김, 두 손가락 핀치, 확대 후 이미지 이동, 이미지 경계에서 다음 페이지로 handoff, 상세 시트가 열린 동안의 입력을 Android 실기기에서 확인 → ADR-013

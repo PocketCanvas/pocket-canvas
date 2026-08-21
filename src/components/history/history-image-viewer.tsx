@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
 import { getImageFileSize, getStoredImageUri } from '@/lib/image-files';
@@ -41,6 +41,7 @@ export function HistoryImageViewer({
   onToggleFavorite,
 }: HistoryImageViewerProps) {
   const colors = useTheme();
+  const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const selectedIndex = findViewerIndex(items, selectedId);
   const selectedItem = items[selectedIndex];
@@ -107,6 +108,9 @@ export function HistoryImageViewer({
 
   if (!selectedItem) return null;
 
+  const topInset = Math.max(insets.top, 24) + 12;
+  const bottomInset = Math.max(insets.bottom, 16) + 12;
+
   return (
     <Modal
       animationType="fade"
@@ -115,30 +119,34 @@ export function HistoryImageViewer({
       visible
     >
       <GestureHandlerRootView style={viewerStyles.screen}>
-        <SafeAreaView style={viewerStyles.screen}>
+        <View style={viewerStyles.screen}>
           <ZoomableHistoryGallery items={items} onSelect={onSelect} selectedIndex={selectedIndex} />
 
           <Pressable
             accessibilityLabel="이미지 뷰어 닫기"
             accessibilityRole="button"
             onPress={onClose}
-            style={({ pressed }) => [viewerStyles.backButton, pressed && viewerStyles.pressed]}
+            style={({ pressed }) => [
+              viewerStyles.backButton,
+              { top: topInset },
+              pressed && viewerStyles.pressed,
+            ]}
           >
-            <ChevronLeft color="#FFFFFF" size={30} />
+            <ChevronLeft color="#FFFFFF" size={26} />
           </Pressable>
 
-          <Text style={viewerStyles.positionText}>
+          <Text style={[viewerStyles.positionText, { top: topInset + 7 }]}>
             {selectedIndex + 1} / {items.length}
           </Text>
 
-          <View style={viewerStyles.actionBar}>
+          <View style={[viewerStyles.actionBar, { bottom: bottomInset }]}>
             <ViewerAction
               active={selectedItem.favorite}
               icon={
                 <Heart
                   color={selectedItem.favorite ? colors.error : '#FFFFFF'}
                   fill={selectedItem.favorite ? colors.error : 'transparent'}
-                  size={25}
+                  size={23}
                 />
               }
               label={selectedItem.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
@@ -146,17 +154,17 @@ export function HistoryImageViewer({
             />
             <ViewerAction
               active={detailsOpen}
-              icon={<Info color={detailsOpen ? colors.accentText : '#FFFFFF'} size={25} />}
+              icon={<Info color={detailsOpen ? colors.accentText : '#FFFFFF'} size={23} />}
               label="상세 정보"
               onPress={() => (detailsOpen ? closeDetails() : setDetailsOpen(true))}
             />
             <ViewerAction
-              icon={<Share2 color="#FFFFFF" size={25} />}
+              icon={<Share2 color="#FFFFFF" size={23} />}
               label="공유"
               onPress={handleShare}
             />
             <ViewerAction
-              icon={<Trash2 color="#FFFFFF" size={25} />}
+              icon={<Trash2 color="#FFFFFF" size={23} />}
               label="삭제"
               onPress={() => onDelete(selectedItem)}
             />
@@ -192,7 +200,7 @@ export function HistoryImageViewer({
               </RNAnimated.View>
             </>
           )}
-        </SafeAreaView>
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -313,9 +321,9 @@ function InformationSection({
             style={({ pressed }) => [viewerStyles.copyButton, pressed && viewerStyles.pressed]}
           >
             {copied ? (
-              <Check color={colors.accentText} size={16} />
+              <Check color={colors.accentText} size={15} />
             ) : (
-              <Copy color={colors.muted} size={16} />
+              <Copy color={colors.muted} size={15} />
             )}
             <Text
               style={[viewerStyles.copyText, { color: copied ? colors.accentText : colors.muted }]}
@@ -325,9 +333,19 @@ function InformationSection({
           </Pressable>
         )}
       </View>
-      <Text selectable style={[viewerStyles.infoBody, { color: colors.text }]}>
-        {value}
-      </Text>
+      <View
+        style={[
+          viewerStyles.infoBox,
+          {
+            backgroundColor: colors.background,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Text selectable style={[viewerStyles.infoBody, { color: colors.text }]}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -358,18 +376,16 @@ const viewerStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000000' },
   backButton: {
     position: 'absolute',
-    top: 18,
     left: 18,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#202125E6',
   },
   positionText: {
     position: 'absolute',
-    top: 34,
     alignSelf: 'center',
     color: '#FFFFFF',
     fontSize: 13,
@@ -382,17 +398,23 @@ const viewerStyles = StyleSheet.create({
   },
   actionBar: {
     position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 24,
-    height: 76,
-    borderRadius: 38,
+    alignSelf: 'center',
+    height: 60,
+    borderRadius: 30,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
+    gap: 10,
     backgroundColor: '#202125F2',
   },
-  action: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
+  action: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pressed: { opacity: 0.62 },
   sheetBackdrop: { backgroundColor: '#00000066' },
   sheet: {
@@ -409,21 +431,28 @@ const viewerStyles = StyleSheet.create({
   dragHandle: { width: 42, height: 4, borderRadius: 2, opacity: 0.65 },
   infoContent: { paddingHorizontal: 20, paddingBottom: 48 },
   infoTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
-  infoSection: { gap: 8, marginBottom: 20 },
+  infoSection: { gap: 8, marginBottom: 18 },
   infoSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 2,
   },
   infoLabel: { fontSize: 13, fontWeight: '600' },
   copyButton: {
-    minHeight: 32,
+    minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingHorizontal: 4,
   },
   copyText: { fontSize: 12, fontWeight: '600' },
+  infoBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   infoBody: { fontSize: 14, lineHeight: 21 },
   infoRows: { marginBottom: 18 },
   infoRow: { flexDirection: 'row', borderTopWidth: 1, paddingVertical: 11 },

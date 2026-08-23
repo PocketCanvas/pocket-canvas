@@ -3,6 +3,7 @@ import { Box, ChevronRight, Plus, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -31,8 +32,10 @@ import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/
 import { LoraSelection, LoraSortableList } from '@/components/generate/lora-sortable-list';
 import { useTheme } from '@/hooks/use-theme';
 import { generationProgressDetail } from '@/lib/generation-progress';
+import { showOperationBlockedAlert } from '@/lib/heavy-operation';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
 import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';
+import { useOperationStore } from '@/stores/use-operation-store';
 
 export default function GenerateScreen() {
   const colors = useTheme();
@@ -59,6 +62,9 @@ export default function GenerateScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<GenerationProgressEvent | null>(null);
+  const activeOperation = useOperationStore((state) => state.activeOperation);
+  const tryStartOperation = useOperationStore((state) => state.tryStartOperation);
+  const finishOperation = useOperationStore((state) => state.finishOperation);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,6 +88,13 @@ export default function GenerateScreen() {
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !model) return;
+    const operation = tryStartOperation({ kind: 'generation', label: '이미지 생성' });
+    if (!operation) {
+      const active = useOperationStore.getState().activeOperation;
+      if (active) showOperationBlockedAlert(active, '이미지 생성');
+      else Alert.alert('이미지 생성을 시작하지 못했습니다', '잠시 후 다시 시도해 주세요.');
+      return;
+    }
     const generationSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_647) : seed;
     setIsGenerating(true);
     setError(null);
@@ -154,6 +167,7 @@ export default function GenerateScreen() {
       setError(reason instanceof Error ? reason.message : '이미지를 생성하지 못했습니다.');
     } finally {
       progressSubscription?.remove();
+      finishOperation(operation.id);
       setIsGenerating(false);
       setProgress(null);
     }
@@ -323,6 +337,7 @@ export default function GenerateScreen() {
 
         <GenerationControls
           canGenerate={Boolean(prompt.trim() && model)}
+          isBlocked={Boolean(activeOperation && activeOperation.kind !== 'generation')}
           isGenerating={isGenerating}
           onGenerate={handleGenerate}
           onStepsChange={setSteps}

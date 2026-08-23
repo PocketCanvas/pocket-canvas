@@ -21,6 +21,7 @@ import {
   QuantizationProgressBanner,
 } from '@/components/models/model-management';
 import { useTheme } from '@/hooks/use-theme';
+import { showOperationBlockedAlert } from '@/lib/heavy-operation';
 import {
   deleteStoredModel,
   loadModels,
@@ -35,6 +36,7 @@ import {
   type QuantizationType,
   updateQuantizationTaskProgress,
 } from '@/lib/model-quantization';
+import { useOperationStore } from '@/stores/use-operation-store';
 
 export default function ModelsScreen() {
   const colors = useTheme();
@@ -45,6 +47,9 @@ export default function ModelsScreen() {
   const [isImporting, setIsImporting] = useState(false);
   const [isQuantizing, setIsQuantizing] = useState(false);
   const [quantizationTask, setQuantizationTask] = useState<QuantizationTask | null>(null);
+  const activeOperation = useOperationStore((state) => state.activeOperation);
+  const tryStartOperation = useOperationStore((state) => state.tryStartOperation);
+  const finishOperation = useOperationStore((state) => state.finishOperation);
   const selectedRecord = items.find((item) => item.id === selectedId) ?? null;
   const selected = selectedRecord ? toManagedModel(selectedRecord, colors.accentSoft) : null;
   const visibleItems = items.filter((item) => item.kind === section);
@@ -65,6 +70,10 @@ export default function ModelsScreen() {
 
   const persistSelected = async (changes: Partial<StoredModel> = {}) => {
     if (!selectedRecord) return;
+    if (activeOperation) {
+      showOperationBlockedAlert(activeOperation, '모델 정보 변경');
+      return;
+    }
     const next = { ...selectedRecord, ...changes };
     updateLocal(changes);
     try {
@@ -83,6 +92,10 @@ export default function ModelsScreen() {
 
   const remove = () => {
     if (!selectedRecord) return;
+    if (activeOperation) {
+      showOperationBlockedAlert(activeOperation, '모델 삭제');
+      return;
+    }
     Alert.alert('파일을 삭제할까요?', selectedRecord.fileName, [
       { text: '취소', style: 'cancel' },
       {
@@ -101,6 +114,12 @@ export default function ModelsScreen() {
   };
 
   const importModel = async () => {
+    const operation = tryStartOperation({ kind: 'modelImport', label: '모델 가져오기' });
+    if (!operation) {
+      const active = useOperationStore.getState().activeOperation;
+      if (active) showOperationBlockedAlert(active, '모델 가져오기');
+      return;
+    }
     setIsImporting(true);
     try {
       const imported = await pickAndImportModel();
@@ -111,12 +130,19 @@ export default function ModelsScreen() {
     } catch (error) {
       showError(error);
     } finally {
+      finishOperation(operation.id);
       setIsImporting(false);
     }
   };
 
   const quantizeSelected = async (type: QuantizationType) => {
     if (!selectedRecord || isQuantizing) return;
+    const operation = tryStartOperation({ kind: 'quantization', label: '모델 양자화' });
+    if (!operation) {
+      const active = useOperationStore.getState().activeOperation;
+      if (active) showOperationBlockedAlert(active, '모델 양자화');
+      return;
+    }
     const source = selectedRecord;
     setIsQuantizing(true);
     setQuantizationTask(
@@ -147,6 +173,7 @@ export default function ModelsScreen() {
       showError(error);
     } finally {
       progressSubscription.remove();
+      finishOperation(operation.id);
       setQuantizationTask(null);
       setIsQuantizing(false);
     }
@@ -221,7 +248,7 @@ export default function ModelsScreen() {
           styles.fab,
           { backgroundColor: colors.accent },
           pressed && styles.pressed,
-          isImporting && styles.disabled,
+          (isImporting || activeOperation) && styles.disabled,
         ]}
       >
         {isImporting ? (
@@ -234,12 +261,15 @@ export default function ModelsScreen() {
       {selected && (
         <ModelDetailModal
           isQuantizing={isQuantizing}
+          isOperationBlocked={Boolean(activeOperation)}
           item={selected}
           key={selected.id}
           onClose={() => {
-            if (isQuantizing) return;
-            persistSelected();
+            if (!activeOperation) persistSelected();
             setSelectedId(null);
+          }}
+          onBlockedPress={() => {
+            if (activeOperation) showOperationBlockedAlert(activeOperation, '모델 변경');
           }}
           onDelete={remove}
           onDescriptionChange={(description) => updateLocal({ description })}

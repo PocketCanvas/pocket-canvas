@@ -2,6 +2,7 @@ import { getDocumentAsync } from 'expo-document-picker';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import { quantizeModel } from 'stable-diffusion';
 
+import { createAsyncOperationQueue } from '@/lib/async-operation-queue';
 import {
   inspectModelFile,
   ModelFileFormat,
@@ -31,6 +32,8 @@ export type StoredModel = {
 
 const modelsDirectory = new Directory(Paths.document, 'models');
 const indexFile = new File(modelsDirectory, 'models.json');
+const enqueueModelIndexOperation = createAsyncOperationQueue();
+let didCleanupIncompleteFiles = false;
 
 export function getStoredModelUri(model: StoredModel) {
   return new File(modelsDirectory, model.storedFileName).uri;
@@ -38,7 +41,10 @@ export function getStoredModelUri(model: StoredModel) {
 
 export async function loadModels(): Promise<StoredModel[]> {
   ensureDirectory();
-  cleanupIncompleteFiles();
+  if (!didCleanupIncompleteFiles) {
+    cleanupIncompleteFiles();
+    didCleanupIncompleteFiles = true;
+  }
   if (!indexFile.exists) return [];
 
   const value: unknown = JSON.parse(await indexFile.text());
@@ -80,14 +86,18 @@ export async function quantizeStoredModel(
       id: outputId,
       sizeBytes: destination.size,
     });
-    const updated = [...models, model];
     try {
-      await writeModels(updated);
+      const updated = await enqueueModelIndexOperation(async () => {
+        const current = await loadModels();
+        const next = [...current, model];
+        await writeModels(next);
+        return next;
+      });
+      return { model, models: updated };
     } catch (error) {
       if (destination.exists) destination.delete();
       throw error;
     }
-    return { model, models: updated };
   } catch (error) {
     if (temporary.exists) temporary.delete();
     if (destination.exists) destination.delete();
@@ -134,7 +144,10 @@ export async function pickAndImportModel(): Promise<StoredModel | null> {
     };
 
     try {
-      await writeModels([...(await loadModels()), model]);
+      await enqueueModelIndexOperation(async () => {
+        const current = await loadModels();
+        await writeModels([...current, model]);
+      });
     } catch (error) {
       destination.delete();
       throw error;
@@ -150,28 +163,32 @@ export async function updateStoredModel(
   id: string,
   changes: Pick<StoredModel, 'alias' | 'kind' | 'description'>,
 ): Promise<StoredModel[]> {
-  const models = await loadModels();
-  const updated = models.map((model) => (model.id === id ? { ...model, ...changes } : model));
-  if (!updated.some((model) => model.id === id)) throw new Error('모델을 찾을 수 없습니다.');
-  await writeModels(updated);
-  return updated;
+  return enqueueModelIndexOperation(async () => {
+    const models = await loadModels();
+    const updated = models.map((model) => (model.id === id ? { ...model, ...changes } : model));
+    if (!updated.some((model) => model.id === id)) throw new Error('모델을 찾을 수 없습니다.');
+    await writeModels(updated);
+    return updated;
+  });
 }
 
 export async function deleteStoredModel(id: string): Promise<StoredModel[]> {
-  const models = await loadModels();
-  const target = models.find((model) => model.id === id);
-  if (!target) throw new Error('모델을 찾을 수 없습니다.');
+  return enqueueModelIndexOperation(async () => {
+    const models = await loadModels();
+    const target = models.find((model) => model.id === id);
+    if (!target) throw new Error('모델을 찾을 수 없습니다.');
 
-  const updated = models.filter((model) => model.id !== id);
-  await writeModels(updated);
-  try {
-    const file = new File(modelsDirectory, target.storedFileName);
-    if (file.exists) file.delete();
-  } catch (error) {
-    await writeModels(models);
-    throw error;
-  }
-  return updated;
+    const updated = models.filter((model) => model.id !== id);
+    await writeModels(updated);
+    try {
+      const file = new File(modelsDirectory, target.storedFileName);
+      if (file.exists) file.delete();
+    } catch (error) {
+      await writeModels(models);
+      throw error;
+    }
+    return updated;
+  });
 }
 
 function inspectFile(file: File) {

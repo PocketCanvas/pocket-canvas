@@ -141,11 +141,14 @@ type ModelDetailModalProps = {
   onQuantize: (type: QuantizationType) => void;
   onRename: (name: string) => void;
   isQuantizing: boolean;
+  isOperationBlocked: boolean;
+  onBlockedPress: () => void;
 };
 
 export function ModelDetailModal({
   item,
   isQuantizing,
+  isOperationBlocked,
   onClose,
   onDelete,
   onDescriptionChange,
@@ -153,6 +156,7 @@ export function ModelDetailModal({
   onKindChange,
   onQuantize,
   onRename,
+  onBlockedPress,
 }: ModelDetailModalProps) {
   const colors = useTheme();
   const [name, setName] = useState(item.name);
@@ -184,7 +188,9 @@ export function ModelDetailModal({
                   accessibilityHint="터치하여 이름을 변경합니다"
                   accessibilityLabel="표시 이름"
                   maxLength={80}
+                  editable={!isOperationBlocked}
                   onChangeText={setName}
+                  onPressIn={isOperationBlocked ? onBlockedPress : undefined}
                   selectTextOnFocus
                   style={[
                     styles.sheetNameInput,
@@ -200,14 +206,18 @@ export function ModelDetailModal({
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !trimmedName }}
                   disabled={!trimmedName}
-                  onPress={() => {
-                    onRename(trimmedName);
-                    setName(trimmedName);
-                  }}
+                  onPress={
+                    isOperationBlocked
+                      ? onBlockedPress
+                      : () => {
+                          onRename(trimmedName);
+                          setName(trimmedName);
+                        }
+                  }
                   style={[
                     styles.renameButton,
                     { backgroundColor: colors.accentSoft },
-                    !trimmedName && styles.disabled,
+                    (!trimmedName || isOperationBlocked) && styles.disabled,
                   ]}
                 >
                   <Text style={[styles.renameButtonText, { color: colors.accentText }]}>변경</Text>
@@ -220,9 +230,11 @@ export function ModelDetailModal({
               <TextInput
                 accessibilityLabel="설명"
                 maxLength={300}
+                editable={!isOperationBlocked}
                 multiline
                 onChangeText={onDescriptionChange}
                 onEndEditing={onDescriptionCommit}
+                onPressIn={isOperationBlocked ? onBlockedPress : undefined}
                 placeholder="이 모델에 대한 설명을 입력하세요"
                 placeholderTextColor={colors.placeholder}
                 style={[
@@ -248,7 +260,11 @@ export function ModelDetailModal({
                   accessibilityHint="터치하여 분류를 변경합니다"
                   accessibilityRole="button"
                   accessibilityState={{ expanded: choosingKind }}
-                  onPress={() => setChoosingKind((current) => !current)}
+                  onPress={
+                    isOperationBlocked
+                      ? onBlockedPress
+                      : () => setChoosingKind((current) => !current)
+                  }
                   style={({ pressed }) => [
                     styles.classificationButton,
                     { backgroundColor: colors.accentSoft },
@@ -334,7 +350,11 @@ export function ModelDetailModal({
                           accessibilityState={{ checked, disabled: isQuantizing }}
                           disabled={isQuantizing}
                           key={option.value}
-                          onPress={() => setQuantizationType(option.value)}
+                          onPress={
+                            isOperationBlocked
+                              ? onBlockedPress
+                              : () => setQuantizationType(option.value)
+                          }
                           style={[
                             styles.quantizationOption,
                             { borderColor: checked ? colors.accent : colors.border },
@@ -362,11 +382,13 @@ export function ModelDetailModal({
                     accessibilityRole="button"
                     accessibilityState={{ disabled: isQuantizing }}
                     disabled={isQuantizing}
-                    onPress={() => onQuantize(quantizationType)}
+                    onPress={
+                      isOperationBlocked ? onBlockedPress : () => onQuantize(quantizationType)
+                    }
                     style={[
                       styles.quantizeButton,
                       { backgroundColor: colors.accent },
-                      isQuantizing && styles.disabled,
+                      (isQuantizing || isOperationBlocked) && styles.disabled,
                     ]}
                   >
                     {isQuantizing ? (
@@ -386,11 +408,11 @@ export function ModelDetailModal({
               )}
               <Pressable
                 disabled={isQuantizing}
-                onPress={onDelete}
+                onPress={isOperationBlocked ? onBlockedPress : onDelete}
                 style={[
                   styles.deleteButton,
                   { borderColor: colors.error },
-                  isQuantizing && styles.disabled,
+                  (isQuantizing || isOperationBlocked) && styles.disabled,
                 ]}
               >
                 <Trash2 color={colors.error} size={16} />

@@ -4,7 +4,7 @@
 
 ## Boundaries
 - `stable-diffusion/cpp/stable-diffusion.cpp/` 내부의 코드는 절대 수정하지 않는다
-- 커스텀 네이티브 로직은 `StableDiffusionBridge.cpp`에서만 작성
+- 추론·양자화 등 커스텀 네이티브 연산 로직은 `StableDiffusionBridge.cpp`에서만 작성한다. Kotlin 모듈은 API 계약 검증, lifecycle, 이벤트 전달, 실행 큐 지정만 담당한다
 - `stable-diffusion/cpp/stable-diffusion.cpp/ggml/src/ggml-vulkan/CMakeLists.txt` 에는 Android SPIRV-Headers 우회를 위한 의도적인 local modification이 존재, 이를 revert/reset하지 않는다. → ADR-002
 - `stable-diffusion/android/build.gradle`에 `minSdkVersion`을 직접 선언하지 않는다. Android API 28은 CMake `ANDROID_PLATFORM`으로 설정
 - 루트와 `stable-diffusion/`의 Expo / React / React Native 버전을 서로 다른 호환 세대로 변경하지 않는다
@@ -23,6 +23,7 @@
 | 코드 포맷 | `npm run format` |
 | 코드 포맷 검사 | `npm run format:check` |
 | TS 모듈 빌드 | `cd stable-diffusion && npm run build` |
+| Android 모듈 빌드 | `cd android && .\gradlew.bat :stable-diffusion:assembleDebug` |
 | 모듈 의존성 설치 | `cd stable-diffusion && npm install` |
 | 클린 빌드 (Windows) | `cd android && .\gradlew.bat clean` |
 | C++ 로그 모니터링 | `adb logcat -s StableDiffusionBridge:I '*:S'` |
@@ -45,6 +46,7 @@
 | ADR-012 | 생성 메타데이터 완전성과 이미지 보존 | 정상 metadata 필수 계약 + missing 복구 variant + PNG 보존 우선 |
 | ADR-013 | 전체 화면 갤러리와 확대 제스처 | filteredItems 페이징 + zoom-toolkit Gallery + Modal 전용 GestureHandlerRootView |
 | ADR-014 | Android 온디바이스 스트리밍 양자화 | 검증된 6개 타입 + 임시 GGUF 롤백 + 생성·양자화 직렬화 |
+| ADR-015 | 무거운 작업 전역 조정 | Zustand 즉시 거절 + JSON commit 큐 + native mutex + Expo 공용 큐 분리 |
 
 ## Known landmines
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조
@@ -59,3 +61,5 @@
 - Android `Modal` 안의 Gallery는 모달 내부 `GestureHandlerRootView`가 필수다. 앱 루트 wrapper만 믿고 제거하면 좌우 넘김과 핀치가 모두 무반응이 될 수 있다. → ADR-013
 - `react-native-zoom-toolkit` 업데이트 후에는 Android 실기기에서 좌우 넘김, 핀치 확대, 확대 후 이동과 페이지 경계 handoff를 검증한다. lockfile을 삭제하지 않고 `npm install`로 manifest와 lockfile을 함께 갱신한다. → ADR-013
 - 양자화 입력 자체는 mmap이 아니라 upstream tensor 스트리밍을 사용한다. 결과 GGUF만 기존 mmap 추론 경로에서 사용한다. 진행률은 upstream callback의 완료 tensor 수를 표시하며 시간·byte 기준으로 합성하지 않고, 취소도 합성하지 않는다. → ADR-014
+- 생성·양자화 JNI 호출을 기본 Expo Modules `AsyncFunctionQueue`에서 실행하지 않는다. 수분 동안 공용 큐를 점유하면 히스토리 최초 로드의 FileSystem 호출과 Sharing 등 독립 기능까지 대기한다. 두 호출 모두 `nativeOperationQueue`를 명시해야 한다. → ADR-015
+- 무거운 작업은 JS에서 FIFO로 예약하지 않고 충돌 시 즉시 거절한다. `models.json`과 `images/meta.json` 큐에는 긴 파일 복사·생성·양자화가 아니라 전체 read-modify-write commit 구간만 넣는다. → ADR-015

@@ -42,3 +42,10 @@
 - **해결:** `HistoryImageViewer`의 `Modal` 바로 안쪽 전체를 `GestureHandlerRootView style={{ flex: 1 }}`로 감쌈
 - **주의:** 페이지 이동과 확대를 별도 `FlatList`와 zoom wrapper로 다시 분리하지 않음. `react-native-zoom-toolkit`의 `Gallery`가 두 제스처를 함께 소유해야 함
 - **검증:** 1× 좌우 넘김, 두 손가락 핀치, 확대 후 이미지 이동, 이미지 경계에서 다음 페이지로 handoff, 상세 시트가 열린 동안의 입력을 Android 실기기에서 확인 → ADR-013
+
+## 생성·양자화 중 처음 연 히스토리가 로딩 화면에 멈춤
+- **증상:** 앱 실행 후 히스토리를 한 번도 열지 않은 상태에서 생성 또는 양자화를 시작하고 히스토리 탭으로 이동하면 로딩 화면이 작업 종료까지 유지됨
+- **원인:** 장시간 JNI 호출이 Expo Modules의 단일 기본 `AsyncFunctionQueue`를 점유해, 히스토리 최초 로드에 필요한 Expo FileSystem `File.text()`가 실행 대기함
+- **오해하기 쉬운 점:** 히스토리를 미리 열었을 때 즐겨찾기는 optimistic update로 즉시 바뀌므로 저장까지 완료된 것처럼 보일 수 있음. 실제 Promise는 공용 큐가 막혀 있으면 대기함
+- **해결:** `StableDiffusionModule.kt`의 `quantizeModel`과 `generateImage` `AsyncFunction` 모두 `.runOnQueue(nativeOperationQueue)`로 별도 coroutine scope를 사용함. JSON 읽기를 동기식으로 우회하는 방식으로 대체하지 않음
+- **검증:** 앱 시작 → 히스토리 미진입 → 생성/양자화 시작 → 작업 중 히스토리 최초 진입 → 목록·뷰어·즐겨찾기·공유 확인. `cd android && .\gradlew.bat :stable-diffusion:assembleDebug`도 실행 → ADR-015

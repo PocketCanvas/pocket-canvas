@@ -8,6 +8,10 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import expo.modules.kotlin.types.OptimizedRecord
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 @OptimizedRecord
 internal data class GenerationOptions(
@@ -25,6 +29,8 @@ internal data class GenerationOptions(
 ) : Record
 
 class StableDiffusionModule : Module() {
+
+  private val nativeOperationQueue = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
   companion object {
     init {
@@ -70,6 +76,7 @@ class StableDiffusionModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("StableDiffusion")
     Events("onProgress", "onQuantizationProgress")
+    OnDestroy { nativeOperationQueue.cancel() }
 
     Function("getSystemInfo") {
       return@Function getSystemInfo()
@@ -95,7 +102,7 @@ class StableDiffusionModule : Module() {
       require(outputFile.parentFile?.isDirectory == true) { "Output directory not found" }
 
       return@AsyncFunction quantizeModel(inputFile.absolutePath, outputFile.absolutePath, type)
-    }
+    }.runOnQueue(nativeOperationQueue)
 
     AsyncFunction("generateImage") {
         prompt: String,
@@ -158,7 +165,7 @@ class StableDiffusionModule : Module() {
         options.hiresDenoisingStrength,
         outputFile.absolutePath
       )
-    }
+    }.runOnQueue(nativeOperationQueue)
   }
 
 }

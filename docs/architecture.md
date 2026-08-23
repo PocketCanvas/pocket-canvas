@@ -90,6 +90,27 @@ Imported SafeTensors / GGUF
 등록한다. 변환 입력 자체는 mmap이 아니며 tensor별 스트리밍을 사용한다. 생성과 양자화는 동시에
 실행하지 않는다. → ADR-014
 
+## Heavy operation coordination
+
+이미지 생성, 모델 양자화, 모델 가져오기는 비영속 Zustand 잠금으로 하나만 시작한다. 모델·이미지 JSON의 짧은 read-modify-write 구간은 저장소별 JS 큐로 직렬화하고, 생성·양자화의 네이티브 안전성은 `StableDiffusionBridge.cpp` mutex가 최종 보장한다. 히스토리 탐색과 이미지 관리는 무거운 작업 중에도 계속 사용할 수 있다.
+
+```text
+React / Zustand        충돌 요청 즉시 거절, blocked UX
+        │
+        ├── model index queue   models.json read-modify-write 직렬화
+        ├── image index queue   images/meta.json read-modify-write 직렬화
+        │
+Kotlin operation scope 생성·양자화를 Expo 공용 AsyncFunctionQueue와 분리
+        │
+JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
+```
+
+전역 store에는 작업 종류·표시명·시작 시각·소유 ID만 둔다. 생성 진행률은 생성 화면에, 양자화 진행률은 모델 관리 화면에만 유지하며 다른 탭에 전역 진행 배너를 표시하지 않는다. 모델 가져오기·양자화·삭제·이름·설명·분류 변경은 무거운 작업 중 차단하지만, 차단된 control의 press는 안내 Alert를 표시하기 위해 유지한다.
+
+생성과 양자화 JNI 호출은 Expo Modules 공용 `AsyncFunctionQueue`가 아닌 별도 coroutine scope에서 실행한다. 긴 네이티브 작업이 FileSystem·Sharing 같은 독립 Expo 모듈 호출을 막지 않도록 하기 위함이다.
+
+> 상세 내용은 ADR-015 참조
+
 ## Native boundary
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
 2. Kotlin: Android lifecycle, URI/storage validation 및 JNI 호출을 담당

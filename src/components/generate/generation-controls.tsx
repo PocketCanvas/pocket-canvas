@@ -11,12 +11,14 @@ export function GenerationControls({
   steps,
   onStepsChange,
   isGenerating,
+  isBlocked,
   canGenerate,
   onGenerate,
 }: {
   steps: number;
   onStepsChange: (steps: number) => void;
   isGenerating: boolean;
+  isBlocked: boolean;
   canGenerate: boolean;
   onGenerate: () => void;
 }) {
@@ -89,8 +91,8 @@ export function GenerationControls({
       <Host style={styles.generateHost} colorScheme={colorScheme} seedColor={colors.accent}>
         <Button
           colors={{
-            containerColor: colors.accent,
-            contentColor: colors.onAccent,
+            containerColor: isBlocked ? colors.disabled : colors.accent,
+            contentColor: isBlocked ? colors.muted : colors.onAccent,
             disabledContainerColor: colors.disabled,
           }}
           enabled={!isGenerating && canGenerate}

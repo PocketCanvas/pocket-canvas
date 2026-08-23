@@ -4,6 +4,7 @@
 
 import { Directory, File, Paths } from 'expo-file-system';
 
+import { createAsyncOperationQueue } from '@/lib/async-operation-queue';
 import {
   createImageMetadata,
   createRecoveredImageMetadata,
@@ -14,6 +15,7 @@ import {
 
 const imagesDirectory = new Directory(Paths.document, 'images');
 const metadataFile = new File(imagesDirectory, 'meta.json');
+const enqueueImageMetadataOperation = createAsyncOperationQueue();
 
 export function getStoredImageUri(fileName: string): string {
   return new File(imagesDirectory, fileName).uri;
@@ -76,50 +78,57 @@ export async function loadStoredImages(): Promise<StoredImageMetadata[]> {
 }
 
 export async function saveImageMetadata(metadata: StoredImageMetadata) {
-  ensureDirectory();
-  let images: StoredImageMetadata[] = [];
-  if (metadataFile.exists) {
-    try {
-      const value: unknown = JSON.parse(await metadataFile.text());
-      if (Array.isArray(value)) {
-        images = value.filter(isStoredImageMetadata);
+  return enqueueImageMetadataOperation(async () => {
+    ensureDirectory();
+    let images: StoredImageMetadata[] = [];
+    if (metadataFile.exists) {
+      try {
+        const value: unknown = JSON.parse(await metadataFile.text());
+        if (Array.isArray(value)) {
+          images = value.filter(isStoredImageMetadata);
+        }
+      } catch {
+        images = [];
       }
-    } catch {
-      images = [];
     }
-  }
 
-  const filtered = images.filter(
-    (img) => img.id !== metadata.id && img.fileName !== metadata.fileName,
-  );
-  const updated = [metadata, ...filtered];
-  await writeImagesMetadata(updated);
+    const filtered = images.filter(
+      (img) => img.id !== metadata.id && img.fileName !== metadata.fileName,
+    );
+    await writeImagesMetadata([metadata, ...filtered]);
+  });
 }
 
 export async function toggleFavoriteImage(id: string): Promise<StoredImageMetadata[]> {
-  const images = await loadStoredImages();
-  const updated = images.map((img) => (img.id === id ? { ...img, favorite: !img.favorite } : img));
-  await writeImagesMetadata(updated);
-  return updated;
+  return enqueueImageMetadataOperation(async () => {
+    const images = await loadStoredImages();
+    const updated = images.map((img) =>
+      img.id === id ? { ...img, favorite: !img.favorite } : img,
+    );
+    await writeImagesMetadata(updated);
+    return updated;
+  });
 }
 
 export async function deleteStoredImage(id: string): Promise<StoredImageMetadata[]> {
-  const images = await loadStoredImages();
-  const target = images.find((img) => img.id === id);
-  if (!target) throw new Error('삭제할 이미지를 찾을 수 없습니다.');
+  return enqueueImageMetadataOperation(async () => {
+    const images = await loadStoredImages();
+    const target = images.find((img) => img.id === id);
+    if (!target) throw new Error('삭제할 이미지를 찾을 수 없습니다.');
 
-  const updated = images.filter((img) => img.id !== id);
-  await writeImagesMetadata(updated);
+    const updated = images.filter((img) => img.id !== id);
+    await writeImagesMetadata(updated);
 
-  try {
-    const file = new File(imagesDirectory, target.fileName);
-    if (file.exists) file.delete();
-  } catch (error) {
-    await writeImagesMetadata(images);
-    throw error;
-  }
+    try {
+      const file = new File(imagesDirectory, target.fileName);
+      if (file.exists) file.delete();
+    } catch (error) {
+      await writeImagesMetadata(images);
+      throw error;
+    }
 
-  return updated;
+    return updated;
+  });
 }
 
 function ensureDirectory() {

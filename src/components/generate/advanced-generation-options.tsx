@@ -15,27 +15,9 @@ import {
 import { CompactSlider } from '@/components/common/compact-slider';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
+import { IMAGE_SIZE_OPTIONS, type ImageSizeOption } from '@/lib/generation-draft';
 import { StoredModel } from '@/lib/model-files';
 import type { BuiltInUpscalerType, SamplingPreset } from 'stable-diffusion';
-
-export type ImageSizeOption = {
-  label: string;
-  width: number;
-  height: number;
-  warning?: string;
-};
-
-export const IMAGE_SIZE_OPTIONS: ImageSizeOption[] = [
-  { label: '256×256', width: 256, height: 256 },
-  { label: '384×384', width: 384, height: 384 },
-  { label: '512×512', width: 512, height: 512 },
-  {
-    label: '768×768',
-    width: 768,
-    height: 768,
-    warning: '768×768 해상도는 모바일 기기 메모리 및 발열에 큰 부담이 될 수 있습니다.',
-  },
-];
 
 export const SAMPLER_OPTIONS: readonly [SamplingPreset, string][] = [
   ['euler', 'Euler'],

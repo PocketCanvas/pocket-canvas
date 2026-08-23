@@ -1,6 +1,5 @@
-import { useFocusEffect } from 'expo-router';
 import { Box, ChevronRight, Plus, Sparkles } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,76 +14,58 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  addProgressListener,
-  BuiltInUpscalerType,
-  generateImage,
-  GenerationProgressEvent,
-  SamplingPreset,
-} from 'stable-diffusion';
-import {
-  AdvancedGenerationOptions,
-  IMAGE_SIZE_OPTIONS,
-  type ImageSizeOption,
-} from '@/components/generate/advanced-generation-options';
+import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
+import { AdvancedGenerationOptions } from '@/components/generate/advanced-generation-options';
 import { GenerationControls } from '@/components/generate/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
-import { LoraSelection, LoraSortableList } from '@/components/generate/lora-sortable-list';
+import { LoraSortableList } from '@/components/generate/lora-sortable-list';
+import { useModelCatalog } from '@/hooks/use-model-catalog';
 import { useTheme } from '@/hooks/use-theme';
+import { createInitialGenerationDraft, generationDraftReducer } from '@/lib/generation-draft';
 import { generationProgressDetail } from '@/lib/generation-progress';
+import {
+  createInitialGenerationRunState,
+  generationRunReducer,
+  visibleGenerationImageUri,
+} from '@/lib/generation-state';
 import { showOperationBlockedAlert } from '@/lib/heavy-operation';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
-import { getStoredModelUri, loadModels, StoredModel } from '@/lib/model-files';
+import { getStoredModelUri, type StoredModel } from '@/lib/model-files';
 import { useOperationStore } from '@/stores/use-operation-store';
 
 export default function GenerateScreen() {
   const colors = useTheme();
-  const [prompt, setPrompt] = useState('');
-  const [negativePrompt, setNegativePrompt] = useState('');
-  const [availableModels, setAvailableModels] = useState<StoredModel[]>([]);
-  const [model, setModel] = useState<StoredModel | null>(null);
-  const [showModels, setShowModels] = useState(false);
-  const [taesd, setTaesd] = useState<StoredModel | null>(null);
-  const [showTaesd, setShowTaesd] = useState(false);
-  const [loras, setLoras] = useState<LoraSelection[]>([]);
-  const [showLoraPicker, setShowLoraPicker] = useState(false);
-  const [steps, setSteps] = useState(4);
-  const [imageSize, setImageSize] = useState<ImageSizeOption>(IMAGE_SIZE_OPTIONS[2]);
-  const [sampler, setSampler] = useState<SamplingPreset>('lcm');
-  const [cfgScale, setCfgScale] = useState<number>(1.0);
-  const [seed, setSeed] = useState<number>(-1);
-  const [isFixedSeed, setIsFixedSeed] = useState<boolean>(false);
-  const [upscalerType, setUpscalerType] = useState<BuiltInUpscalerType>('none');
-  const [upscaleFactor, setUpscaleFactor] = useState(2);
-  const [hiresSteps, setHiresSteps] = useState(4);
-  const [hiresDenoisingStrength, setHiresDenoisingStrength] = useState(0.7);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<GenerationProgressEvent | null>(null);
+  const [openPicker, setOpenPicker] = useState<'model' | 'taesd' | 'lora' | null>(null);
+  const [draft, dispatchDraft] = useReducer(
+    generationDraftReducer,
+    undefined,
+    createInitialGenerationDraft,
+  );
+  const [runState, dispatchRun] = useReducer(
+    generationRunReducer,
+    undefined,
+    createInitialGenerationRunState,
+  );
+  const isGenerating = runState.status === 'running';
+  const imageUri = visibleGenerationImageUri(runState);
+  const progress = runState.status === 'running' ? runState.progress : null;
+  const generationMessage =
+    runState.status === 'failed'
+      ? runState.error
+      : runState.status === 'succeeded'
+        ? runState.warning
+        : null;
+  const { prompt, negativePrompt, resources, sampling, imageSize, seed, hires } = draft;
+  const { model, taesd, loras } = resources;
   const activeOperation = useOperationStore((state) => state.activeOperation);
   const tryStartOperation = useOperationStore((state) => state.tryStartOperation);
   const finishOperation = useOperationStore((state) => state.finishOperation);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadModels()
-        .then((models) => {
-          setAvailableModels(models);
-          setModel((current) => models.find(({ id }) => id === current?.id) ?? null);
-          setTaesd((current) => models.find(({ id }) => id === current?.id) ?? null);
-          setLoras((current) =>
-            current.flatMap((lora) => {
-              const stored = models.find(({ id }) => id === lora.model.id);
-              return stored ? [{ ...lora, model: stored }] : [];
-            }),
-          );
-        })
-        .catch((reason) =>
-          setError(reason instanceof Error ? reason.message : '모델 목록을 불러오지 못했습니다.'),
-        );
-    }, []),
+  const reconcileResources = useCallback(
+    (availableModels: StoredModel[]) =>
+      dispatchDraft({ type: 'resourcesReconciled', availableModels }),
+    [],
   );
+  const { models: availableModels, error: modelLoadError } = useModelCatalog(reconcileResources);
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !model) return;
@@ -95,10 +76,8 @@ export default function GenerateScreen() {
       else Alert.alert('이미지 생성을 시작하지 못했습니다', '잠시 후 다시 시도해 주세요.');
       return;
     }
-    const generationSeed = seed < 0 ? Math.floor(Math.random() * 2_147_483_647) : seed;
-    setIsGenerating(true);
-    setError(null);
-    setProgress({ stage: 'loading' });
+    const generationSeed = seed.value < 0 ? Math.floor(Math.random() * 2_147_483_647) : seed.value;
+    dispatchRun({ type: 'started' });
     let destination: ReturnType<typeof createImageDestination> | null = null;
     let progressSubscription: ReturnType<typeof addProgressListener> | null = null;
     try {
@@ -120,18 +99,20 @@ export default function GenerateScreen() {
         })),
         width: imageSize.width,
         height: imageSize.height,
-        samplingPreset: sampler,
-        steps,
-        cfgScale,
+        samplingPreset: sampling.preset,
+        steps: sampling.steps,
+        cfgScale: sampling.cfgScale,
         seed: generationSeed,
         upscaler: {
-          type: upscalerType,
-          scale: upscaleFactor,
-          steps: hiresSteps,
-          denoisingStrength: hiresDenoisingStrength,
+          type: hires.type,
+          scale: hires.scale,
+          steps: hires.steps,
+          denoisingStrength: hires.denoisingStrength,
         },
       });
-      progressSubscription = addProgressListener(setProgress);
+      progressSubscription = addProgressListener((nextProgress) =>
+        dispatchRun({ type: 'progressed', progress: nextProgress }),
+      );
       const uri = await generateImage({
         prompt: prompt.trim(),
         negativePrompt: negativePrompt.trim(),
@@ -143,33 +124,35 @@ export default function GenerateScreen() {
         })),
         width: imageSize.width,
         height: imageSize.height,
-        samplingPreset: sampler,
-        steps,
-        cfgScale,
+        samplingPreset: sampling.preset,
+        steps: sampling.steps,
+        cfgScale: sampling.cfgScale,
         seed: generationSeed,
         upscaler: {
-          type: upscalerType,
-          scale: upscaleFactor,
-          steps: hiresSteps,
-          denoisingStrength: hiresDenoisingStrength,
+          type: hires.type,
+          scale: hires.scale,
+          steps: hires.steps,
+          denoisingStrength: hires.denoisingStrength,
         },
         outputUri: destination.file.uri,
       });
+      let warning: string | undefined;
       try {
         await saveImageMetadata(destination.metadata);
       } catch (reason) {
         console.warn('이미지 메타데이터를 저장하지 못했습니다.', reason);
-        setError('이미지는 저장했지만 생성 정보를 기록하지 못했습니다.');
+        warning = '이미지는 저장했지만 생성 정보를 기록하지 못했습니다.';
       }
-      setImageUri(uri);
+      dispatchRun({ type: 'succeeded', imageUri: uri, warning });
     } catch (reason) {
       if (destination?.file.exists) destination.file.delete();
-      setError(reason instanceof Error ? reason.message : '이미지를 생성하지 못했습니다.');
+      dispatchRun({
+        type: 'failed',
+        error: reason instanceof Error ? reason.message : '이미지를 생성하지 못했습니다.',
+      });
     } finally {
       progressSubscription?.remove();
       finishOperation(operation.id);
-      setIsGenerating(false);
-      setProgress(null);
     }
   };
 
@@ -236,7 +219,7 @@ export default function GenerateScreen() {
               accessibilityLabel="이미지 프롬프트"
               maxLength={1000}
               multiline
-              onChangeText={setPrompt}
+              onChangeText={(value) => dispatchDraft({ type: 'promptChanged', value })}
               placeholder="예: 안개 낀 새벽 숲속의 작은 오두막, 따뜻한 불빛, 시네마틱"
               placeholderTextColor={colors.placeholder}
               style={[
@@ -257,7 +240,7 @@ export default function GenerateScreen() {
             <Pressable
               accessibilityHint="사용할 모델 목록을엽니다"
               accessibilityRole="button"
-              onPress={() => setShowModels(true)}
+              onPress={() => setOpenPicker('model')}
               style={({ pressed }) => [
                 styles.select,
                 {
@@ -289,7 +272,7 @@ export default function GenerateScreen() {
               <RNText style={[styles.label, { color: colors.text }]}>LoRA</RNText>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setShowLoraPicker(true)}
+                onPress={() => setOpenPicker('lora')}
                 style={({ pressed }) => [
                   styles.addButton,
                   { backgroundColor: colors.accentSoft },
@@ -300,37 +283,54 @@ export default function GenerateScreen() {
                 <RNText style={[styles.addButtonText, { color: colors.accentText }]}>추가</RNText>
               </Pressable>
             </View>
-            <LoraSortableList loras={loras} onChange={setLoras} />
+            <LoraSortableList
+              loras={loras}
+              onChange={(nextLoras) => dispatchDraft({ type: 'lorasChanged', loras: nextLoras })}
+            />
           </View>
 
           <AdvancedGenerationOptions
-            cfgScale={cfgScale}
+            cfgScale={sampling.cfgScale}
             imageSize={imageSize}
-            isFixedSeed={isFixedSeed}
-            hiresDenoisingStrength={hiresDenoisingStrength}
-            hiresSteps={hiresSteps}
+            isFixedSeed={seed.fixed}
+            hiresDenoisingStrength={hires.denoisingStrength}
+            hiresSteps={hires.steps}
             negativePrompt={negativePrompt}
-            onChangeCfgScale={setCfgScale}
-            onChangeHiresDenoisingStrength={setHiresDenoisingStrength}
-            onChangeHiresSteps={setHiresSteps}
-            onChangeNegativePrompt={setNegativePrompt}
-            onChangeSeed={setSeed}
-            onChangeUpscaleFactor={setUpscaleFactor}
-            onOpenTaesdPicker={() => setShowTaesd(true)}
-            onSelectImageSize={setImageSize}
-            onSelectSampler={setSampler}
-            onSelectUpscaler={setUpscalerType}
-            onToggleFixedSeed={setIsFixedSeed}
-            sampler={sampler}
-            seed={seed}
+            onChangeCfgScale={(cfgScale) =>
+              dispatchDraft({ type: 'samplingChanged', changes: { cfgScale } })
+            }
+            onChangeHiresDenoisingStrength={(denoisingStrength) =>
+              dispatchDraft({ type: 'hiresChanged', changes: { denoisingStrength } })
+            }
+            onChangeHiresSteps={(steps) =>
+              dispatchDraft({ type: 'hiresChanged', changes: { steps } })
+            }
+            onChangeNegativePrompt={(value) =>
+              dispatchDraft({ type: 'negativePromptChanged', value })
+            }
+            onChangeSeed={(value) => dispatchDraft({ type: 'seedChanged', value })}
+            onChangeUpscaleFactor={(scale) =>
+              dispatchDraft({ type: 'hiresChanged', changes: { scale } })
+            }
+            onOpenTaesdPicker={() => setOpenPicker('taesd')}
+            onSelectImageSize={(nextImageSize) =>
+              dispatchDraft({ type: 'imageSizeSelected', imageSize: nextImageSize })
+            }
+            onSelectSampler={(preset) =>
+              dispatchDraft({ type: 'samplingChanged', changes: { preset } })
+            }
+            onSelectUpscaler={(type) => dispatchDraft({ type: 'hiresChanged', changes: { type } })}
+            onToggleFixedSeed={(fixed) => dispatchDraft({ type: 'fixedSeedToggled', fixed })}
+            sampler={sampling.preset}
+            seed={seed.value}
             taesd={taesd}
-            upscaleFactor={upscaleFactor}
-            upscalerType={upscalerType}
+            upscaleFactor={hires.scale}
+            upscalerType={hires.type}
           />
 
-          {error && (
+          {(modelLoadError || generationMessage) && (
             <RNText accessibilityRole="alert" style={[styles.error, { color: colors.error }]}>
-              {error}
+              {modelLoadError ?? generationMessage}
             </RNText>
           )}
         </ScrollView>
@@ -340,39 +340,39 @@ export default function GenerateScreen() {
           isBlocked={Boolean(activeOperation && activeOperation.kind !== 'generation')}
           isGenerating={isGenerating}
           onGenerate={handleGenerate}
-          onStepsChange={setSteps}
-          steps={steps}
+          onStepsChange={(steps) => dispatchDraft({ type: 'samplingChanged', changes: { steps } })}
+          steps={sampling.steps}
         />
       </KeyboardAvoidingView>
 
       <ModelPicker
         models={availableModels}
-        onClose={() => setShowModels(false)}
+        onClose={() => setOpenPicker(null)}
         onSelect={(selected) => {
-          setModel(selected);
-          setShowModels(false);
+          dispatchDraft({ type: 'modelSelected', model: selected });
+          setOpenPicker(null);
         }}
         selected={model}
-        visible={showModels}
+        visible={openPicker === 'model'}
       />
       <LoraPicker
-        onChange={setLoras}
-        onClose={() => setShowLoraPicker(false)}
+        onChange={(nextLoras) => dispatchDraft({ type: 'lorasChanged', loras: nextLoras })}
+        onClose={() => setOpenPicker(null)}
         options={availableModels}
         selected={loras}
-        visible={showLoraPicker}
+        visible={openPicker === 'lora'}
       />
       <ModelPicker
         defaultOptionLabel="기본 디코더 사용"
         models={availableModels}
-        onClose={() => setShowTaesd(false)}
+        onClose={() => setOpenPicker(null)}
         onSelect={(selected) => {
-          setTaesd(selected);
-          setShowTaesd(false);
+          dispatchDraft({ type: 'taesdSelected', taesd: selected });
+          setOpenPicker(null);
         }}
         selected={taesd}
         title="디코더 선택"
-        visible={showTaesd}
+        visible={openPicker === 'taesd'}
       />
     </SafeAreaView>
   );

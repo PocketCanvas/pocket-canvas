@@ -1,7 +1,12 @@
 import type { EventSubscription } from 'expo-modules-core';
 
 import StableDiffusionModule from './StableDiffusionModule';
-import { GenerateImageOptions, GenerationProgressEvent } from './StableDiffusion.types';
+import {
+  GenerateImageOptions,
+  GenerationProgressEvent,
+  QuantizationProgressEvent,
+  QuantizationType,
+} from './StableDiffusion.types';
 
 export function getSystemInfo(): string {
   return StableDiffusionModule.getSystemInfo();
@@ -33,10 +38,26 @@ export async function generateImage(options: GenerateImageOptions): Promise<stri
   return result;
 }
 
+export async function quantizeModel(
+  inputUri: string,
+  outputUri: string,
+  type: QuantizationType,
+): Promise<string> {
+  const result = await StableDiffusionModule.quantizeModel(inputUri, outputUri, type);
+  if (result.startsWith('Error')) throw new Error(result.slice(7));
+  return result;
+}
+
 export function addProgressListener(
   listener: (event: GenerationProgressEvent) => void,
 ): EventSubscription {
   return StableDiffusionModule.addListener('onProgress', listener);
+}
+
+export function addQuantizationProgressListener(
+  listener: (event: QuantizationProgressEvent) => void,
+): EventSubscription {
+  return StableDiffusionModule.addListener('onQuantizationProgress', listener);
 }
 
 export { default as StableDiffusionModule } from './StableDiffusionModule';

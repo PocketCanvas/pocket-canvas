@@ -1,5 +1,6 @@
 import { getDocumentAsync } from 'expo-document-picker';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
+import { quantizeModel } from 'stable-diffusion';
 
 import {
   inspectModelFile,
@@ -7,6 +8,11 @@ import {
   ModelFileKind,
   supportedModelExtension,
 } from '@/lib/model-file-inspection';
+import {
+  createQuantizedModelRecord,
+  isQuantizationType,
+  type QuantizationType,
+} from '@/lib/model-quantization';
 
 export type StoredModel = {
   id: string;
@@ -19,6 +25,8 @@ export type StoredModel = {
   sizeBytes: number;
   description: string;
   createdAt: string;
+  quantization?: QuantizationType;
+  sourceModelId?: string;
 };
 
 const modelsDirectory = new Directory(Paths.document, 'models');
@@ -30,7 +38,7 @@ export function getStoredModelUri(model: StoredModel) {
 
 export async function loadModels(): Promise<StoredModel[]> {
   ensureDirectory();
-  cleanupIncompleteImports();
+  cleanupIncompleteFiles();
   if (!indexFile.exists) return [];
 
   const value: unknown = JSON.parse(await indexFile.text());
@@ -38,6 +46,53 @@ export async function loadModels(): Promise<StoredModel[]> {
     throw new Error('models.json 형식이 올바르지 않습니다.');
   }
   return value;
+}
+
+export async function quantizeStoredModel(
+  id: string,
+  type: QuantizationType,
+): Promise<{ model: StoredModel; models: StoredModel[] }> {
+  const models = await loadModels();
+  const source = models.find((model) => model.id === id);
+  if (!source) throw new Error('양자화할 모델을 찾을 수 없습니다.');
+  if (source.kind !== 'model') throw new Error('모델로 분류된 파일만 양자화할 수 있습니다.');
+
+  const sourceFile = new File(modelsDirectory, source.storedFileName);
+  if (!sourceFile.exists) throw new Error('원본 모델 파일을 찾을 수 없습니다.');
+
+  const outputId = createId();
+  const temporary = new File(modelsDirectory, `.quantizing-${outputId}.gguf`);
+  const destination = new File(modelsDirectory, `${outputId}.gguf`);
+
+  try {
+    await quantizeModel(sourceFile.uri, temporary.uri, type);
+    if (!temporary.exists || temporary.size <= 0) {
+      throw new Error('양자화 결과 파일이 생성되지 않았습니다.');
+    }
+
+    const inspection = inspectFile(temporary);
+    if (inspection.format !== 'gguf') throw new Error('양자화 결과가 GGUF 형식이 아닙니다.');
+    await temporary.move(destination);
+
+    const model = createQuantizedModelRecord({
+      source,
+      type,
+      id: outputId,
+      sizeBytes: destination.size,
+    });
+    const updated = [...models, model];
+    try {
+      await writeModels(updated);
+    } catch (error) {
+      if (destination.exists) destination.delete();
+      throw error;
+    }
+    return { model, models: updated };
+  } catch (error) {
+    if (temporary.exists) temporary.delete();
+    if (destination.exists) destination.delete();
+    throw error;
+  }
 }
 
 export async function pickAndImportModel(): Promise<StoredModel | null> {
@@ -138,9 +193,14 @@ function ensureDirectory() {
   modelsDirectory.create({ idempotent: true, intermediates: true });
 }
 
-function cleanupIncompleteImports() {
+function cleanupIncompleteFiles() {
   for (const entry of modelsDirectory.list()) {
-    if (entry instanceof File && entry.name.startsWith('.importing-')) entry.delete();
+    if (
+      entry instanceof File &&
+      (entry.name.startsWith('.importing-') || entry.name.startsWith('.quantizing-'))
+    ) {
+      entry.delete();
+    }
   }
 }
 
@@ -167,6 +227,8 @@ function isStoredModel(value: unknown): value is StoredModel {
     ['gguf', 'safetensors'].includes(String(model.format)) &&
     typeof model.sizeBytes === 'number' &&
     Number.isSafeInteger(model.sizeBytes) &&
-    model.sizeBytes >= 0
+    model.sizeBytes >= 0 &&
+    (model.quantization === undefined || isQuantizationType(model.quantization)) &&
+    (model.sourceModelId === undefined || typeof model.sourceModelId === 'string')
   );
 }

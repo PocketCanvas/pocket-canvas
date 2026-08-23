@@ -68,6 +68,28 @@ TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을
 `sd_ctx_params_t.taesd_path`로 전달되고 최종 decode의 기본 VAE를 대체한다. TAESD는
 실험 옵션이며 품질 저하 때문에 기본값으로 사용하지 않는다. → ADR-009
 
+## Quantization flow
+
+```text
+Imported SafeTensors / GGUF
+            │
+            ▼
+  .quantizing-<id>.gguf
+            │ tensor streaming convert
+            ▼
+      GGUF header validation
+            │
+            ▼
+  <id>.gguf + models.json commit
+            │
+            ▼
+       mmap inference
+```
+
+양자화는 Android 기기 안에서 upstream `convert()`를 호출한다. 원본은 보존하고 결과를 새 모델로
+등록한다. 변환 입력 자체는 mmap이 아니며 tensor별 스트리밍을 사용한다. 생성과 양자화는 동시에
+실행하지 않는다. → ADR-014
+
 ## Native boundary
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
 2. Kotlin: Android lifecycle, URI/storage validation 및 JNI 호출을 담당

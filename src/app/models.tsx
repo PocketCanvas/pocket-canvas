@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { addQuantizationProgressListener, type QuantizationProgressEvent } from 'stable-diffusion';
 
 import {
   ManagedModel,
@@ -17,15 +18,23 @@ import {
   ModelCard,
   ModelDetailModal,
   ModelKind,
+  QuantizationProgressBanner,
 } from '@/components/models/model-management';
 import { useTheme } from '@/hooks/use-theme';
 import {
   deleteStoredModel,
   loadModels,
   pickAndImportModel,
+  quantizeStoredModel,
   StoredModel,
   updateStoredModel,
 } from '@/lib/model-files';
+import {
+  createQuantizationTask,
+  type QuantizationTask,
+  type QuantizationType,
+  updateQuantizationTaskProgress,
+} from '@/lib/model-quantization';
 
 export default function ModelsScreen() {
   const colors = useTheme();
@@ -34,6 +43,8 @@ export default function ModelsScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [isQuantizing, setIsQuantizing] = useState(false);
+  const [quantizationTask, setQuantizationTask] = useState<QuantizationTask | null>(null);
   const selectedRecord = items.find((item) => item.id === selectedId) ?? null;
   const selected = selectedRecord ? toManagedModel(selectedRecord, colors.accentSoft) : null;
   const visibleItems = items.filter((item) => item.kind === section);
@@ -104,6 +115,43 @@ export default function ModelsScreen() {
     }
   };
 
+  const quantizeSelected = async (type: QuantizationType) => {
+    if (!selectedRecord || isQuantizing) return;
+    const source = selectedRecord;
+    setIsQuantizing(true);
+    setQuantizationTask(
+      createQuantizationTask({ modelId: source.id, modelName: source.alias, type }),
+    );
+    setSelectedId(null);
+    const progressSubscription = addQuantizationProgressListener(
+      (progress: QuantizationProgressEvent) => {
+        setQuantizationTask((current) =>
+          current ? updateQuantizationTaskProgress(current, progress) : current,
+        );
+      },
+    );
+    try {
+      await updateStoredModel(source.id, {
+        alias: source.alias,
+        kind: source.kind,
+        description: source.description,
+      });
+      const result = await quantizeStoredModel(source.id, type);
+      setItems(result.models);
+      setSection('model');
+      Alert.alert(
+        '양자화가 완료되었습니다.',
+        `${result.model.alias}\n${formatBytes(result.model.sizeBytes)}`,
+      );
+    } catch (error) {
+      showError(error);
+    } finally {
+      progressSubscription.remove();
+      setQuantizationTask(null);
+      setIsQuantizing(false);
+    }
+  };
+
   return (
     <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
@@ -136,6 +184,12 @@ export default function ModelsScreen() {
           );
         })}
       </View>
+
+      {quantizationTask && (
+        <View style={styles.progressContainer}>
+          <QuantizationProgressBanner task={quantizationTask} />
+        </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {isLoading ? (
@@ -179,9 +233,11 @@ export default function ModelsScreen() {
 
       {selected && (
         <ModelDetailModal
+          isQuantizing={isQuantizing}
           item={selected}
           key={selected.id}
           onClose={() => {
+            if (isQuantizing) return;
             persistSelected();
             setSelectedId(null);
           }}
@@ -192,6 +248,7 @@ export default function ModelsScreen() {
             persistSelected({ kind });
             setSection(kind);
           }}
+          onQuantize={quantizeSelected}
           onRename={(alias) => persistSelected({ alias })}
         />
       )}
@@ -215,6 +272,7 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 13, fontWeight: '600' },
   selectedTabText: {},
   content: { padding: 20, paddingBottom: 120, gap: 10 },
+  progressContainer: { paddingHorizontal: 20, paddingTop: 16 },
   loading: { marginTop: 64 },
   empty: { alignItems: 'center', paddingVertical: 64, gap: 8 },
   emptyTitle: { fontSize: 15, fontWeight: '600' },
@@ -243,6 +301,7 @@ function toManagedModel(model: StoredModel, accentSoftColor: string): ManagedMod
     size: formatBytes(model.sizeBytes),
     filename: model.fileName,
     description: model.description,
+    quantization: model.quantization,
     color: accentSoftColor,
   };
 }

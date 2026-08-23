@@ -44,6 +44,7 @@
 | ADR-011 | 생성 요청 로그 정책 | 요청당 약 10줄: Vulkan·설정·단계별 wall time, upstream은 warning/error만 전달 |
 | ADR-012 | 생성 메타데이터 완전성과 이미지 보존 | 정상 metadata 필수 계약 + missing 복구 variant + PNG 보존 우선 |
 | ADR-013 | 전체 화면 갤러리와 확대 제스처 | filteredItems 페이징 + zoom-toolkit Gallery + Modal 전용 GestureHandlerRootView |
+| ADR-014 | Android 온디바이스 스트리밍 양자화 | 검증된 6개 타입 + 임시 GGUF 롤백 + 생성·양자화 직렬화 |
 
 ## Known landmines
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조
@@ -57,3 +58,4 @@
 - 히스토리 뷰어의 좌우 넘김과 핀치 확대를 별도 `FlatList`/zoom wrapper로 분리하지 않는다. `react-native-zoom-toolkit`의 `Gallery`가 두 동작을 함께 소유한다. → ADR-013
 - Android `Modal` 안의 Gallery는 모달 내부 `GestureHandlerRootView`가 필수다. 앱 루트 wrapper만 믿고 제거하면 좌우 넘김과 핀치가 모두 무반응이 될 수 있다. → ADR-013
 - `react-native-zoom-toolkit` 업데이트 후에는 Android 실기기에서 좌우 넘김, 핀치 확대, 확대 후 이동과 페이지 경계 handoff를 검증한다. lockfile을 삭제하지 않고 `npm install`로 manifest와 lockfile을 함께 갱신한다. → ADR-013
+- 양자화 입력 자체는 mmap이 아니라 upstream tensor 스트리밍을 사용한다. 결과 GGUF만 기존 mmap 추론 경로에서 사용한다. 진행률은 upstream callback의 완료 tensor 수를 표시하며 시간·byte 기준으로 합성하지 않고, 취소도 합성하지 않는다. → ADR-014

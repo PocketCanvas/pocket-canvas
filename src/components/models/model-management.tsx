@@ -1,6 +1,7 @@
 import { Box, ChevronRight, CircleHelp, Layers, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -13,6 +14,12 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
+import {
+  quantizationProgressPercent,
+  QUANTIZATION_OPTIONS,
+  type QuantizationTask,
+  type QuantizationType,
+} from '@/lib/model-quantization';
 
 export type ModelKind = 'model' | 'lora' | 'unknown';
 
@@ -25,6 +32,7 @@ export type ManagedModel = {
   size: string;
   filename: string;
   description: string;
+  quantization?: QuantizationType;
   color: string;
 };
 
@@ -80,6 +88,49 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
   );
 }
 
+export function QuantizationProgressBanner({ task }: { task: QuantizationTask }) {
+  const colors = useTheme();
+  const percent = quantizationProgressPercent(task);
+  const detail =
+    task.totalTensors > 0
+      ? `${task.completedTensors} / ${task.totalTensors} tensors`
+      : '변환 준비 중';
+
+  return (
+    <View
+      accessibilityLabel={`${task.modelName} ${task.type.toUpperCase()} 양자화`}
+      accessibilityLiveRegion="polite"
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: percent, text: detail }}
+      style={[
+        styles.progressBanner,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      <ActivityIndicator color={colors.accent} size="small" />
+      <View style={styles.progressBody}>
+        <View style={styles.progressHeader}>
+          <Text numberOfLines={1} style={[styles.progressModelName, { color: colors.text }]}>
+            {task.modelName}
+          </Text>
+          <Text style={[styles.progressType, { color: colors.accentText }]}>
+            {task.type.toUpperCase()}
+          </Text>
+        </View>
+        <View style={[styles.progressTrack, { backgroundColor: colors.track }]}>
+          <View
+            style={[styles.progressFill, { backgroundColor: colors.accent, width: `${percent}%` }]}
+          />
+        </View>
+        <View style={styles.progressFooter}>
+          <Text style={[styles.progressDetail, { color: colors.muted }]}>{detail}</Text>
+          <Text style={[styles.progressPercent, { color: colors.text }]}>{percent}%</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 type ModelDetailModalProps = {
   item: ManagedModel;
   onClose: () => void;
@@ -87,21 +138,26 @@ type ModelDetailModalProps = {
   onDescriptionChange: (description: string) => void;
   onDescriptionCommit: () => void;
   onKindChange: (kind: ModelKind) => void;
+  onQuantize: (type: QuantizationType) => void;
   onRename: (name: string) => void;
+  isQuantizing: boolean;
 };
 
 export function ModelDetailModal({
   item,
+  isQuantizing,
   onClose,
   onDelete,
   onDescriptionChange,
   onDescriptionCommit,
   onKindChange,
+  onQuantize,
   onRename,
 }: ModelDetailModalProps) {
   const colors = useTheme();
   const [name, setName] = useState(item.name);
   const [choosingKind, setChoosingKind] = useState(false);
+  const [quantizationType, setQuantizationType] = useState<QuantizationType>('q4_K');
   const trimmedName = name.trim();
 
   return (
@@ -250,6 +306,9 @@ export function ModelDetailModal({
                 </Text>
               )}
               <DetailRow label="파일 형식" value={item.format} />
+              {item.quantization && (
+                <DetailRow label="양자화" value={item.quantization.toUpperCase()} />
+              )}
               <DetailRow label="파일 크기" value={item.size} />
               <View style={[styles.detailRow, { borderTopColor: colors.border }]}>
                 <Text style={[styles.detailLabel, { color: colors.muted }]}>원본 파일명</Text>
@@ -257,9 +316,82 @@ export function ModelDetailModal({
                   {item.filename}
                 </Text>
               </View>
+              {item.kind === 'model' && (
+                <View style={[styles.quantizationSection, { borderTopColor: colors.border }]}>
+                  <Text style={[styles.quantizationTitle, { color: colors.text }]}>
+                    양자화 모델 생성
+                  </Text>
+                  <Text style={[styles.quantizationDescription, { color: colors.muted }]}>
+                    원본은 보존하고 새로운 GGUF 파일을 만듭니다. 숫자가 낮을수록 파일은 작아지지만
+                    품질 손실이 커질 수 있습니다.
+                  </Text>
+                  <View style={styles.quantizationOptions}>
+                    {QUANTIZATION_OPTIONS.map((option) => {
+                      const checked = quantizationType === option.value;
+                      return (
+                        <Pressable
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked, disabled: isQuantizing }}
+                          disabled={isQuantizing}
+                          key={option.value}
+                          onPress={() => setQuantizationType(option.value)}
+                          style={[
+                            styles.quantizationOption,
+                            { borderColor: checked ? colors.accent : colors.border },
+                            checked && { backgroundColor: colors.accentSoft },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.quantizationOptionLabel,
+                              { color: checked ? colors.accentText : colors.text },
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                          <Text
+                            style={[styles.quantizationOptionDescription, { color: colors.muted }]}
+                          >
+                            {option.description}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isQuantizing }}
+                    disabled={isQuantizing}
+                    onPress={() => onQuantize(quantizationType)}
+                    style={[
+                      styles.quantizeButton,
+                      { backgroundColor: colors.accent },
+                      isQuantizing && styles.disabled,
+                    ]}
+                  >
+                    {isQuantizing ? (
+                      <>
+                        <ActivityIndicator color={colors.onAccent} size="small" />
+                        <Text style={[styles.quantizeButtonText, { color: colors.onAccent }]}>
+                          양자화 중…
+                        </Text>
+                      </>
+                    ) : (
+                      <Text style={[styles.quantizeButtonText, { color: colors.onAccent }]}>
+                        {quantizationType.toUpperCase()} 생성
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              )}
               <Pressable
+                disabled={isQuantizing}
                 onPress={onDelete}
-                style={[styles.deleteButton, { borderColor: colors.error }]}
+                style={[
+                  styles.deleteButton,
+                  { borderColor: colors.error },
+                  isQuantizing && styles.disabled,
+                ]}
               >
                 <Trash2 color={colors.error} size={16} />
                 <Text style={[styles.deleteButtonText, { color: colors.error }]}>삭제</Text>
@@ -305,6 +437,23 @@ const styles = StyleSheet.create({
   metadata: { fontSize: 12, marginTop: 5 },
   description: { fontSize: 12, lineHeight: 17, marginTop: 5 },
   chevron: { marginHorizontal: 4 },
+  progressBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+  },
+  progressBody: { flex: 1, gap: 8 },
+  progressHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  progressModelName: { flex: 1, fontSize: 14, fontWeight: '600' },
+  progressType: { fontSize: 12, fontWeight: '700' },
+  progressTrack: { height: 6, overflow: 'hidden', borderRadius: 3 },
+  progressFill: { height: '100%', borderRadius: 3 },
+  progressFooter: { flexDirection: 'row', justifyContent: 'space-between' },
+  progressDetail: { fontSize: 12 },
+  progressPercent: { fontSize: 12, fontWeight: '600' },
   pressed: { opacity: 0.7 },
   modal: { flex: 1 },
   backdrop: { flex: 1, justifyContent: 'flex-end' },
@@ -383,6 +532,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   filename: { flex: 1, fontSize: 12, marginLeft: 16, textAlign: 'right' },
+  quantizationSection: { borderTopWidth: 1, paddingTop: 18, marginTop: 4 },
+  quantizationTitle: { fontSize: 15, fontWeight: '700' },
+  quantizationDescription: { fontSize: 12, lineHeight: 18, marginTop: 6 },
+  quantizationOptions: { gap: 8, marginTop: 14 },
+  quantizationOption: { borderWidth: 1, borderRadius: 10, padding: 12 },
+  quantizationOptionLabel: { fontSize: 13, fontWeight: '700' },
+  quantizationOptionDescription: { fontSize: 11, marginTop: 3 },
+  quantizeButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 10,
+    marginTop: 14,
+  },
+  quantizeButtonText: { fontSize: 14, fontWeight: '700' },
   deleteButton: {
     minHeight: 48,
     flexDirection: 'row',

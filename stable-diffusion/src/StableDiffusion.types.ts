@@ -1,13 +1,21 @@
 export type GenerationStage = 'loading' | 'encoding' | 'sampling' | 'decoding';
 
+export type QuantizationType = 'q8_0' | 'q5_0' | 'q5_1' | 'q4_0' | 'q4_1' | 'q4_K';
+
 export type GenerationProgressEvent = {
   stage: GenerationStage;
   step?: number;
   steps?: number;
 };
 
+export type QuantizationProgressEvent = {
+  completedTensors: number;
+  totalTensors: number;
+};
+
 export type StableDiffusionModuleEvents = {
   onProgress(event: GenerationProgressEvent): void;
+  onQuantizationProgress(event: QuantizationProgressEvent): void;
 };
 
 export type SamplingPreset =

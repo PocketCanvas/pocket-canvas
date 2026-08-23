@@ -4,6 +4,7 @@
 #include <vector>
 #include <chrono>
 #include <algorithm>
+#include <mutex>
 #include <android/log.h>
 #include "stable-diffusion.cpp/include/stable-diffusion.h"
 
@@ -15,6 +16,14 @@
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 using Clock = std::chrono::steady_clock;
+static std::mutex operation_mutex;
+
+struct ScopedCallbacksReset {
+    ~ScopedCallbacksReset() {
+        sd_set_log_callback(nullptr, nullptr);
+        sd_set_progress_callback(nullptr, nullptr);
+    }
+};
 
 static double elapsed_seconds(const Clock::time_point& start) {
     return std::chrono::duration<double>(Clock::now() - start).count();
@@ -60,6 +69,46 @@ static void android_sd_log_callback(sd_log_level_t level, const char* text, void
         context->decoding_emitted = true;
         context->stage_started = Clock::now();
         emit_progress(context, "decoding");
+    }
+}
+
+static void android_quantization_log_callback(sd_log_level_t level, const char* text, void*) {
+    if (level < SD_LOG_WARN) return;
+    const int priority = level == SD_LOG_ERROR ? ANDROID_LOG_ERROR
+                                               : ANDROID_LOG_WARN;
+    __android_log_print(priority, LOG_TAG, "[quantize] %s", text);
+}
+
+struct QuantizationProgressContext {
+    JavaVM* java_vm;
+    jobject module;
+    jmethodID emit_progress;
+};
+
+static void android_quantization_progress_callback(int step, int steps, float, void* data) {
+    auto* context = static_cast<QuantizationProgressContext*>(data);
+    JNIEnv* callback_env = nullptr;
+    bool attached = false;
+    const jint env_status = context->java_vm->GetEnv(
+        reinterpret_cast<void**>(&callback_env), JNI_VERSION_1_6);
+    if (env_status == JNI_EDETACHED) {
+        if (context->java_vm->AttachCurrentThread(&callback_env, nullptr) != JNI_OK) {
+            LOGE("[quantize] failed to attach progress callback thread");
+            return;
+        }
+        attached = true;
+    } else if (env_status != JNI_OK) {
+        LOGE("[quantize] failed to get progress callback JNI environment");
+        return;
+    }
+
+    callback_env->CallVoidMethod(context->module, context->emit_progress, step, steps);
+    if (callback_env->ExceptionCheck()) {
+        LOGE("[quantize] failed to emit progress event");
+        callback_env->ExceptionClear();
+    }
+    if (attached) {
+        context->java_vm->DetachCurrentThread();
     }
 }
 
@@ -117,10 +166,71 @@ static sd_hires_upscaler_t resolve_builtin_upscaler(const char* type) {
     return SD_HIRES_UPSCALER_COUNT;
 }
 
+static bool is_supported_quantization_type(sd_type_t type) {
+    return type == SD_TYPE_Q8_0 || type == SD_TYPE_Q5_0 || type == SD_TYPE_Q5_1 ||
+           type == SD_TYPE_Q4_0 || type == SD_TYPE_Q4_1 || type == SD_TYPE_Q4_K;
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_expo_modules_stablediffusion_StableDiffusionModule_getSystemInfo(JNIEnv *env, jobject thiz) {
     return env->NewStringUTF(sd_get_system_info());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_expo_modules_stablediffusion_StableDiffusionModule_quantizeModel(
+    JNIEnv* env,
+    jobject thiz,
+    jstring jInputPath,
+    jstring jOutputPath,
+    jstring jType
+) {
+    std::unique_lock<std::mutex> operation_lock(operation_mutex, std::try_to_lock);
+    if (!operation_lock.owns_lock()) {
+        return env->NewStringUTF("Error: Another native model operation is already running");
+    }
+    ScopedCallbacksReset callbacks_reset;
+
+    const char* input_path = env->GetStringUTFChars(jInputPath, nullptr);
+    const char* output_path = env->GetStringUTFChars(jOutputPath, nullptr);
+    const char* type_name = env->GetStringUTFChars(jType, nullptr);
+    const sd_type_t type = str_to_sd_type(type_name);
+
+    if (!is_supported_quantization_type(type)) {
+        env->ReleaseStringUTFChars(jInputPath, input_path);
+        env->ReleaseStringUTFChars(jOutputPath, output_path);
+        env->ReleaseStringUTFChars(jType, type_name);
+        return env->NewStringUTF("Error: Unsupported quantization type");
+    }
+
+    const auto started = Clock::now();
+    LOGI("[quantize] input=%s output=%s type=%s", input_path, output_path, type_name);
+    JavaVM* java_vm = nullptr;
+    env->GetJavaVM(&java_vm);
+    jclass module_class = env->GetObjectClass(thiz);
+    jmethodID emit_progress_method = env->GetMethodID(
+        module_class,
+        "emitQuantizationProgress",
+        "(II)V"
+    );
+    jobject module_global_ref = env->NewGlobalRef(thiz);
+    QuantizationProgressContext progress_context{
+        java_vm, module_global_ref, emit_progress_method
+    };
+    sd_set_log_callback(android_quantization_log_callback, nullptr);
+    sd_set_progress_callback(android_quantization_progress_callback, &progress_context);
+    const bool success = convert(input_path, nullptr, output_path, type, "", false);
+    LOGI("[quantize] success=%s elapsed=%.2fs", success ? "true" : "false", elapsed_seconds(started));
+
+    env->DeleteGlobalRef(module_global_ref);
+    env->DeleteLocalRef(module_class);
+
+    jstring result = env->NewStringUTF(success ? output_path : "Error: Model quantization failed");
+    env->ReleaseStringUTFChars(jInputPath, input_path);
+    env->ReleaseStringUTFChars(jOutputPath, output_path);
+    env->ReleaseStringUTFChars(jType, type_name);
+    return result;
 }
 
 extern "C"
@@ -146,6 +256,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     jdouble hiresDenoisingStrength,
     jstring jOutputPath
 ) {
+    std::unique_lock<std::mutex> operation_lock(operation_mutex, std::try_to_lock);
+    if (!operation_lock.owns_lock()) {
+        return env->NewStringUTF("Error: Another native model operation is already running");
+    }
+    ScopedCallbacksReset callbacks_reset;
+
     const char *prompt = env->GetStringUTFChars(jPrompt, nullptr);
     const char *negative_prompt = env->GetStringUTFChars(jNegativePrompt, nullptr);
     const char *model_path = env->GetStringUTFChars(jModelPath, nullptr);

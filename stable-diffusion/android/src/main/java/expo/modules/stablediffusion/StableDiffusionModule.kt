@@ -33,6 +33,7 @@ class StableDiffusionModule : Module() {
   }
 
   private external fun getSystemInfo(): String
+  private external fun quantizeModel(inputPath: String, outputPath: String, type: String): String
   private external fun generateImage(
     prompt: String,
     negativePrompt: String,
@@ -58,12 +59,42 @@ class StableDiffusionModule : Module() {
     sendEvent("onProgress", mapOf("stage" to stage, "step" to step, "steps" to steps))
   }
 
+  @Keep
+  private fun emitQuantizationProgress(completedTensors: Int, totalTensors: Int) {
+    sendEvent(
+      "onQuantizationProgress",
+      mapOf("completedTensors" to completedTensors, "totalTensors" to totalTensors)
+    )
+  }
+
   override fun definition() = ModuleDefinition {
     Name("StableDiffusion")
-    Events("onProgress")
+    Events("onProgress", "onQuantizationProgress")
 
     Function("getSystemInfo") {
       return@Function getSystemInfo()
+    }
+
+    AsyncFunction("quantizeModel") { inputUri: String, outputUri: String, type: String ->
+      val context = appContext.reactContext ?: throw Exception("React context not found")
+      val supportedTypes = setOf("q8_0", "q5_0", "q5_1", "q4_0", "q4_1", "q4_K")
+      require(type in supportedTypes) { "Unsupported quantization type" }
+
+      val filesRoot = context.filesDir.canonicalFile
+      fun appFile(uri: String): File {
+        val file = File(requireNotNull(Uri.parse(uri).path) { "Invalid file URI" }).canonicalFile
+        require(file.path.startsWith(filesRoot.path + File.separator)) { "File must be in app storage" }
+        return file
+      }
+
+      val inputFile = appFile(inputUri)
+      val outputFile = appFile(outputUri)
+      require(inputFile.isFile) { "Input model not found" }
+      require(inputFile != outputFile) { "Input and output files must be different" }
+      require(!outputFile.exists()) { "Output file already exists" }
+      require(outputFile.parentFile?.isDirectory == true) { "Output directory not found" }
+
+      return@AsyncFunction quantizeModel(inputFile.absolutePath, outputFile.absolutePath, type)
     }
 
     AsyncFunction("generateImage") {

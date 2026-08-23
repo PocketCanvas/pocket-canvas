@@ -1,6 +1,6 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
-import { StableDiffusionModuleEvents } from './StableDiffusion.types';
+import { QuantizationType, StableDiffusionModuleEvents } from './StableDiffusion.types';
 
 type NativeGenerationOptions = {
   negativePrompt: string;
@@ -18,6 +18,7 @@ type NativeGenerationOptions = {
 
 declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEvents> {
   getSystemInfo(): string;
+  quantizeModel(inputUri: string, outputUri: string, type: QuantizationType): Promise<string>;
   generateImage(
     prompt: string,
     modelUri: string,

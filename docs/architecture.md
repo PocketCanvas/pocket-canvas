@@ -145,6 +145,16 @@ Native interaction의 이점이 있는 일부 control만 Expo UI를 사용하며
 
 History UI와 생성 UI는 화면 state와 reusable presentation component의 책임을 분리
 
+생성 화면의 React 상태는 입력 중인 생성 설정과 실행 lifecycle을 분리한다.
+`generationDraftReducer`는 prompt, 리소스 선택, sampling, 해상도, seed와 hires 설정을 소유하고,
+`generationRunReducer`는 `idle`, `running`, `succeeded`, `failed` 전이와 진행 이벤트, 결과 이미지,
+오류·경고를 소유한다. 화면 컴포넌트는 두 reducer를 조정하고 native 호출과 저장 부수 효과를 수행한다.
+
+모델 목록은 화면 focus 때 다시 읽으며 draft reducer가 선택된 model·TAESD·LoRA를 ID로 현재 catalog와
+재조정한다. 삭제된 리소스는 선택에서 제거하고, 남아 있는 LoRA는 새 레코드를 사용하면서 기존 weight를
+보존한다. 실행 시작 시에는 직전 성공 이미지를 별도로 보존한다. 생성 실패는 그 이미지를 유지하고,
+PNG 생성 뒤 metadata 기록만 실패한 경우는 warning을 가진 성공 상태로 표현한다.
+
 히스토리 그리드에서 이미지를 선택하면 현재 탭·검색·정렬 결과가 전체 화면
 `HistoryImageViewer`로 전달된다. `react-native-zoom-toolkit`의 `Gallery`가 제한 렌더링,
 좌우 페이징과 핀치 확대를 하나의 제스처 상태로 처리하고, React 화면 상태는 선택 ID와
@@ -154,3 +164,4 @@ History UI와 생성 UI는 화면 state와 reusable presentation component의 �
 → ADR-005
 → ADR-008
 → ADR-013
+→ ADR-016

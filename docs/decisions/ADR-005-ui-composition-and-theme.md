@@ -6,6 +6,7 @@ Accepted
 모델 관리 영속화 보류 결정은 [ADR-006](ADR-006-app-storage-and-model-import.md)에서 대체되었습니다. UI와 생성 화면의 책임 분리는 유지합니다.
 생성 설정을 네이티브 추론에 연결하지 않았던 당시 제약은 [ADR-007](ADR-007-generation-contract-progress-and-image-storage.md)에서 해소되었습니다.
 다크 테마 고정 결정은 2026-08-20의 Zustand 기반 테마 관리 구현으로 갱신되었습니다.
+생성 화면의 상태 orchestration은 [ADR-016](ADR-016-generation-screen-state-model.md)에서 draft와 실행 lifecycle reducer로 구체화되었습니다.
 
 ## Date
 2026-08-16

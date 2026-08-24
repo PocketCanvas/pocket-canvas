@@ -26,7 +26,13 @@ internal data class GenerationOptions(
   @Field val upscaleFactor: Double,
   @Field val hiresSteps: Int,
   @Field val hiresDenoisingStrength: Double,
-  @Field val vaeMemoryProfile: String
+  @Field val modelFamily: String,
+  @Field val modelFamilyEvidence: String,
+  @Field val modelVariant: String,
+  @Field val modelVariantEvidence: String,
+  @Field val diffusionStorage: String,
+  @Field val diffusionBytes: Double,
+  @Field val vaeArchitecture: String
 ) : Record
 
 class StableDiffusionModule : Module() {
@@ -46,7 +52,13 @@ class StableDiffusionModule : Module() {
     negativePrompt: String,
     modelPath: String,
     taesdPath: String,
-    vaeMemoryProfile: String,
+    modelFamily: String,
+    modelFamilyEvidence: String,
+    modelVariant: String,
+    modelVariantEvidence: String,
+    diffusionStorage: String,
+    diffusionBytes: Double,
+    vaeArchitecture: String,
     loraPaths: Array<String>,
     loraWeights: DoubleArray,
     width: Int,
@@ -129,9 +141,17 @@ class StableDiffusionModule : Module() {
       require(options.hiresDenoisingStrength.isFinite() && options.hiresDenoisingStrength in 0.0001..1.0) {
         "Hires denoising strength must be between 0.0001 and 1"
       }
-      require(options.vaeMemoryProfile in setOf("default", "sdxl-turbo-q4")) {
-        "Unsupported VAE memory profile"
+      require(options.modelFamily in setOf("sd1", "sdxl", "anima", "unknown")) { "Unsupported model family" }
+      require(options.modelFamilyEvidence in setOf("tensor-signature", "insufficient")) { "Unsupported family evidence" }
+      require(options.modelVariant in setOf("turbo", "unknown")) { "Unsupported model variant" }
+      require(options.modelVariantEvidence in setOf("gguf-metadata", "safetensors-metadata", "original-file-name", "alias", "insufficient")) {
+        "Unsupported variant evidence"
       }
+      require(options.diffusionStorage in setOf("f32", "f16", "bf16", "f8", "q4", "q5", "q8", "mixed", "unknown")) {
+        "Unsupported diffusion storage"
+      }
+      require(options.diffusionBytes.isFinite() && options.diffusionBytes >= 0.0) { "Invalid diffusion byte estimate" }
+      require(options.vaeArchitecture in setOf("autoencoder-kl", "unknown")) { "Unsupported VAE architecture" }
       require(loraUris.size == loraWeights.size) { "LoRA paths and weights must match" }
       require(loraWeights.all { it.isFinite() && it in 0.0..2.0 }) {
         "LoRA weights must be between 0 and 2"
@@ -156,7 +176,13 @@ class StableDiffusionModule : Module() {
         options.negativePrompt.trim(),
         modelPath,
         taesdPath,
-        options.vaeMemoryProfile,
+        options.modelFamily,
+        options.modelFamilyEvidence,
+        options.modelVariant,
+        options.modelVariantEvidence,
+        options.diffusionStorage,
+        options.diffusionBytes,
+        options.vaeArchitecture,
         loraPaths,
         loraWeights.toDoubleArray(),
         options.width,

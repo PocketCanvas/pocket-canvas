@@ -135,13 +135,28 @@ JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
 3. JNI bridge: Pocket Canvas 전용 inference orchestration과 `stable-diffusion.cpp` API adaptation을 담당한다.
 4. stable-diffusion.cpp: 실제 model loading 및 diffusion inference를 수행하는 upstream core
 
-## VAE memory policy
+## Intelligent memory policy
 
-생성 직전 앱은 저장된 모델 header의 tensor 구조와 저장 타입을 검사해 내부 VAE memory profile을 결정한다. 현재 자동 최적화가 검증된 범위는 Galaxy S26의 SDXL Turbo Q4, 768×768, 내장 VAE 조합뿐이다. 이 조합에서 `StableDiffusionBridge.cpp`가 48×48, overlap 0.50 VAE tiling을 적용하며 SD 1.5, 512×512, TAESD 또는 Hires 요청은 기본 non-tiled 경로를 유지한다.
+생성 직전 앱은 모델 header를 읽어 `ModelDescriptor`를 만든다. descriptor는 모델을 파일명 목록으로 분류하지 않고 tensor signature 기반 family, 별도 provenance를 가진 variant, diffusion/text encoder/VAE별 저장 타입·tensor 수·추정 byte를 표현한다. Q4/Q5/Q8 같은 저장 형식은 별도의 모델 경우의 수가 아니라 component memory cost의 입력이다.
 
-이 profile은 사용자 생성 설정이나 UI 옵션이 아니다. Kotlin은 계약 검증과 전달만 담당하고 native bridge가 최종 적용 조건을 소유한다. 자동 fallback은 없으며 실제 판정과 적용 결과는 `[settings]` 로그의 `vae_profile`, `vae_policy`, `vae_tiling` 필드로 확인한다.
+```text
+Model header + import provenance
+              ↓
+        ModelDescriptor
+              + Workload (해상도, TAESD, Hires, LoRA)
+              ↓
+ StableDiffusionBridge.cpp resolver
+              ↓
+ verified → conservative → native-default
+              ↓
+ diffusion FA / parameter backend / VAE tiling
+```
 
-> 근거, 제한 범위와 대안은 ADR-017 참조
+resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 적용한다. 정확히 일치하는 실험값이 없어도 SDXL의 diffusion parameter cost가 큰 경우에는 flash attention과 CPU 공유 parameter backend를, SD1/SDXL AutoEncoderKL의 768² 이상 decode에는 48×48 overlap 0.50 tiling을 서로 독립적으로 합성할 수 있다. 이 경로는 `conservative`로 기록하며 검증 완료를 의미하지 않는다. 어느 조건에도 해당하지 않으면 upstream 기본값을 유지한다.
+
+이 정책은 사용자 생성 설정이나 UI 옵션이 아니다. 사용자 설정을 수정하지 않고, 실패 후 다른 조건으로 재시도하지 않으며, 아직은 미검증 조합을 사전 거절하지도 않는다. Kotlin은 descriptor 계약 검증과 전달만 담당하고 최종 정책 판정과 native 옵션 적용은 `StableDiffusionBridge.cpp`가 소유한다. `[model]` 로그는 판정 입력을, `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`은 판정 결과를 보여준다.
+
+> VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018 참조
 
 ## Persistence
 

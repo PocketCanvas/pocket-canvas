@@ -32,7 +32,7 @@ import { showOperationBlockedAlert } from '@/lib/heavy-operation';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
 import {
   getStoredModelUri,
-  inspectStoredModelVaeMemoryProfile,
+  inspectStoredModelDescriptor,
   type StoredModel,
 } from '@/lib/model-files';
 import { useOperationStore } from '@/stores/use-operation-store';
@@ -117,12 +117,22 @@ export default function GenerateScreen() {
       progressSubscription = addProgressListener((nextProgress) =>
         dispatchRun({ type: 'progressed', progress: nextProgress }),
       );
+      const modelDescriptor = inspectStoredModelDescriptor(model);
       const uri = await generateImage({
         prompt: prompt.trim(),
         negativePrompt: negativePrompt.trim(),
         modelUri: getStoredModelUri(model),
         taesdUri: taesd ? getStoredModelUri(taesd) : undefined,
-        vaeMemoryProfile: inspectStoredModelVaeMemoryProfile(model),
+        memoryModel: {
+          family: modelDescriptor.family.value,
+          familyEvidence: modelDescriptor.family.evidence,
+          variant: modelDescriptor.variant.value,
+          variantEvidence: modelDescriptor.variant.evidence,
+          diffusionStorage: modelDescriptor.storage.diffusion.dominantType,
+          diffusionBytes: modelDescriptor.storage.diffusion.estimatedBytes,
+          vaeArchitecture:
+            modelDescriptor.storage.vae.tensorCount > 0 ? 'autoencoder-kl' : 'unknown',
+        },
         loras: loras.map(({ model: lora, weight }) => ({
           uri: getStoredModelUri(lora),
           weight,

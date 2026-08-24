@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer';
 import test from 'node:test';
 
 import {
-  classifyVaeMemoryProfile,
+  describeModel,
   inspectModelBytes,
   inspectQuantizationAvailability,
   supportedModelExtension,
@@ -96,51 +96,73 @@ test('detects an imported quantized GGUF from its tensor storage types', () => {
   });
 });
 
-test('selects the verified VAE profile only for an SDXL Turbo Q4 model', () => {
+test('identifies SD 1.x from its UNet and 768-wide token embedding', () => {
   const inspection = inspectModelBytes(
-    gguf(
-      [
-        { name: 'model.diffusion_model.input_blocks.0.0.weight', type: 12 },
-        { name: 'conditioner.embedders.1.model.text_projection', type: 0 },
-      ],
-      { 'general.name': 'SDXL Turbo Q4_K' },
+    safetensors(
+      {
+        'model.diffusion_model.input_blocks.0.0.weight': {
+          dtype: 'F16',
+          shape: [320, 4, 3, 3],
+          data_offsets: [0, 256],
+        },
+        'cond_stage_model.transformer.text_model.embeddings.token_embedding.weight': {
+          dtype: 'F16',
+          shape: [4, 768],
+          data_offsets: [256, 512],
+        },
+      },
+      512,
     ),
   );
 
-  assert.equal(classifyVaeMemoryProfile(inspection, []), 'sdxl-turbo-q4');
+  assert.equal(inspection.family, 'sd1');
 });
 
-test('does not generalize the verified VAE profile to ordinary SDXL Q4 models', () => {
+test('tracks component storage bytes without treating float auxiliaries as mixed Q4', () => {
   const inspection = inspectModelBytes(
     gguf([
-      { name: 'model.diffusion_model.input_blocks.0.0.weight', type: 12 },
-      { name: 'conditioner.embedders.1.model.text_projection', type: 0 },
+      {
+        name: 'model.diffusion_model.input_blocks.0.0.weight',
+        type: 12,
+        shape: [256],
+      },
+      { name: 'model.diffusion_model.input_blocks.0.0.bias', type: 0, shape: [4] },
+      { name: 'first_stage_model.decoder.conv.weight', type: 1, shape: [8] },
     ]),
   );
 
-  assert.equal(classifyVaeMemoryProfile(inspection, ['ordinary-sdxl-q4.gguf']), 'default');
+  assert.equal(inspection.storage.diffusion.dominantType, 'q4');
+  assert.equal(inspection.storage.diffusion.estimatedBytes, 160);
+  assert.equal(inspection.storage.vae.dominantType, 'f16');
+  assert.equal(inspection.storage.vae.estimatedBytes, 16);
 });
 
-test('does not select the verified VAE profile for an unquantized SDXL Turbo model', () => {
+test('describes Turbo provenance separately from structural family and storage', () => {
   const inspection = inspectModelBytes(
-    gguf(
-      [
-        { name: 'model.diffusion_model.input_blocks.0.0.weight', type: 0 },
-        { name: 'conditioner.embedders.1.model.text_projection', type: 0 },
-      ],
-      { 'general.name': 'SDXL Turbo' },
-    ),
+    gguf([
+      {
+        name: 'model.diffusion_model.input_blocks.0.0.weight',
+        type: 8,
+        shape: [32],
+      },
+      { name: 'conditioner.embedders.1.model.text_projection', type: 0, shape: [4] },
+    ]),
   );
 
-  assert.equal(classifyVaeMemoryProfile(inspection, []), 'default');
-});
+  const descriptor = describeModel(inspection, {
+    originalFileName: 'custom-sdxl-turbo-q8.gguf',
+    alias: 'renamed model',
+  });
 
-test('does not select the verified VAE profile for a non-SDXL Turbo Q4 model', () => {
-  const inspection = inspectModelBytes(
-    gguf([{ name: 'model.diffusion_model.input_blocks.0.0.weight', type: 12 }]),
-  );
-
-  assert.equal(classifyVaeMemoryProfile(inspection, ['sd15-turbo-q4.gguf']), 'default');
+  assert.deepEqual(descriptor.family, {
+    value: 'sdxl',
+    evidence: 'tensor-signature',
+  });
+  assert.deepEqual(descriptor.variant, {
+    value: 'turbo',
+    evidence: 'original-file-name',
+  });
+  assert.equal(descriptor.storage.diffusion.dominantType, 'q8');
 });
 
 test('rejects a GGUF with an unknown tensor storage type', () => {
@@ -189,9 +211,16 @@ function gguf(tensors, metadata = {}) {
       encodedValue,
     ];
   });
-  const directory = tensors.flatMap(({ name, type }) => {
+  const directory = tensors.flatMap(({ name, type, shape = [4] }) => {
     const encodedName = encoder.encode(name);
-    return [uint64(encodedName.length), encodedName, uint32(1), uint64(4), uint32(type), uint64(0)];
+    return [
+      uint64(encodedName.length),
+      encodedName,
+      uint32(shape.length),
+      ...shape.map(uint64),
+      uint32(type),
+      uint64(0),
+    ];
   });
   return Buffer.concat([
     Buffer.from('GGUF'),

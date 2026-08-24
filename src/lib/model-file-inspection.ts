@@ -1,7 +1,31 @@
 export type ModelFileFormat = 'gguf' | 'safetensors';
 export type ModelFileKind = 'model' | 'lora' | 'unknown';
-export type DiffusionModelFamily = 'sdxl' | 'other';
-export type VaeMemoryProfile = 'default' | 'sdxl-turbo-q4';
+export type DiffusionModelFamily = 'sd1' | 'sdxl' | 'anima' | 'unknown';
+export type ModelComponent = 'diffusion' | 'textEncoder' | 'vae' | 'other';
+export type DominantStorage =
+  'f32' | 'f16' | 'bf16' | 'f8' | 'q4' | 'q5' | 'q8' | 'mixed' | 'unknown';
+
+export type ComponentStorage = {
+  class: 'float' | 'quantized' | 'mixed' | 'unknown';
+  dominantType: DominantStorage;
+  tensorCount: number;
+  estimatedBytes: number;
+  histogram: Record<string, { tensorCount: number; estimatedBytes: number }>;
+};
+
+export type ModelDescriptor = {
+  schemaVersion: 1;
+  family: {
+    value: DiffusionModelFamily;
+    evidence: 'tensor-signature' | 'insufficient';
+  };
+  variant: {
+    value: 'turbo' | 'unknown';
+    evidence:
+      'gguf-metadata' | 'safetensors-metadata' | 'original-file-name' | 'alias' | 'insufficient';
+  };
+  storage: Record<ModelComponent, ComponentStorage>;
+};
 
 export type ModelInspection = {
   format: ModelFileFormat;
@@ -9,6 +33,8 @@ export type ModelInspection = {
   family: DiffusionModelFamily;
   tensorCount: number;
   tensorTypes: Record<string, number>;
+  tensorShapes: Record<string, number[]>;
+  storage: Record<ModelComponent, ComponentStorage>;
   metadata: Record<string, string>;
 };
 
@@ -30,6 +56,105 @@ export type ByteSource = {
 const MAX_HEADER_BYTES = 32 * 1024 * 1024;
 const MAX_ITEMS = 200_000;
 const MAX_STRING_BYTES = 16 * 1024 * 1024;
+
+type StorageAccumulator = Record<
+  ModelComponent,
+  {
+    tensorCount: number;
+    estimatedBytes: number;
+    histogram: Record<string, { tensorCount: number; estimatedBytes: number }>;
+  }
+>;
+
+function createStorageAccumulator(): StorageAccumulator {
+  const component = () => ({ tensorCount: 0, estimatedBytes: 0, histogram: {} });
+  return {
+    diffusion: component(),
+    textEncoder: component(),
+    vae: component(),
+    other: component(),
+  };
+}
+
+function modelComponent(name: string): ModelComponent {
+  if (
+    name.startsWith('model.diffusion_model.') ||
+    name.startsWith('unet.') ||
+    name.startsWith('net.')
+  ) {
+    return 'diffusion';
+  }
+  if (name.startsWith('first_stage_model.') || name.startsWith('vae.')) return 'vae';
+  if (
+    name.startsWith('conditioner.') ||
+    name.startsWith('cond_stage_model.') ||
+    name.startsWith('te.') ||
+    name.startsWith('text_model.') ||
+    name.startsWith('llm_adapter.')
+  ) {
+    return 'textEncoder';
+  }
+  return 'other';
+}
+
+function addStorage(
+  accumulator: StorageAccumulator,
+  name: string,
+  storageType: string,
+  estimatedBytes: number,
+): void {
+  const target = accumulator[modelComponent(name)];
+  target.tensorCount += 1;
+  target.estimatedBytes += estimatedBytes;
+  const type = target.histogram[storageType] ?? { tensorCount: 0, estimatedBytes: 0 };
+  type.tensorCount += 1;
+  type.estimatedBytes += estimatedBytes;
+  target.histogram[storageType] = type;
+}
+
+function finishStorage(accumulator: StorageAccumulator): Record<ModelComponent, ComponentStorage> {
+  return Object.fromEntries(
+    Object.entries(accumulator).map(([component, value]) => {
+      const types = Object.keys(value.histogram);
+      const quantized = new Set(
+        types.flatMap((type) => {
+          if (type.startsWith('q4')) return ['q4' as const];
+          if (type.startsWith('q5')) return ['q5' as const];
+          if (type.startsWith('q8')) return ['q8' as const];
+          if (type.startsWith('q') || type === 'other' || type.startsWith('ggml_')) {
+            return ['mixed' as const];
+          }
+          return [];
+        }),
+      );
+      const floats = new Set(
+        types.flatMap((type) => {
+          if (type === 'f16') return ['f16' as const];
+          if (type === 'f32' || type === 'f64') return ['f32' as const];
+          if (type === 'bf16') return ['bf16' as const];
+          if (type.startsWith('f8')) return ['f8' as const];
+          return [];
+        }),
+      );
+      let storageClass: ComponentStorage['class'] = 'unknown';
+      let dominantType: DominantStorage = 'unknown';
+      if (quantized.size === 1 && !quantized.has('mixed')) {
+        storageClass = 'quantized';
+        dominantType = [...quantized][0];
+      } else if (quantized.size > 0) {
+        storageClass = 'mixed';
+        dominantType = 'mixed';
+      } else if (floats.size === 1) {
+        storageClass = 'float';
+        dominantType = [...floats][0];
+      } else if (floats.size > 1) {
+        storageClass = 'float';
+        dominantType = 'mixed';
+      }
+      return [component, { ...value, class: storageClass, dominantType }];
+    }),
+  ) as Record<ModelComponent, ComponentStorage>;
+}
 
 export function supportedModelExtension(fileName: string): '.gguf' | '.safetensors' | null {
   const lowerName = fileName.toLowerCase();
@@ -76,6 +201,8 @@ function inspectSafetensors(source: ByteSource, prefix: Uint8Array): ModelInspec
 
   const tensorNames: string[] = [];
   const tensorTypes: Record<string, number> = {};
+  const tensorShapes: Record<string, number[]> = {};
+  const storage = createStorageAccumulator();
   const dataSize = source.size - 8 - headerLength;
   for (const [name, value] of Object.entries(header)) {
     if (name === '__metadata__') continue;
@@ -83,17 +210,24 @@ function inspectSafetensors(source: ByteSource, prefix: Uint8Array): ModelInspec
       throw new Error('유효하지 않은 SafeTensors tensor 정보입니다.');
     }
     tensorNames.push(name);
-    const dtype = (value as Record<string, unknown>).dtype as string;
+    const tensor = value as Record<string, unknown>;
+    const dtype = tensor.dtype as string;
+    const shape = (tensor.shape as number[]).map(Number);
+    const offsets = tensor.data_offsets as number[];
     tensorTypes[dtype] = (tensorTypes[dtype] ?? 0) + 1;
+    tensorShapes[name] = shape;
+    addStorage(storage, name, safetensorsStorageName(dtype), offsets[1] - offsets[0]);
   }
   if (!tensorNames.length) throw new Error('tensor가 없는 SafeTensors 파일입니다.');
 
   return {
     format: 'safetensors',
     kind: classifyTensorNames(tensorNames),
-    family: classifyModelFamily(tensorNames),
+    family: classifyModelFamily(tensorNames, tensorShapes),
     tensorCount: tensorNames.length,
     tensorTypes,
+    tensorShapes,
+    storage: finishStorage(storage),
     metadata: stringMetadata(header.__metadata__),
   };
 }
@@ -120,13 +254,26 @@ function inspectGguf(source: ByteSource): ModelInspection {
 
   const tensorNames: string[] = [];
   const tensorTypes: Record<string, number> = {};
+  const tensorShapes: Record<string, number[]> = {};
+  const storage = createStorageAccumulator();
   for (let index = 0; index < tensorCount; index += 1) {
-    tensorNames.push(cursor.string());
+    const name = cursor.string();
+    tensorNames.push(name);
     const dimensions = cursor.u32();
     if (dimensions < 1 || dimensions > 8) throw new Error('유효하지 않은 GGUF tensor 차원입니다.');
-    for (let dimension = 0; dimension < dimensions; dimension += 1) cursor.u64();
+    const ggmlShape: number[] = [];
+    for (let dimension = 0; dimension < dimensions; dimension += 1) {
+      ggmlShape.push(cursor.u64());
+    }
     const tensorType = cursor.u32();
     tensorTypes[tensorType] = (tensorTypes[tensorType] ?? 0) + 1;
+    tensorShapes[name] = ggmlShape.toReversed();
+    addStorage(
+      storage,
+      name,
+      ggufStorageName(tensorType),
+      estimateGgufTensorBytes(ggmlShape, tensorType),
+    );
     const offset = cursor.u64();
     if (offset > source.size) throw new Error('유효하지 않은 GGUF tensor offset입니다.');
   }
@@ -135,34 +282,48 @@ function inspectGguf(source: ByteSource): ModelInspection {
   return {
     format: 'gguf',
     kind,
-    family: classifyModelFamily(tensorNames),
+    family: classifyModelFamily(tensorNames, tensorShapes),
     tensorCount,
     tensorTypes,
+    tensorShapes,
+    storage: finishStorage(storage),
     metadata,
   };
 }
 
-export function classifyVaeMemoryProfile(
+export function describeModel(
   inspection: ModelInspection,
-  identifiers: string[],
-): VaeMemoryProfile {
-  if (inspection.family !== 'sdxl') return 'default';
-
-  const availability = inspectQuantizationAvailability(inspection);
-  if (
-    availability.type !== 'alreadyQuantized' ||
-    !['q4_0', 'q4_1', 'q4_K'].includes(availability.primaryType)
-  ) {
-    return 'default';
+  identifiers: { originalFileName: string; alias: string },
+): ModelDescriptor {
+  const metadataName = inspection.metadata['general.name'];
+  let variant: ModelDescriptor['variant'] = { value: 'unknown', evidence: 'insufficient' };
+  if (metadataName && TURBO_TOKEN.test(metadataName)) {
+    variant = {
+      value: 'turbo',
+      evidence: inspection.format === 'gguf' ? 'gguf-metadata' : 'safetensors-metadata',
+    };
+  } else if (TURBO_TOKEN.test(identifiers.originalFileName)) {
+    variant = { value: 'turbo', evidence: 'original-file-name' };
+  } else if (TURBO_TOKEN.test(identifiers.alias)) {
+    variant = { value: 'turbo', evidence: 'alias' };
   }
-
-  const identity = [inspection.metadata['general.name'], ...identifiers]
-    .filter((value): value is string => Boolean(value))
-    .join(' ');
-  return /(^|[^a-z0-9])turbo([^a-z0-9]|$)/i.test(identity) ? 'sdxl-turbo-q4' : 'default';
+  return {
+    schemaVersion: 1,
+    family: {
+      value: inspection.family,
+      evidence: inspection.family === 'unknown' ? 'insufficient' : 'tensor-signature',
+    },
+    variant,
+    storage: inspection.storage,
+  };
 }
 
-function classifyModelFamily(tensorNames: string[]): DiffusionModelFamily {
+const TURBO_TOKEN = /(^|[^a-z0-9])turbo([^a-z0-9]|$)/i;
+
+function classifyModelFamily(
+  tensorNames: string[],
+  tensorShapes: Record<string, number[]>,
+): DiffusionModelFamily {
   const hasUnet = tensorNames.some(
     (name) =>
       name.includes('model.diffusion_model.input_blocks.') || name.includes('unet.down_blocks.'),
@@ -173,7 +334,19 @@ function classifyModelFamily(tensorNames: string[]): DiffusionModelFamily {
       name.includes('cond_stage_model.1') ||
       name.includes('te.1'),
   );
-  return hasUnet && hasSecondTextEncoder ? 'sdxl' : 'other';
+  if (hasUnet && hasSecondTextEncoder) return 'sdxl';
+  if (!hasUnet) return 'unknown';
+
+  const tokenEmbeddingNames = [
+    'cond_stage_model.transformer.text_model.embeddings.token_embedding.weight',
+    'cond_stage_model.model.token_embedding.weight',
+    'text_model.embeddings.token_embedding.weight',
+    'te.text_model.embeddings.token_embedding.weight',
+    'conditioner.embedders.0.model.token_embedding.weight',
+    'conditioner.embedders.0.transformer.text_model.embeddings.token_embedding.weight',
+  ];
+  const tokenEmbeddingShape = tokenEmbeddingNames.map((name) => tensorShapes[name]).find(Boolean);
+  return tokenEmbeddingShape?.at(-1) === 768 ? 'sd1' : 'unknown';
 }
 
 export function inspectQuantizationAvailability(
@@ -218,6 +391,41 @@ const GGUF_QUANTIZED_TYPES = new Map<number, QuantizedStorageType>([
   [40, 'other'],
   [41, 'other'],
 ]);
+
+function safetensorsStorageName(dtype: string): string {
+  if (dtype === 'F16') return 'f16';
+  if (dtype === 'F32' || dtype === 'F64') return dtype.toLowerCase();
+  if (dtype === 'BF16') return 'bf16';
+  if (dtype.startsWith('F8')) return 'f8';
+  return dtype.toLowerCase();
+}
+
+function ggufStorageName(type: number): string {
+  if (GGUF_AUXILIARY_TYPES.has(type)) return 'aux';
+  return GGUF_FLOAT_TYPES.get(type) ?? GGUF_QUANTIZED_TYPES.get(type) ?? `ggml_${type}`;
+}
+
+const GGUF_TYPE_LAYOUT = new Map<number, { blockElements: number; blockBytes: number }>([
+  [0, { blockElements: 1, blockBytes: 4 }],
+  [1, { blockElements: 1, blockBytes: 2 }],
+  [2, { blockElements: 32, blockBytes: 18 }],
+  [3, { blockElements: 32, blockBytes: 20 }],
+  [6, { blockElements: 32, blockBytes: 22 }],
+  [7, { blockElements: 32, blockBytes: 24 }],
+  [8, { blockElements: 32, blockBytes: 34 }],
+  [12, { blockElements: 256, blockBytes: 144 }],
+  [13, { blockElements: 256, blockBytes: 176 }],
+  [14, { blockElements: 256, blockBytes: 210 }],
+  [15, { blockElements: 256, blockBytes: 292 }],
+  [30, { blockElements: 1, blockBytes: 2 }],
+]);
+
+function estimateGgufTensorBytes(shape: number[], type: number): number {
+  const layout = GGUF_TYPE_LAYOUT.get(type);
+  if (!layout) return 0;
+  const elements = shape.reduce((product, size) => product * size, 1);
+  return Math.ceil(elements / layout.blockElements) * layout.blockBytes;
+}
 
 function inspectGgufQuantizationAvailability(
   tensorTypes: Record<string, number>,

@@ -3,7 +3,6 @@ import { NativeModule, requireNativeModule } from 'expo';
 import {
   QuantizationType,
   StableDiffusionModuleEvents,
-  VaeMemoryProfile,
 } from './StableDiffusion.types';
 
 type NativeGenerationOptions = {
@@ -18,7 +17,13 @@ type NativeGenerationOptions = {
   upscaleFactor: number;
   hiresSteps: number;
   hiresDenoisingStrength: number;
-  vaeMemoryProfile: VaeMemoryProfile;
+  modelFamily: string;
+  modelFamilyEvidence: string;
+  modelVariant: string;
+  modelVariantEvidence: string;
+  diffusionStorage: string;
+  diffusionBytes: number;
+  vaeArchitecture: string;
 };
 
 declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEvents> {

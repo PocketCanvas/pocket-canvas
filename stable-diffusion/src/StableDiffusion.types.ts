@@ -1,7 +1,20 @@
 export type GenerationStage = 'loading' | 'encoding' | 'sampling' | 'decoding';
 
 export type QuantizationType = 'q8_0' | 'q5_0' | 'q5_1' | 'q4_0' | 'q4_1' | 'q4_K';
-export type VaeMemoryProfile = 'default' | 'sdxl-turbo-q4';
+export type MemoryModelDescriptor = {
+  family: 'sd1' | 'sdxl' | 'anima' | 'unknown';
+  familyEvidence: 'tensor-signature' | 'insufficient';
+  variant: 'turbo' | 'unknown';
+  variantEvidence:
+    | 'gguf-metadata'
+    | 'safetensors-metadata'
+    | 'original-file-name'
+    | 'alias'
+    | 'insufficient';
+  diffusionStorage: 'f32' | 'f16' | 'bf16' | 'f8' | 'q4' | 'q5' | 'q8' | 'mixed' | 'unknown';
+  diffusionBytes: number;
+  vaeArchitecture: 'autoencoder-kl' | 'unknown';
+};
 
 export type GenerationProgressEvent = {
   stage: GenerationStage;
@@ -43,7 +56,7 @@ export type GenerateImageOptions = {
   negativePrompt: string;
   modelUri: string;
   taesdUri?: string;
-  vaeMemoryProfile?: VaeMemoryProfile;
+  memoryModel?: MemoryModelDescriptor;
   loras: { uri: string; weight: number }[];
   width: number;
   height: number;

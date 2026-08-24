@@ -171,6 +171,106 @@ static bool is_supported_quantization_type(sd_type_t type) {
            type == SD_TYPE_Q4_0 || type == SD_TYPE_Q4_1 || type == SD_TYPE_Q4_K;
 }
 
+struct ModelMemoryDescriptor {
+    const char* family;
+    const char* family_evidence;
+    const char* variant;
+    const char* variant_evidence;
+    const char* diffusion_storage;
+    double diffusion_bytes;
+    const char* vae_architecture;
+};
+
+struct MemoryWorkload {
+    int width;
+    int height;
+    bool has_lora;
+    bool uses_taesd;
+    bool uses_hires;
+};
+
+struct ResolvedMemoryPolicy {
+    const char* source = "native-default";
+    const char* id = "default";
+    bool diffusion_flash_attn = false;
+    const char* params_backend = nullptr;
+    bool vae_tiling = false;
+    int vae_tile_x = 0;
+    int vae_tile_y = 0;
+    float vae_overlap = 0.0f;
+};
+
+static ResolvedMemoryPolicy resolve_memory_policy(
+    const ModelMemoryDescriptor& model,
+    const MemoryWorkload& workload
+) {
+    ResolvedMemoryPolicy policy;
+    const bool is_sd1 = std::strcmp(model.family, "sd1") == 0;
+    const bool is_sdxl = std::strcmp(model.family, "sdxl") == 0;
+    const bool is_turbo = std::strcmp(model.variant, "turbo") == 0;
+    const bool is_q4 = std::strcmp(model.diffusion_storage, "q4") == 0;
+    const bool is_float = std::strcmp(model.diffusion_storage, "f32") == 0 ||
+                          std::strcmp(model.diffusion_storage, "f16") == 0 ||
+                          std::strcmp(model.diffusion_storage, "bf16") == 0 ||
+                          std::strcmp(model.diffusion_storage, "f8") == 0;
+    const bool exact_512 = workload.width == 512 && workload.height == 512;
+    const bool exact_768 = workload.width == 768 && workload.height == 768;
+    const bool plain_generation = !workload.has_lora && !workload.uses_taesd && !workload.uses_hires;
+
+    if (is_sdxl && is_turbo && is_float && exact_512 && plain_generation) {
+        policy.source = "verified";
+        policy.id = "sdxl-turbo-float-512-safe-v1";
+        policy.diffusion_flash_attn = true;
+        policy.params_backend = "*=cpu";
+        return policy;
+    }
+
+    if (is_sdxl && is_turbo && is_q4 && exact_768 && plain_generation) {
+        policy.source = "verified";
+        policy.id = "sdxl-turbo-q4-768-safe-v1";
+        policy.vae_tiling = true;
+        policy.vae_tile_x = 48;
+        policy.vae_tile_y = 48;
+        policy.vae_overlap = 0.5f;
+        return policy;
+    }
+
+    if ((is_sd1 || (is_sdxl && is_turbo && is_q4)) && exact_512) {
+        policy.source = "verified";
+        policy.id = is_sd1 ? "sd1-512-native-v1" : "sdxl-turbo-q4-512-native-v1";
+        return policy;
+    }
+
+    const double conservative_residency_threshold = 2.0 * 1024.0 * 1024.0 * 1024.0;
+    const bool high_sampling_pressure =
+        is_sdxl &&
+        (is_float || std::strcmp(model.diffusion_storage, "q8") == 0 ||
+         model.diffusion_bytes >= conservative_residency_threshold);
+    if (high_sampling_pressure) {
+        policy.source = "conservative";
+        policy.id = "large-sdxl-shared-params-v1";
+        policy.diffusion_flash_attn = true;
+        policy.params_backend = "*=cpu";
+    }
+
+    const int64_t pixel_count = static_cast<int64_t>(workload.width) * workload.height;
+    const bool compatible_high_resolution_vae =
+        (is_sd1 || is_sdxl) &&
+        std::strcmp(model.vae_architecture, "autoencoder-kl") == 0 &&
+        pixel_count >= 768LL * 768LL && !workload.uses_taesd && !workload.uses_hires;
+    if (compatible_high_resolution_vae) {
+        policy.source = "conservative";
+        if (std::strcmp(policy.id, "default") == 0) {
+            policy.id = "high-resolution-autoencoder-kl-v1";
+        }
+        policy.vae_tiling = true;
+        policy.vae_tile_x = 48;
+        policy.vae_tile_y = 48;
+        policy.vae_overlap = 0.5f;
+    }
+    return policy;
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_expo_modules_stablediffusion_StableDiffusionModule_getSystemInfo(JNIEnv *env, jobject thiz) {
@@ -242,7 +342,13 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     jstring jNegativePrompt,
     jstring jModelPath,
     jstring jTaesdPath,
-    jstring jVaeMemoryProfile,
+    jstring jModelFamily,
+    jstring jModelFamilyEvidence,
+    jstring jModelVariant,
+    jstring jModelVariantEvidence,
+    jstring jDiffusionStorage,
+    jdouble diffusionBytes,
+    jstring jVaeArchitecture,
     jobjectArray jLoraPaths,
     jdoubleArray jLoraWeights,
     jint width,
@@ -267,7 +373,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     const char *negative_prompt = env->GetStringUTFChars(jNegativePrompt, nullptr);
     const char *model_path = env->GetStringUTFChars(jModelPath, nullptr);
     const char *taesd_path = env->GetStringUTFChars(jTaesdPath, nullptr);
-    const char *vae_memory_profile = env->GetStringUTFChars(jVaeMemoryProfile, nullptr);
+    const char *model_family = env->GetStringUTFChars(jModelFamily, nullptr);
+    const char *model_family_evidence = env->GetStringUTFChars(jModelFamilyEvidence, nullptr);
+    const char *model_variant = env->GetStringUTFChars(jModelVariant, nullptr);
+    const char *model_variant_evidence = env->GetStringUTFChars(jModelVariantEvidence, nullptr);
+    const char *diffusion_storage = env->GetStringUTFChars(jDiffusionStorage, nullptr);
+    const char *vae_architecture = env->GetStringUTFChars(jVaeArchitecture, nullptr);
     const char *sampling_preset = env->GetStringUTFChars(jSamplingPreset, nullptr);
     const char *upscaler_type = env->GetStringUTFChars(jUpscalerType, nullptr);
     const char *output_path = env->GetStringUTFChars(jOutputPath, nullptr);
@@ -292,7 +403,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
         env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
-        env->ReleaseStringUTFChars(jVaeMemoryProfile, vae_memory_profile);
+        env->ReleaseStringUTFChars(jModelFamily, model_family);
+        env->ReleaseStringUTFChars(jModelFamilyEvidence, model_family_evidence);
+        env->ReleaseStringUTFChars(jModelVariant, model_variant);
+        env->ReleaseStringUTFChars(jModelVariantEvidence, model_variant_evidence);
+        env->ReleaseStringUTFChars(jDiffusionStorage, diffusion_storage);
+        env->ReleaseStringUTFChars(jVaeArchitecture, vae_architecture);
         env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
@@ -307,17 +423,26 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     LOGI("[settings] prompt_bytes=%zu negative_bytes=%zu size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f seed=%lld",
          std::strlen(prompt), std::strlen(negative_prompt), width, height, sampling_preset,
          sd_scheduler_name(scheduler), steps, cfgScale, static_cast<long long>(seed));
-    const bool use_sdxl_turbo_q4_768_vae_policy =
-        std::strcmp(vae_memory_profile, "sdxl-turbo-q4") == 0 &&
-        width == 768 && height == 768 && taesd_path[0] == '\0' &&
-        upscaler == SD_HIRES_UPSCALER_NONE;
-    const char* vae_policy = use_sdxl_turbo_q4_768_vae_policy
-                                 ? "sdxl-turbo-q4-768-safe-v1"
-                                 : "default";
-    const char* vae_tiling = use_sdxl_turbo_q4_768_vae_policy ? "48x48@0.50" : "disabled";
-    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f vae_profile=%s vae_policy=%s vae_tiling=%s output=%s",
+    const ModelMemoryDescriptor model_descriptor{
+        model_family, model_family_evidence, model_variant, model_variant_evidence,
+        diffusion_storage, diffusionBytes, vae_architecture
+    };
+    const MemoryWorkload memory_workload{
+        width, height, lora_count > 0, taesd_path[0] != '\0',
+        upscaler != SD_HIRES_UPSCALER_NONE
+    };
+    const ResolvedMemoryPolicy memory_policy =
+        resolve_memory_policy(model_descriptor, memory_workload);
+    const char* vae_tiling = memory_policy.vae_tiling ? "48x48@0.50" : "disabled";
+    LOGI("[model] family=%s family_evidence=%s variant=%s variant_evidence=%s diffusion_storage=%s diffusion_bytes=%.0f vae=%s",
+         model_family, model_family_evidence, model_variant, model_variant_evidence,
+         diffusion_storage, diffusionBytes, vae_architecture);
+    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f memory_source=%s memory_policy=%s output=%s",
          upscaler_type, upscaleFactor, hiresSteps, hiresDenoisingStrength,
-         vae_memory_profile, vae_policy, vae_tiling, output_path);
+         memory_policy.source, memory_policy.id, output_path);
+    LOGI("[settings] diffusion_fa=%s params_backend=%s max_vram=disabled stream_layers=disabled vae_tiling=%s",
+         memory_policy.diffusion_flash_attn ? "enabled" : "disabled",
+         memory_policy.params_backend ? memory_policy.params_backend : "default", vae_tiling);
 
     jclass module_class = env->GetObjectClass(thiz);
     jmethodID emit_progress_method = env->GetMethodID(
@@ -340,6 +465,8 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     ctx_params.taesd_path = taesd_path;
     ctx_params.enable_mmap = true;
     ctx_params.backend = "vulkan";
+    ctx_params.diffusion_flash_attn = memory_policy.diffusion_flash_attn;
+    ctx_params.params_backend = memory_policy.params_backend;
     ctx_params.lora_apply_mode = LORA_APPLY_AT_RUNTIME;
 
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
@@ -353,7 +480,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
         env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
-        env->ReleaseStringUTFChars(jVaeMemoryProfile, vae_memory_profile);
+        env->ReleaseStringUTFChars(jModelFamily, model_family);
+        env->ReleaseStringUTFChars(jModelFamilyEvidence, model_family_evidence);
+        env->ReleaseStringUTFChars(jModelVariant, model_variant);
+        env->ReleaseStringUTFChars(jModelVariantEvidence, model_variant_evidence);
+        env->ReleaseStringUTFChars(jDiffusionStorage, diffusion_storage);
+        env->ReleaseStringUTFChars(jVaeArchitecture, vae_architecture);
         env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
@@ -368,11 +500,11 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
 
     sd_img_gen_params_t img_params;
     sd_img_gen_params_init(&img_params);
-    if (use_sdxl_turbo_q4_768_vae_policy) {
+    if (memory_policy.vae_tiling) {
         img_params.vae_tiling_params.enabled = true;
-        img_params.vae_tiling_params.tile_size_x = 48;
-        img_params.vae_tiling_params.tile_size_y = 48;
-        img_params.vae_tiling_params.target_overlap = 0.5f;
+        img_params.vae_tiling_params.tile_size_x = memory_policy.vae_tile_x;
+        img_params.vae_tiling_params.tile_size_y = memory_policy.vae_tile_y;
+        img_params.vae_tiling_params.target_overlap = memory_policy.vae_overlap;
     }
     std::vector<sd_lora_t> loras;
     loras.reserve(lora_count);
@@ -428,7 +560,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
     env->ReleaseStringUTFChars(jModelPath, model_path);
     env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
-    env->ReleaseStringUTFChars(jVaeMemoryProfile, vae_memory_profile);
+    env->ReleaseStringUTFChars(jModelFamily, model_family);
+    env->ReleaseStringUTFChars(jModelFamilyEvidence, model_family_evidence);
+    env->ReleaseStringUTFChars(jModelVariant, model_variant);
+    env->ReleaseStringUTFChars(jModelVariantEvidence, model_variant_evidence);
+    env->ReleaseStringUTFChars(jDiffusionStorage, diffusion_storage);
+    env->ReleaseStringUTFChars(jVaeArchitecture, vae_architecture);
     env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
     env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
     env->ReleaseStringUTFChars(jOutputPath, output_path);

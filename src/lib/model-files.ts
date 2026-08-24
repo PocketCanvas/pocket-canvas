@@ -4,13 +4,13 @@ import { quantizeModel } from 'stable-diffusion';
 
 import { createAsyncOperationQueue } from '@/lib/async-operation-queue';
 import {
-  classifyVaeMemoryProfile,
+  describeModel,
   inspectModelFile,
   inspectQuantizationAvailability,
   ModelFileFormat,
   ModelFileKind,
+  type ModelDescriptor,
   type QuantizationAvailability,
-  type VaeMemoryProfile,
   supportedModelExtension,
 } from '@/lib/model-file-inspection';
 import {
@@ -49,10 +49,13 @@ export function inspectStoredModelQuantization(model: StoredModel): Quantization
   return inspectQuantizationAvailability(inspectFile(file));
 }
 
-export function inspectStoredModelVaeMemoryProfile(model: StoredModel): VaeMemoryProfile {
+export function inspectStoredModelDescriptor(model: StoredModel): ModelDescriptor {
   const file = new File(modelsDirectory, model.storedFileName);
   if (!file.exists) throw new Error('원본 모델 파일을 찾을 수 없습니다.');
-  return classifyVaeMemoryProfile(inspectFile(file), [model.fileName, model.alias]);
+  return describeModel(inspectFile(file), {
+    originalFileName: model.fileName,
+    alias: model.alias,
+  });
 }
 
 export async function loadModels(): Promise<StoredModel[]> {

@@ -71,6 +71,17 @@ TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을
 ## Quantization flow
 
 ```text
+User-classified MODEL
+            │
+            ▼ 양자화 버튼 클릭
+SafeTensors dtype / GGUF tensor type 검사
+            │
+            ├─ 이미 양자화됨 / 미지원 ── 안내 후 종료
+            │
+            ▼ 부동소수점 원본
+      양자화 타입 선택
+            │
+            ▼ 실행 진입점에서 재검사
 Imported SafeTensors / GGUF
             │
             ▼
@@ -89,6 +100,13 @@ Imported SafeTensors / GGUF
 양자화는 Android 기기 안에서 upstream `convert()`를 호출한다. 원본은 보존하고 결과를 새 모델로
 등록한다. 변환 입력 자체는 mmap이 아니며 tensor별 스트리밍을 사용한다. 생성과 양자화는 동시에
 실행하지 않는다. → ADR-014
+
+모델 분류는 사용자 의도를 나타내고 양자화 가능성을 보증하지 않는다. 따라서 사용자가 수동으로
+`MODEL`로 옮긴 파일에서도 양자화 진입 버튼은 유지한다. 사용자가 버튼을 누르면 파일명·확장자·용량이
+아니라 실제 header의 SafeTensors dtype 또는 GGUF `ggml_type` 분포를 읽는다. 부동소수점 원본일 때만
+지원 타입 선택지를 열고, 양자화 tensor가 하나라도 있는 GGUF는 이미 양자화된 모델로 처리한다.
+알 수 없는 저장 타입은 보수적으로 거절한다. UI 검사는 안내를 위한 것이며 안전 경계가 아니므로,
+저장소의 실제 양자화 진입점이 파일을 다시 검사한 뒤 native 변환을 호출한다. → ADR-014
 
 ## Heavy operation coordination
 

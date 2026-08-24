@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import test from 'node:test';
 
-import { inspectModelBytes, supportedModelExtension } from './model-file-inspection.ts';
+import {
+  inspectModelBytes,
+  inspectQuantizationAvailability,
+  supportedModelExtension,
+} from './model-file-inspection.ts';
 
 const encoder = new TextEncoder();
 
@@ -60,6 +64,46 @@ test('parses a GGUF tensor directory without reading tensor data', () => {
   assert.equal(result.kind, 'model');
 });
 
+test('allows quantization for a floating-point SafeTensors model', () => {
+  const inspection = inspectModelBytes(
+    safetensors({
+      'model.diffusion_model.input_blocks.0.weight': {
+        dtype: 'F16',
+        shape: [4],
+        data_offsets: [0, 8],
+      },
+    }),
+  );
+
+  assert.deepEqual(inspectQuantizationAvailability(inspection), {
+    type: 'available',
+    sourcePrecision: 'f16',
+  });
+});
+
+test('detects an imported quantized GGUF from its tensor storage types', () => {
+  const inspection = inspectModelBytes(
+    gguf([
+      { name: 'model.diffusion_model.weight', type: 12 },
+      { name: 'model.diffusion_model.bias', type: 0 },
+    ]),
+  );
+
+  assert.deepEqual(inspectQuantizationAvailability(inspection), {
+    type: 'alreadyQuantized',
+    primaryType: 'q4_K',
+  });
+});
+
+test('rejects a GGUF with an unknown tensor storage type', () => {
+  const inspection = inspectModelBytes(gguf([{ name: 'model.diffusion_model.weight', type: 99 }]));
+
+  assert.deepEqual(inspectQuantizationAvailability(inspection), {
+    type: 'unsupported',
+    reason: '지원하지 않는 GGUF tensor 저장 타입이 포함되어 있습니다: 99',
+  });
+});
+
 test('rejects a PNG even when its filename could be disguised', () => {
   assert.throws(
     () => inspectModelBytes(Uint8Array.from([0x89, 0x50, 0x4e, 0x47])),
@@ -83,4 +127,18 @@ function uint64(value) {
   const bytes = Buffer.alloc(8);
   bytes.writeBigUInt64LE(BigInt(value));
   return bytes;
+}
+
+function gguf(tensors) {
+  const directory = tensors.flatMap(({ name, type }) => {
+    const encodedName = encoder.encode(name);
+    return [uint64(encodedName.length), encodedName, uint32(1), uint64(4), uint32(type), uint64(0)];
+  });
+  return Buffer.concat([
+    Buffer.from('GGUF'),
+    uint32(3),
+    uint64(tensors.length),
+    uint64(0),
+    ...directory,
+  ]);
 }

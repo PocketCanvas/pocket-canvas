@@ -25,6 +25,10 @@ Pocket Canvas는 사용자가 가져온 SafeTensors 또는 GGUF 모델을 Androi
   `q4_0`, `q4_1`과 ADR-003에서 Android 생성이 검증된 `q4_K`로 제한한다.
 - 기본 선택은 `q4_K`이다. 더 낮은 bit와 IQ 계열은 enum 존재만으로 앱 지원으로 간주하지 않고
   품질과 Vulkan 실기기 실행을 검증한 뒤 별도 추가한다.
+- 사용자가 `MODEL`로 분류한 파일에는 양자화 진입 버튼을 유지한다. 버튼을 누를 때
+  SafeTensors dtype 또는 GGUF tensor type을 header에서 검사한 뒤, 부동소수점 원본에만
+  타입 선택지를 표시한다. 이미 양자화된 GGUF와 알 수 없는 저장 타입은 이유를 안내하고
+  실행하지 않는다. 실제 양자화 진입점에서도 같은 검사를 반복한다.
 - Kotlin과 C++ 양쪽에서 타입 allowlist를 검사한다. Kotlin은 canonical path가 앱 `filesDir`
   내부인지, 원본이 실제 파일인지, 출력이 원본과 다르고 아직 존재하지 않는지 검증한다.
 - `.quantizing-<id>.gguf`에 먼저 출력하고 GGUF header를 다시 검사한 뒤 최종 파일로 이동한다.
@@ -43,6 +47,18 @@ Pocket Canvas는 사용자가 가져온 SafeTensors 또는 GGUF 모델을 Androi
 
 ## Alternatives Considered
 
+### 가져오기 시 양자화 가능 여부를 확정해 버튼 숨김
+
+자동 분류가 알지 못하는 모델을 사용자가 직접 `MODEL`로 옮길 수 있으므로 가져오기 시점의 결과만
+신뢰하면 유효한 파일의 기능 진입점을 잃는다. 모델 분류는 사용자 의도로 취급하고, 양자화 가능 여부는
+버튼을 누른 현재 파일에서 검사한다.
+
+### 파일 확장자 또는 크기로 양자화 여부 추정
+
+SafeTensors와 GGUF 모두 부동소수점 또는 여러 tensor 저장 타입을 담을 수 있고 파일 크기는 모델
+구조에도 좌우된다. 파일명·확장자·크기는 양자화 여부의 증거가 아니므로 실제 header의 dtype/type
+분포를 사용한다.
+
 ### 변환 입력도 mmap으로 처리
 
 현재 upstream `convert.cpp`는 `process_model_files(false, false)`로 mmap을 끈다. upstream
@@ -60,6 +76,9 @@ Q2/Q3, IQ, MXFP4 등 더 많은 enum이 존재하지만 Stable Diffusion 품질�
 ## Consequences
 
 - 사용자는 Android 기기 안에서 가져온 모델로부터 별도의 양자화 GGUF를 만들 수 있다.
+- 수동 분류된 `MODEL`도 같은 진입점을 사용하며, 파일이 지원되지 않으면 변환을 시작하기 전에
+  구체적인 이유를 확인할 수 있다.
+- header 검사가 UI와 저장소 실행 경계에서 반복되지만, 파일 전체 tensor data를 읽지는 않는다.
 - 결과 GGUF는 기존 생성 화면에서 선택하고 mmap 추론에 사용할 수 있다.
 - 변환은 tensor 스트리밍이지만 프로세스 전체 메모리 상한을 보장하지 않는다. 가장 큰 tensor,
   변환 버퍼와 upstream의 1GiB 작업 예산을 감당할 실제 기기 검증이 필요하다.

@@ -5,8 +5,19 @@ export type ModelInspection = {
   format: ModelFileFormat;
   kind: ModelFileKind;
   tensorCount: number;
+  tensorTypes: Record<string, number>;
   metadata: Record<string, string>;
 };
+
+type QuantizedStorageType = 'q8_0' | 'q5_0' | 'q5_1' | 'q4_0' | 'q4_1' | 'q4_K' | 'other';
+
+export type QuantizationAvailability =
+  | { type: 'available'; sourcePrecision: 'f32' | 'f16' | 'bf16' | 'f8' | 'mixed' }
+  | {
+      type: 'alreadyQuantized';
+      primaryType: QuantizedStorageType | 'mixed';
+    }
+  | { type: 'unsupported'; reason: string };
 
 export type ByteSource = {
   size: number;
@@ -61,6 +72,7 @@ function inspectSafetensors(source: ByteSource, prefix: Uint8Array): ModelInspec
   }
 
   const tensorNames: string[] = [];
+  const tensorTypes: Record<string, number> = {};
   const dataSize = source.size - 8 - headerLength;
   for (const [name, value] of Object.entries(header)) {
     if (name === '__metadata__') continue;
@@ -68,6 +80,8 @@ function inspectSafetensors(source: ByteSource, prefix: Uint8Array): ModelInspec
       throw new Error('유효하지 않은 SafeTensors tensor 정보입니다.');
     }
     tensorNames.push(name);
+    const dtype = (value as Record<string, unknown>).dtype as string;
+    tensorTypes[dtype] = (tensorTypes[dtype] ?? 0) + 1;
   }
   if (!tensorNames.length) throw new Error('tensor가 없는 SafeTensors 파일입니다.');
 
@@ -75,6 +89,7 @@ function inspectSafetensors(source: ByteSource, prefix: Uint8Array): ModelInspec
     format: 'safetensors',
     kind: classifyTensorNames(tensorNames),
     tensorCount: tensorNames.length,
+    tensorTypes,
     metadata: stringMetadata(header.__metadata__),
   };
 }
@@ -100,18 +115,144 @@ function inspectGguf(source: ByteSource): ModelInspection {
   }
 
   const tensorNames: string[] = [];
+  const tensorTypes: Record<string, number> = {};
   for (let index = 0; index < tensorCount; index += 1) {
     tensorNames.push(cursor.string());
     const dimensions = cursor.u32();
     if (dimensions < 1 || dimensions > 8) throw new Error('유효하지 않은 GGUF tensor 차원입니다.');
     for (let dimension = 0; dimension < dimensions; dimension += 1) cursor.u64();
-    cursor.u32();
+    const tensorType = cursor.u32();
+    tensorTypes[tensorType] = (tensorTypes[tensorType] ?? 0) + 1;
     const offset = cursor.u64();
     if (offset > source.size) throw new Error('유효하지 않은 GGUF tensor offset입니다.');
   }
 
   const kind = classifyTensorNames(tensorNames, metadata['general.architecture']);
-  return { format: 'gguf', kind, tensorCount, metadata };
+  return { format: 'gguf', kind, tensorCount, tensorTypes, metadata };
+}
+
+export function inspectQuantizationAvailability(
+  inspection: ModelInspection,
+): QuantizationAvailability {
+  return inspection.format === 'gguf'
+    ? inspectGgufQuantizationAvailability(inspection.tensorTypes)
+    : inspectSafetensorsQuantizationAvailability(inspection.tensorTypes);
+}
+
+const GGUF_FLOAT_TYPES = new Map<number, 'f32' | 'f16' | 'bf16'>([
+  [0, 'f32'],
+  [1, 'f16'],
+  [30, 'bf16'],
+] as const);
+const GGUF_AUXILIARY_TYPES = new Set([24, 25, 26, 27, 28]);
+const GGUF_QUANTIZED_TYPES = new Map<number, QuantizedStorageType>([
+  [2, 'q4_0'],
+  [3, 'q4_1'],
+  [6, 'q5_0'],
+  [7, 'q5_1'],
+  [8, 'q8_0'],
+  [9, 'other'],
+  [10, 'other'],
+  [11, 'other'],
+  [12, 'q4_K'],
+  [13, 'other'],
+  [14, 'other'],
+  [15, 'other'],
+  [16, 'other'],
+  [17, 'other'],
+  [18, 'other'],
+  [19, 'other'],
+  [20, 'other'],
+  [21, 'other'],
+  [22, 'other'],
+  [23, 'other'],
+  [29, 'other'],
+  [34, 'other'],
+  [35, 'other'],
+  [39, 'other'],
+  [40, 'other'],
+  [41, 'other'],
+]);
+
+function inspectGgufQuantizationAvailability(
+  tensorTypes: Record<string, number>,
+): QuantizationAvailability {
+  const numericTypes = Object.keys(tensorTypes).map(Number);
+  const unknownTypes = numericTypes.filter(
+    (type) =>
+      !GGUF_FLOAT_TYPES.has(type) &&
+      !GGUF_AUXILIARY_TYPES.has(type) &&
+      !GGUF_QUANTIZED_TYPES.has(type),
+  );
+  if (unknownTypes.length) {
+    return {
+      type: 'unsupported',
+      reason: `지원하지 않는 GGUF tensor 저장 타입이 포함되어 있습니다: ${unknownTypes.join(', ')}`,
+    };
+  }
+
+  const quantizedTypes = numericTypes.filter((type) => GGUF_QUANTIZED_TYPES.has(type));
+  if (quantizedTypes.length) {
+    const detected = new Set(quantizedTypes.map((type) => GGUF_QUANTIZED_TYPES.get(type)!));
+    return {
+      type: 'alreadyQuantized',
+      primaryType: detected.size === 1 ? [...detected][0] : 'mixed',
+    };
+  }
+
+  const precisions = new Set(
+    numericTypes.flatMap((type) => {
+      const precision = GGUF_FLOAT_TYPES.get(type);
+      return precision ? [precision] : [];
+    }),
+  );
+  if (!precisions.size) {
+    return { type: 'unsupported', reason: '양자화할 부동소수점 tensor를 찾지 못했습니다.' };
+  }
+  return {
+    type: 'available',
+    sourcePrecision: precisions.size === 1 ? [...precisions][0] : 'mixed',
+  };
+}
+
+function inspectSafetensorsQuantizationAvailability(
+  tensorTypes: Record<string, number>,
+): QuantizationAvailability {
+  const supported = new Set([
+    'F16',
+    'F32',
+    'BF16',
+    'F64',
+    'F8_E4M3',
+    'F8_E5M2',
+    'I32',
+    'I64',
+    'U8',
+  ]);
+  const unknownTypes = Object.keys(tensorTypes).filter((type) => !supported.has(type));
+  if (unknownTypes.length) {
+    return {
+      type: 'unsupported',
+      reason: `지원하지 않는 SafeTensors dtype이 포함되어 있습니다: ${unknownTypes.join(', ')}`,
+    };
+  }
+
+  const precisions = new Set(
+    Object.keys(tensorTypes).flatMap((type) => {
+      if (type === 'F16') return ['f16' as const];
+      if (type === 'F32' || type === 'F64') return ['f32' as const];
+      if (type === 'BF16') return ['bf16' as const];
+      if (type === 'F8_E4M3' || type === 'F8_E5M2') return ['f8' as const];
+      return [];
+    }),
+  );
+  if (!precisions.size) {
+    return { type: 'unsupported', reason: '양자화할 부동소수점 tensor를 찾지 못했습니다.' };
+  }
+  return {
+    type: 'available',
+    sourcePrecision: precisions.size === 1 ? [...precisions][0] : 'mixed',
+  };
 }
 
 export function classifyTensorNames(names: string[], architecture?: string): ModelFileKind {

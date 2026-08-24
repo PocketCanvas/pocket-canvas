@@ -5,8 +5,10 @@ import { quantizeModel } from 'stable-diffusion';
 import { createAsyncOperationQueue } from '@/lib/async-operation-queue';
 import {
   inspectModelFile,
+  inspectQuantizationAvailability,
   ModelFileFormat,
   ModelFileKind,
+  type QuantizationAvailability,
   supportedModelExtension,
 } from '@/lib/model-file-inspection';
 import {
@@ -39,6 +41,12 @@ export function getStoredModelUri(model: StoredModel) {
   return new File(modelsDirectory, model.storedFileName).uri;
 }
 
+export function inspectStoredModelQuantization(model: StoredModel): QuantizationAvailability {
+  const file = new File(modelsDirectory, model.storedFileName);
+  if (!file.exists) throw new Error('원본 모델 파일을 찾을 수 없습니다.');
+  return inspectQuantizationAvailability(inspectFile(file));
+}
+
 export async function loadModels(): Promise<StoredModel[]> {
   ensureDirectory();
   if (!didCleanupIncompleteFiles) {
@@ -65,6 +73,12 @@ export async function quantizeStoredModel(
 
   const sourceFile = new File(modelsDirectory, source.storedFileName);
   if (!sourceFile.exists) throw new Error('원본 모델 파일을 찾을 수 없습니다.');
+
+  const availability = inspectQuantizationAvailability(inspectFile(sourceFile));
+  if (availability.type === 'alreadyQuantized') {
+    throw new Error(`이미 ${availability.primaryType.toUpperCase()} 양자화가 적용된 모델입니다.`);
+  }
+  if (availability.type === 'unsupported') throw new Error(availability.reason);
 
   const outputId = createId();
   const temporary = new File(modelsDirectory, `.quantizing-${outputId}.gguf`);

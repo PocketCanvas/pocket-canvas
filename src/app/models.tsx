@@ -24,6 +24,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { showOperationBlockedAlert } from '@/lib/heavy-operation';
 import {
   deleteStoredModel,
+  inspectStoredModelQuantization,
   loadModels,
   pickAndImportModel,
   quantizeStoredModel,
@@ -132,6 +133,27 @@ export default function ModelsScreen() {
     } finally {
       finishOperation(operation.id);
       setIsImporting(false);
+    }
+  };
+
+  const inspectSelectedQuantization = () => {
+    if (!selectedRecord) return false;
+    try {
+      const availability = inspectStoredModelQuantization(selectedRecord);
+      if (availability.type === 'available') return true;
+      if (availability.type === 'alreadyQuantized') {
+        const type =
+          availability.primaryType === 'mixed'
+            ? '혼합 타입'
+            : availability.primaryType.toUpperCase();
+        Alert.alert('이미 양자화된 모델입니다.', `${type} 텐서 저장 타입이 감지되었습니다.`);
+        return false;
+      }
+      Alert.alert('양자화할 수 없는 모델입니다.', availability.reason);
+      return false;
+    } catch (error) {
+      showError(error);
+      return false;
     }
   };
 
@@ -278,6 +300,7 @@ export default function ModelsScreen() {
             persistSelected({ kind });
             setSection(kind);
           }}
+          onInspectQuantization={inspectSelectedQuantization}
           onQuantize={quantizeSelected}
           onRename={(alias) => persistSelected({ alias })}
         />

@@ -138,6 +138,7 @@ type ModelDetailModalProps = {
   onDescriptionChange: (description: string) => void;
   onDescriptionCommit: () => void;
   onKindChange: (kind: ModelKind) => void;
+  onInspectQuantization: () => boolean;
   onQuantize: (type: QuantizationType) => void;
   onRename: (name: string) => void;
   isQuantizing: boolean;
@@ -154,6 +155,7 @@ export function ModelDetailModal({
   onDescriptionChange,
   onDescriptionCommit,
   onKindChange,
+  onInspectQuantization,
   onQuantize,
   onRename,
   onBlockedPress,
@@ -161,6 +163,7 @@ export function ModelDetailModal({
   const colors = useTheme();
   const [name, setName] = useState(item.name);
   const [choosingKind, setChoosingKind] = useState(false);
+  const [choosingQuantization, setChoosingQuantization] = useState(false);
   const [quantizationType, setQuantizationType] = useState<QuantizationType>('q4_K');
   const trimmedName = name.trim();
 
@@ -341,69 +344,96 @@ export function ModelDetailModal({
                     원본은 보존하고 새로운 GGUF 파일을 만듭니다. 숫자가 낮을수록 파일은 작아지지만
                     품질 손실이 커질 수 있습니다.
                   </Text>
-                  <View style={styles.quantizationOptions}>
-                    {QUANTIZATION_OPTIONS.map((option) => {
-                      const checked = quantizationType === option.value;
-                      return (
-                        <Pressable
-                          accessibilityRole="radio"
-                          accessibilityState={{ checked, disabled: isQuantizing }}
-                          disabled={isQuantizing}
-                          key={option.value}
-                          onPress={
-                            isOperationBlocked
-                              ? onBlockedPress
-                              : () => setQuantizationType(option.value)
-                          }
-                          style={[
-                            styles.quantizationOption,
-                            { borderColor: checked ? colors.accent : colors.border },
-                            checked && { backgroundColor: colors.accentSoft },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.quantizationOptionLabel,
-                              { color: checked ? colors.accentText : colors.text },
-                            ]}
-                          >
-                            {option.label}
-                          </Text>
-                          <Text
-                            style={[styles.quantizationOptionDescription, { color: colors.muted }]}
-                          >
-                            {option.description}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: isQuantizing }}
-                    disabled={isQuantizing}
-                    onPress={
-                      isOperationBlocked ? onBlockedPress : () => onQuantize(quantizationType)
-                    }
-                    style={[
-                      styles.quantizeButton,
-                      { backgroundColor: colors.accent },
-                      (isQuantizing || isOperationBlocked) && styles.disabled,
-                    ]}
-                  >
-                    {isQuantizing ? (
-                      <>
-                        <ActivityIndicator color={colors.onAccent} size="small" />
-                        <Text style={[styles.quantizeButtonText, { color: colors.onAccent }]}>
-                          양자화 중…
-                        </Text>
-                      </>
-                    ) : (
+                  {!choosingQuantization ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={
+                        isOperationBlocked
+                          ? onBlockedPress
+                          : () => {
+                              if (onInspectQuantization()) setChoosingQuantization(true);
+                            }
+                      }
+                      style={[
+                        styles.quantizeButton,
+                        { backgroundColor: colors.accent },
+                        isOperationBlocked && styles.disabled,
+                      ]}
+                    >
                       <Text style={[styles.quantizeButtonText, { color: colors.onAccent }]}>
-                        {quantizationType.toUpperCase()} 생성
+                        양자화
                       </Text>
-                    )}
-                  </Pressable>
+                    </Pressable>
+                  ) : (
+                    <>
+                      <View style={styles.quantizationOptions}>
+                        {QUANTIZATION_OPTIONS.map((option) => {
+                          const checked = quantizationType === option.value;
+                          return (
+                            <Pressable
+                              accessibilityRole="radio"
+                              accessibilityState={{ checked, disabled: isQuantizing }}
+                              disabled={isQuantizing}
+                              key={option.value}
+                              onPress={
+                                isOperationBlocked
+                                  ? onBlockedPress
+                                  : () => setQuantizationType(option.value)
+                              }
+                              style={[
+                                styles.quantizationOption,
+                                { borderColor: checked ? colors.accent : colors.border },
+                                checked && { backgroundColor: colors.accentSoft },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.quantizationOptionLabel,
+                                  { color: checked ? colors.accentText : colors.text },
+                                ]}
+                              >
+                                {option.label}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.quantizationOptionDescription,
+                                  { color: colors.muted },
+                                ]}
+                              >
+                                {option.description}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isQuantizing }}
+                        disabled={isQuantizing}
+                        onPress={
+                          isOperationBlocked ? onBlockedPress : () => onQuantize(quantizationType)
+                        }
+                        style={[
+                          styles.quantizeButton,
+                          { backgroundColor: colors.accent },
+                          (isQuantizing || isOperationBlocked) && styles.disabled,
+                        ]}
+                      >
+                        {isQuantizing ? (
+                          <>
+                            <ActivityIndicator color={colors.onAccent} size="small" />
+                            <Text style={[styles.quantizeButtonText, { color: colors.onAccent }]}>
+                              양자화 중…
+                            </Text>
+                          </>
+                        ) : (
+                          <Text style={[styles.quantizeButtonText, { color: colors.onAccent }]}>
+                            {quantizationType.toUpperCase()} 생성
+                          </Text>
+                        )}
+                      </Pressable>
+                    </>
+                  )}
                 </View>
               )}
               <Pressable

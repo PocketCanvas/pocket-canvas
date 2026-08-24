@@ -25,7 +25,8 @@ internal data class GenerationOptions(
   @Field val upscalerType: String,
   @Field val upscaleFactor: Double,
   @Field val hiresSteps: Int,
-  @Field val hiresDenoisingStrength: Double
+  @Field val hiresDenoisingStrength: Double,
+  @Field val vaeMemoryProfile: String
 ) : Record
 
 class StableDiffusionModule : Module() {
@@ -45,6 +46,7 @@ class StableDiffusionModule : Module() {
     negativePrompt: String,
     modelPath: String,
     taesdPath: String,
+    vaeMemoryProfile: String,
     loraPaths: Array<String>,
     loraWeights: DoubleArray,
     width: Int,
@@ -127,6 +129,9 @@ class StableDiffusionModule : Module() {
       require(options.hiresDenoisingStrength.isFinite() && options.hiresDenoisingStrength in 0.0001..1.0) {
         "Hires denoising strength must be between 0.0001 and 1"
       }
+      require(options.vaeMemoryProfile in setOf("default", "sdxl-turbo-q4")) {
+        "Unsupported VAE memory profile"
+      }
       require(loraUris.size == loraWeights.size) { "LoRA paths and weights must match" }
       require(loraWeights.all { it.isFinite() && it in 0.0..2.0 }) {
         "LoRA weights must be between 0 and 2"
@@ -151,6 +156,7 @@ class StableDiffusionModule : Module() {
         options.negativePrompt.trim(),
         modelPath,
         taesdPath,
+        options.vaeMemoryProfile,
         loraPaths,
         loraWeights.toDoubleArray(),
         options.width,

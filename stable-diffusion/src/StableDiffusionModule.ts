@@ -1,6 +1,10 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
-import { QuantizationType, StableDiffusionModuleEvents } from './StableDiffusion.types';
+import {
+  QuantizationType,
+  StableDiffusionModuleEvents,
+  VaeMemoryProfile,
+} from './StableDiffusion.types';
 
 type NativeGenerationOptions = {
   negativePrompt: string;
@@ -14,6 +18,7 @@ type NativeGenerationOptions = {
   upscaleFactor: number;
   hiresSteps: number;
   hiresDenoisingStrength: number;
+  vaeMemoryProfile: VaeMemoryProfile;
 };
 
 declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEvents> {

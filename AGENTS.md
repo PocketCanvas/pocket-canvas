@@ -49,6 +49,7 @@
 | ADR-014 | Android 온디바이스 스트리밍 양자화 | 클릭 시 tensor 저장 타입 검사 + 검증된 6개 타입 + 임시 GGUF 롤백 + 생성·양자화 직렬화 |
 | ADR-015 | 무거운 작업 전역 조정 | Zustand 즉시 거절 + JSON commit 큐 + native mutex + Expo 공용 큐 분리 |
 | ADR-016 | 생성 화면 상태 모델 | draft/run reducer 분리 + 명시적 실행 상태 전이 + 모델 카탈로그 재조정 |
+| ADR-017 | 검증 근거 기반 VAE 메모리 정책 | SDXL Turbo Q4 768²에만 48×48 tiling 자동 적용 + header 기반 보수적 판정 |
 
 ## Known landmines
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조
@@ -69,3 +70,4 @@
 - 생성 화면의 입력 중 설정은 `generationDraftReducer`, 실행 lifecycle은 `generationRunReducer`가 소유한다. 관련 상태를 개별 `useState`로 다시 분산하거나 draft와 run 상태를 하나의 reducer로 합치지 않는다. → ADR-016
 - 모델 카탈로그가 다시 로드되면 선택된 model·TAESD·LoRA를 현재 레코드와 ID로 재조정한다. 삭제된 리소스를 stale 객체로 유지하지 않으며 LoRA weight는 유지한다. → ADR-016
 - 생성 실패 중에는 직전 성공 이미지를 보존하고, PNG 생성 성공 후 metadata 기록만 실패한 경우는 생성 실패가 아니라 warning을 가진 성공 상태로 처리한다. → ADR-012, ADR-016
+- VAE 자동 tiling의 현재 검증 범위는 Galaxy S26의 SDXL Turbo Q4 + 768×768 + 내장 VAE뿐이다. 다른 모델·Q 타입·해상도로 범위를 넓히거나 64×64를 기본값으로 바꾸지 않는다. profile 판정은 실제 header의 SDXL 구조와 Q4 tensor type 및 Turbo 식별자를 모두 요구하며, 적용 여부는 `[settings]`의 `vae_profile`, `vae_policy`, `vae_tiling`으로 확인한다. → ADR-017

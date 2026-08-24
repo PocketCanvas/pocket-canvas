@@ -1,9 +1,12 @@
 export type ModelFileFormat = 'gguf' | 'safetensors';
 export type ModelFileKind = 'model' | 'lora' | 'unknown';
+export type DiffusionModelFamily = 'sdxl' | 'other';
+export type VaeMemoryProfile = 'default' | 'sdxl-turbo-q4';
 
 export type ModelInspection = {
   format: ModelFileFormat;
   kind: ModelFileKind;
+  family: DiffusionModelFamily;
   tensorCount: number;
   tensorTypes: Record<string, number>;
   metadata: Record<string, string>;
@@ -88,6 +91,7 @@ function inspectSafetensors(source: ByteSource, prefix: Uint8Array): ModelInspec
   return {
     format: 'safetensors',
     kind: classifyTensorNames(tensorNames),
+    family: classifyModelFamily(tensorNames),
     tensorCount: tensorNames.length,
     tensorTypes,
     metadata: stringMetadata(header.__metadata__),
@@ -128,7 +132,48 @@ function inspectGguf(source: ByteSource): ModelInspection {
   }
 
   const kind = classifyTensorNames(tensorNames, metadata['general.architecture']);
-  return { format: 'gguf', kind, tensorCount, tensorTypes, metadata };
+  return {
+    format: 'gguf',
+    kind,
+    family: classifyModelFamily(tensorNames),
+    tensorCount,
+    tensorTypes,
+    metadata,
+  };
+}
+
+export function classifyVaeMemoryProfile(
+  inspection: ModelInspection,
+  identifiers: string[],
+): VaeMemoryProfile {
+  if (inspection.family !== 'sdxl') return 'default';
+
+  const availability = inspectQuantizationAvailability(inspection);
+  if (
+    availability.type !== 'alreadyQuantized' ||
+    !['q4_0', 'q4_1', 'q4_K'].includes(availability.primaryType)
+  ) {
+    return 'default';
+  }
+
+  const identity = [inspection.metadata['general.name'], ...identifiers]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+  return /(^|[^a-z0-9])turbo([^a-z0-9]|$)/i.test(identity) ? 'sdxl-turbo-q4' : 'default';
+}
+
+function classifyModelFamily(tensorNames: string[]): DiffusionModelFamily {
+  const hasUnet = tensorNames.some(
+    (name) =>
+      name.includes('model.diffusion_model.input_blocks.') || name.includes('unet.down_blocks.'),
+  );
+  const hasSecondTextEncoder = tensorNames.some(
+    (name) =>
+      name.includes('conditioner.embedders.1') ||
+      name.includes('cond_stage_model.1') ||
+      name.includes('te.1'),
+  );
+  return hasUnet && hasSecondTextEncoder ? 'sdxl' : 'other';
 }
 
 export function inspectQuantizationAvailability(

@@ -1,6 +1,7 @@
 export type GenerationStage = 'loading' | 'encoding' | 'sampling' | 'decoding';
 
 export type QuantizationType = 'q8_0' | 'q5_0' | 'q5_1' | 'q4_0' | 'q4_1' | 'q4_K';
+export type VaeMemoryProfile = 'default' | 'sdxl-turbo-q4';
 
 export type GenerationProgressEvent = {
   stage: GenerationStage;
@@ -42,6 +43,7 @@ export type GenerateImageOptions = {
   negativePrompt: string;
   modelUri: string;
   taesdUri?: string;
+  vaeMemoryProfile?: VaeMemoryProfile;
   loras: { uri: string; weight: number }[];
   width: number;
   height: number;

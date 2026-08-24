@@ -31,6 +31,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<stri
       upscaleFactor: options.upscaler.scale,
       hiresSteps: options.upscaler.steps,
       hiresDenoisingStrength: options.upscaler.denoisingStrength,
+      vaeMemoryProfile: options.vaeMemoryProfile ?? 'default',
     },
     options.outputUri,
   );

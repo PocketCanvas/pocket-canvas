@@ -242,6 +242,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     jstring jNegativePrompt,
     jstring jModelPath,
     jstring jTaesdPath,
+    jstring jVaeMemoryProfile,
     jobjectArray jLoraPaths,
     jdoubleArray jLoraWeights,
     jint width,
@@ -266,6 +267,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     const char *negative_prompt = env->GetStringUTFChars(jNegativePrompt, nullptr);
     const char *model_path = env->GetStringUTFChars(jModelPath, nullptr);
     const char *taesd_path = env->GetStringUTFChars(jTaesdPath, nullptr);
+    const char *vae_memory_profile = env->GetStringUTFChars(jVaeMemoryProfile, nullptr);
     const char *sampling_preset = env->GetStringUTFChars(jSamplingPreset, nullptr);
     const char *upscaler_type = env->GetStringUTFChars(jUpscalerType, nullptr);
     const char *output_path = env->GetStringUTFChars(jOutputPath, nullptr);
@@ -290,6 +292,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
         env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
+        env->ReleaseStringUTFChars(jVaeMemoryProfile, vae_memory_profile);
         env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
@@ -304,8 +307,17 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     LOGI("[settings] prompt_bytes=%zu negative_bytes=%zu size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f seed=%lld",
          std::strlen(prompt), std::strlen(negative_prompt), width, height, sampling_preset,
          sd_scheduler_name(scheduler), steps, cfgScale, static_cast<long long>(seed));
-    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f output=%s",
-         upscaler_type, upscaleFactor, hiresSteps, hiresDenoisingStrength, output_path);
+    const bool use_sdxl_turbo_q4_768_vae_policy =
+        std::strcmp(vae_memory_profile, "sdxl-turbo-q4") == 0 &&
+        width == 768 && height == 768 && taesd_path[0] == '\0' &&
+        upscaler == SD_HIRES_UPSCALER_NONE;
+    const char* vae_policy = use_sdxl_turbo_q4_768_vae_policy
+                                 ? "sdxl-turbo-q4-768-safe-v1"
+                                 : "default";
+    const char* vae_tiling = use_sdxl_turbo_q4_768_vae_policy ? "48x48@0.50" : "disabled";
+    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f vae_profile=%s vae_policy=%s vae_tiling=%s output=%s",
+         upscaler_type, upscaleFactor, hiresSteps, hiresDenoisingStrength,
+         vae_memory_profile, vae_policy, vae_tiling, output_path);
 
     jclass module_class = env->GetObjectClass(thiz);
     jmethodID emit_progress_method = env->GetMethodID(
@@ -341,6 +353,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
         env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
+        env->ReleaseStringUTFChars(jVaeMemoryProfile, vae_memory_profile);
         env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
@@ -355,6 +368,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
 
     sd_img_gen_params_t img_params;
     sd_img_gen_params_init(&img_params);
+    if (use_sdxl_turbo_q4_768_vae_policy) {
+        img_params.vae_tiling_params.enabled = true;
+        img_params.vae_tiling_params.tile_size_x = 48;
+        img_params.vae_tiling_params.tile_size_y = 48;
+        img_params.vae_tiling_params.target_overlap = 0.5f;
+    }
     std::vector<sd_lora_t> loras;
     loras.reserve(lora_count);
     for (jsize i = 0; i < lora_count; ++i) {
@@ -409,6 +428,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
     env->ReleaseStringUTFChars(jModelPath, model_path);
     env->ReleaseStringUTFChars(jTaesdPath, taesd_path);
+    env->ReleaseStringUTFChars(jVaeMemoryProfile, vae_memory_profile);
     env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
     env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
     env->ReleaseStringUTFChars(jOutputPath, output_path);

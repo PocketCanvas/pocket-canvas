@@ -135,6 +135,14 @@ JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
 3. JNI bridge: Pocket Canvas 전용 inference orchestration과 `stable-diffusion.cpp` API adaptation을 담당한다.
 4. stable-diffusion.cpp: 실제 model loading 및 diffusion inference를 수행하는 upstream core
 
+## VAE memory policy
+
+생성 직전 앱은 저장된 모델 header의 tensor 구조와 저장 타입을 검사해 내부 VAE memory profile을 결정한다. 현재 자동 최적화가 검증된 범위는 Galaxy S26의 SDXL Turbo Q4, 768×768, 내장 VAE 조합뿐이다. 이 조합에서 `StableDiffusionBridge.cpp`가 48×48, overlap 0.50 VAE tiling을 적용하며 SD 1.5, 512×512, TAESD 또는 Hires 요청은 기본 non-tiled 경로를 유지한다.
+
+이 profile은 사용자 생성 설정이나 UI 옵션이 아니다. Kotlin은 계약 검증과 전달만 담당하고 native bridge가 최종 적용 조건을 소유한다. 자동 fallback은 없으며 실제 판정과 적용 결과는 `[settings]` 로그의 `vae_profile`, `vae_policy`, `vae_tiling` 필드로 확인한다.
+
+> 근거, 제한 범위와 대안은 ADR-017 참조
+
 ## Persistence
 
 ```text

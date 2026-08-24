@@ -30,7 +30,11 @@ import {
 } from '@/lib/generation-state';
 import { showOperationBlockedAlert } from '@/lib/heavy-operation';
 import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
-import { getStoredModelUri, type StoredModel } from '@/lib/model-files';
+import {
+  getStoredModelUri,
+  inspectStoredModelVaeMemoryProfile,
+  type StoredModel,
+} from '@/lib/model-files';
 import { useOperationStore } from '@/stores/use-operation-store';
 
 export default function GenerateScreen() {
@@ -118,6 +122,7 @@ export default function GenerateScreen() {
         negativePrompt: negativePrompt.trim(),
         modelUri: getStoredModelUri(model),
         taesdUri: taesd ? getStoredModelUri(taesd) : undefined,
+        vaeMemoryProfile: inspectStoredModelVaeMemoryProfile(model),
         loras: loras.map(({ model: lora, weight }) => ({
           uri: getStoredModelUri(lora),
           weight,

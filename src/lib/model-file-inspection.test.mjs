@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 import test from 'node:test';
 
 import {
+  classifyVaeMemoryProfile,
   inspectModelBytes,
   inspectQuantizationAvailability,
   supportedModelExtension,
@@ -95,6 +96,53 @@ test('detects an imported quantized GGUF from its tensor storage types', () => {
   });
 });
 
+test('selects the verified VAE profile only for an SDXL Turbo Q4 model', () => {
+  const inspection = inspectModelBytes(
+    gguf(
+      [
+        { name: 'model.diffusion_model.input_blocks.0.0.weight', type: 12 },
+        { name: 'conditioner.embedders.1.model.text_projection', type: 0 },
+      ],
+      { 'general.name': 'SDXL Turbo Q4_K' },
+    ),
+  );
+
+  assert.equal(classifyVaeMemoryProfile(inspection, []), 'sdxl-turbo-q4');
+});
+
+test('does not generalize the verified VAE profile to ordinary SDXL Q4 models', () => {
+  const inspection = inspectModelBytes(
+    gguf([
+      { name: 'model.diffusion_model.input_blocks.0.0.weight', type: 12 },
+      { name: 'conditioner.embedders.1.model.text_projection', type: 0 },
+    ]),
+  );
+
+  assert.equal(classifyVaeMemoryProfile(inspection, ['ordinary-sdxl-q4.gguf']), 'default');
+});
+
+test('does not select the verified VAE profile for an unquantized SDXL Turbo model', () => {
+  const inspection = inspectModelBytes(
+    gguf(
+      [
+        { name: 'model.diffusion_model.input_blocks.0.0.weight', type: 0 },
+        { name: 'conditioner.embedders.1.model.text_projection', type: 0 },
+      ],
+      { 'general.name': 'SDXL Turbo' },
+    ),
+  );
+
+  assert.equal(classifyVaeMemoryProfile(inspection, []), 'default');
+});
+
+test('does not select the verified VAE profile for a non-SDXL Turbo Q4 model', () => {
+  const inspection = inspectModelBytes(
+    gguf([{ name: 'model.diffusion_model.input_blocks.0.0.weight', type: 12 }]),
+  );
+
+  assert.equal(classifyVaeMemoryProfile(inspection, ['sd15-turbo-q4.gguf']), 'default');
+});
+
 test('rejects a GGUF with an unknown tensor storage type', () => {
   const inspection = inspectModelBytes(gguf([{ name: 'model.diffusion_model.weight', type: 99 }]));
 
@@ -129,7 +177,18 @@ function uint64(value) {
   return bytes;
 }
 
-function gguf(tensors) {
+function gguf(tensors, metadata = {}) {
+  const metadataEntries = Object.entries(metadata).flatMap(([key, value]) => {
+    const encodedKey = encoder.encode(key);
+    const encodedValue = encoder.encode(value);
+    return [
+      uint64(encodedKey.length),
+      encodedKey,
+      uint32(8),
+      uint64(encodedValue.length),
+      encodedValue,
+    ];
+  });
   const directory = tensors.flatMap(({ name, type }) => {
     const encodedName = encoder.encode(name);
     return [uint64(encodedName.length), encodedName, uint32(1), uint64(4), uint32(type), uint64(0)];
@@ -138,7 +197,8 @@ function gguf(tensors) {
     Buffer.from('GGUF'),
     uint32(3),
     uint64(tensors.length),
-    uint64(0),
+    uint64(Object.keys(metadata).length),
+    ...metadataEntries,
     ...directory,
   ]);
 }

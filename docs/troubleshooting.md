@@ -2,6 +2,58 @@
 
 반복적으로 확인된 문제와 해결 절차를 기록
 
+## Docker release APK 빌드
+
+기본 실행은 저장소 루트의 Git Bash에서 다음과 같다.
+
+```bash
+./scripts/build-release-apk.sh
+```
+
+결과 파일은 `artifacts/android/pocket-canvas-release.apk`이다. 전체 도구 선택의 근거는 ADR-019를 참조한다.
+
+### 모듈이 NDK `27.0.12077973`을 추가로 설치하거나 선택함
+
+- **증상:** 루트 설정에는 NDK `27.1.12297006`이 표시되지만 `stable-diffusion` 구성에서 27.0을 요청하거나 해당 경로를 참조
+- **원인:** Expo 모듈의 Android plugin 기본 NDK 선택이 루트 앱과 달라질 수 있음
+- **해결:** `stable-diffusion/android/build.gradle`의 `android` 블록에서 `ndkVersion rootProject.ext.ndkVersion`을 유지. 모듈에 `minSdkVersion`을 추가하는 해결책과 혼동하지 않음
+- **검증:** 로그의 ExpoRootProject NDK가 `27.1.12297006`이고 native compile target이 `aarch64-none-linux-android28`인지 확인
+
+### host Vulkan shader generator 구성 실패
+
+ggml Vulkan 빌드는 Android cross compile과 별도로 Linux host executable을 먼저 만든다. 아래 오류는 submodule 소스 문제가 아니라 컨테이너 host 도구 누락 또는 버전 불일치다.
+
+- `Ninja not found`: 컨테이너에 host `ninja-build` 필요
+- `spirv/unified1/spirv.hpp` 없음: SPIR-V headers가 `$VULKAN_SDK/Include/spirv`에서 보여야 함
+- `vk::LayerSettingEXT` 없음: Vulkan-Headers가 너무 오래됨. 검증된 Khronos `vulkan-sdk-1.4.350.0` tag 사용
+- `vk_video/vulkan_video_codec_av1std.h` 없음: Vulkan-Headers의 `include/vulkan`뿐 아니라 `include/vk_video`도 함께 설치
+
+**대응:** `Dockerfile.android`의 Vulkan/Ninja 설치를 유지한다. 이 문제를 고치기 위해 `stable-diffusion.cpp` submodule 또는 의도적으로 수정된 ggml-vulkan CMake를 변경하지 않는다.
+
+### Docker BuildKit가 `rpc error: code = Unavailable ... EOF`로 종료
+
+- **증상:** Gradle의 명시적인 실패 없이 `failed to receive status`, `error reading from server: EOF`가 출력되고 Docker Desktop 엔진 연결이 끊김
+- **원인:** Gradle worker와 여러 CMake/Ninja compile이 겹친 peak memory로 Docker Desktop 엔진이 중단될 수 있음
+- **확인:** `docker info`가 실패하면 Docker Desktop 엔진이 재기동될 때까지 기다림. `docker info`가 성공하면 캐시를 이용해 다시 실행
+- **해결:** Dockerfile의 `--max-workers=2`, `--no-parallel`, `CMAKE_BUILD_PARALLEL_LEVEL=2`를 제거하지 않음. 계속 발생하면 Docker Desktop의 메모리 할당과 호스트 여유 메모리를 확인
+- **주의:** 같은 지점의 EOF를 C++ 컴파일 오류로 간주해 upstream을 수정하지 않음
+
+### npm audit 경고
+
+- 빌드 중 루트와 모듈 의존성의 취약점 요약이 출력될 수 있으나 그 자체는 빌드 실패가 아님
+- `npm audit fix --force`를 실행하지 않음. Expo/RN 호환 세대를 깨뜨릴 수 있으므로 별도 의존성 검토 작업으로 처리
+
+### APK 생성 후 확인
+
+```bash
+sha256sum ./artifacts/android/pocket-canvas-release.apk
+adb install -r ./artifacts/android/pocket-canvas-release.apk
+```
+
+- APK에는 `lib/arm64-v8a/libstable_diffusion_bridge.so`가 있어야 하고 다른 ABI 디렉터리는 없어야 함
+- 현재 release 변형은 debug keystore로 서명된다. 기존 설치 앱과 인증서가 다르면 `adb install -r` 업데이트가 거절될 수 있음
+- Play Store 배포 artifact로 사용하지 않음
+
 ## 터보모듈 크래시: `NativeMicrotasksCxx could not be found`
 - **원인:** 루트와 로컬 모듈 간 `react-native` 버전 불일치
 - **해결:** 두 `package.json`의 Expo/React/React Native 버전을 일치시키고, `stable-diffusion/`과 루트에서 각각 `npm install` 후 `npx expo install --check` 실행

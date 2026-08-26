@@ -25,6 +25,7 @@
 | 코드 포맷 검사 | `npm run format:check` |
 | TS 모듈 빌드 | `cd stable-diffusion && npm run build` |
 | Android 모듈 빌드 | `cd android && .\gradlew.bat :stable-diffusion:assembleDebug` |
+| Docker 릴리즈 APK (Git Bash) | `./scripts/build-release-apk.sh` |
 | 모듈 의존성 설치 | `cd stable-diffusion && npm install` |
 | 클린 빌드 (Windows) | `cd android && .\gradlew.bat clean` |
 | C++ 로그 모니터링 | `adb logcat -s StableDiffusionBridge:I '*:S'` |
@@ -51,8 +52,12 @@
 | ADR-016 | 생성 화면 상태 모델 | draft/run reducer 분리 + 명시적 실행 상태 전이 + 모델 카탈로그 재조정 |
 | ADR-017 | 검증 근거 기반 VAE 메모리 정책 | SDXL Turbo Q4 768²에만 48×48 tiling 자동 적용 + header 기반 보수적 판정 |
 | ADR-018 | 모델 기술자 기반 지능형 메모리 정책 | header 근거와 workload로 verified/conservative/default 정책을 C++ bridge에서 합성 |
+| ADR-019 | Docker 기반 Android 릴리즈 빌드 | 고정 Android/Vulkan 도구체인 + Git Bash 진입점 + 제한된 병렬도 |
 
 ## Known landmines
+- Docker 릴리즈 빌드의 기준 진입점은 Git Bash의 `./scripts/build-release-apk.sh`이며 결과는 `artifacts/android/pocket-canvas-release.apk`이다. host Vulkan generator에는 Ninja, SPIR-V headers, Vulkan `vulkan/`과 `vk_video/`가 모두 필요하다. → ADR-019, `docs/troubleshooting.md`
+- Docker BuildKit가 Gradle 오류 없이 `rpc error: code = Unavailable ... EOF`로 종료되면 엔진 중단 또는 peak memory를 먼저 의심한다. `--max-workers=2`, `--no-parallel`, `CMAKE_BUILD_PARALLEL_LEVEL=2`를 제거하지 않는다. → ADR-019
+- `stable-diffusion/android/build.gradle`의 `ndkVersion rootProject.ext.ndkVersion`은 루트와 Expo 모듈이 NDK 27.1을 공유하기 위한 설정이다. 이를 제거하거나 별도 NDK 버전으로 바꾸지 않는다. `minSdkVersion` 금지 규칙과는 별개다. → ADR-002, ADR-019
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조
 - NDK 변경 후 native build가 이전 NDK를 참조할 수 있음. → ADR-002의 native cache reset 절차 참조
 - `stable-diffusion.cpp` 및 Expo/RN upstream warning을 해결하기 위해 submodule이나 `node_modules`를 수정하지 않는다

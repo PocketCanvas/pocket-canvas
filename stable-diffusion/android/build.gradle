@@ -8,6 +8,7 @@ version = '0.1.0'
 
 android {
   namespace "expo.modules.stablediffusion"
+  ndkVersion rootProject.ext.ndkVersion
   defaultConfig {
     versionCode 1
     versionName "0.1.0"

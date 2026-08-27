@@ -248,16 +248,7 @@ Pocket Canvas는 모델이나 LoRA를 자체 배포하지 않습니다. 사용�
 
 ## 기여하기
 
-변경 전에 [`AGENTS.md`](AGENTS.md), [Architecture](docs/architecture.md)와 관련 ADR을 먼저 읽어 주세요.
-
-특히 다음 경계를 지켜야 합니다.
-
-- `stable-diffusion/cpp/stable-diffusion.cpp/` upstream 코드를 직접 수정하지 않습니다.
-- 커스텀 추론·양자화·메모리 정책은 `StableDiffusionBridge.cpp`에서 구현합니다.
-- Kotlin 모듈은 계약 검증, lifecycle, 이벤트 전달과 실행 큐 지정만 담당합니다.
-- `stable-diffusion/android/build.gradle`에 `minSdkVersion`을 직접 선언하지 않습니다.
-- 루트와 로컬 모듈의 Expo/React/React Native 호환 세대를 함께 유지합니다.
-- `npm audit fix --force`를 사용하지 않습니다.
+기여 방법과 개발 시 지켜야 할 경계는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고해 주세요.
 
 ## 라이선스
 

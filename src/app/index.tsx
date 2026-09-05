@@ -1,4 +1,5 @@
 import { AppIcon } from '@/components/common/app-icon';
+import { ScreenHeader } from '@/components/common/screen-header';
 import { AdvancedGenerationOptions } from '@/components/generate/advanced-generation-options';
 import { GenerationControls } from '@/components/generate/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
@@ -182,11 +183,7 @@ export default function GenerateScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <RNText accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-              이미지 생성
-            </RNText>
-          </View>
+          <ScreenHeader style={styles.header} title="이미지 생성" />
 
           <View
             style={[
@@ -390,8 +387,7 @@ export default function GenerateScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 190, gap: 24 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
+  header: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 },
   preview: {
     height: 200,
     borderRadius: 14,

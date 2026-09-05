@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { addQuantizationProgressListener, type QuantizationProgressEvent } from 'stable-diffusion';
 
 import { AppIcon } from '@/components/common/app-icon';
+import { ScreenHeader } from '@/components/common/screen-header';
 
 import {
   ManagedModel,
@@ -204,11 +205,7 @@ export default function ModelsScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-          모델 관리
-        </Text>
-      </View>
+      <ScreenHeader title="모델 관리" />
 
       <View accessibilityRole="tablist" style={[styles.tabs, { borderBottomColor: colors.border }]}>
         {MODEL_KINDS.map(([value, label]) => {
@@ -312,8 +309,6 @@ export default function ModelsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.5 },
   tabs: { flexDirection: 'row', borderBottomWidth: 1 },
   tab: {
     flex: 1,

@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/common/app-icon';
+import { ScreenHeader } from '@/components/common/screen-header';
 
 import {
   HISTORY_TABS,
@@ -141,73 +142,70 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <View style={styles.headerTitleContainer}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-            히스토리
-          </Text>
-        </View>
+      <ScreenHeader
+        title="히스토리"
+        rightAction={
+          <>
+            <Pressable
+              accessibilityHint="프롬프트 검색창을 열거나 닫습니다"
+              accessibilityLabel="검색"
+              accessibilityRole="button"
+              onPress={() => {
+                setShowSearch((prev) => !prev);
+                if (showSearch) setSearchQuery('');
+              }}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+                showSearch && {
+                  backgroundColor: colors.accentSoft,
+                  borderColor: colors.accent,
+                },
+                pressed && styles.pressed,
+              ]}
+            >
+              <AppIcon color={showSearch ? 'accentText' : 'text'} name="Search" size="base" />
+            </Pressable>
 
-        <View style={styles.headerActions}>
-          <Pressable
-            accessibilityHint="프롬프트 검색창을 열거나 닫습니다"
-            accessibilityLabel="검색"
-            accessibilityRole="button"
-            onPress={() => {
-              setShowSearch((prev) => !prev);
-              if (showSearch) setSearchQuery('');
-            }}
-            style={({ pressed }) => [
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-              showSearch && {
-                backgroundColor: colors.accentSoft,
-                borderColor: colors.accent,
-              },
-              pressed && styles.pressed,
-            ]}
-          >
-            <AppIcon color={showSearch ? 'accentText' : 'text'} name="Search" size="base" />
-          </Pressable>
+            <Pressable
+              accessibilityHint={`정렬 순서 변경: 현재 ${sortOrder === 'newest' ? '최신순' : '오래된순'}`}
+              accessibilityLabel="정렬 순서 변경"
+              accessibilityRole="button"
+              onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+                pressed && styles.pressed,
+              ]}
+            >
+              <AppIcon color="text" name="ArrowUpDown" size="base" />
+            </Pressable>
 
-          <Pressable
-            accessibilityHint={`정렬 순서 변경: 현재 ${sortOrder === 'newest' ? '최신순' : '오래된순'}`}
-            accessibilityLabel="정렬 순서 변경"
-            accessibilityRole="button"
-            onPress={() => setSortOrder((prev) => (prev === 'newest' ? 'oldest' : 'newest'))}
-            style={({ pressed }) => [
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-              pressed && styles.pressed,
-            ]}
-          >
-            <AppIcon color="text" name="ArrowUpDown" size="base" />
-          </Pressable>
-
-          <Pressable
-            accessibilityHint="추가 옵션 메뉴를 엽니다"
-            accessibilityLabel="더보기 메뉴"
-            accessibilityRole="button"
-            onPress={handleMoreMenu}
-            style={({ pressed }) => [
-              styles.iconButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-              pressed && styles.pressed,
-            ]}
-          >
-            <AppIcon color="text" name="EllipsisVertical" size="base" />
-          </Pressable>
-        </View>
-      </View>
+            <Pressable
+              accessibilityHint="추가 옵션 메뉴를 엽니다"
+              accessibilityLabel="더보기 메뉴"
+              accessibilityRole="button"
+              onPress={handleMoreMenu}
+              style={({ pressed }) => [
+                styles.iconButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+                pressed && styles.pressed,
+              ]}
+            >
+              <AppIcon color="text" name="EllipsisVertical" size="base" />
+            </Pressable>
+          </>
+        }
+      />
 
       {showSearch && (
         <View
@@ -330,27 +328,6 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   iconButton: {
     width: 38,

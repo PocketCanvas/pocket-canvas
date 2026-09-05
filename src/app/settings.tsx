@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type IconName } from '@/components/common/app-icon';
+import { ScreenHeader } from '@/components/common/screen-header';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemeMode, useThemeStore } from '@/stores/use-theme-store';
 
@@ -41,11 +42,7 @@ export default function SettingsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-            설정
-          </Text>
-        </View>
+        <ScreenHeader style={styles.header} title="설정" />
 
         {/* 1. 화면 테마 섹션 */}
         <View style={styles.section}>
@@ -150,16 +147,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingTop: 12,
     gap: 20,
     paddingBottom: 40,
   },
   header: {
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   section: {
     gap: 8,

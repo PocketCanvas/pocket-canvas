@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+`models.json`과 `images/meta.json`의 저장소별 JSON commit 큐는 [ADR-020](ADR-020-sqlite-metadata-storage.md)의 SQLite commit 큐로 옮겨졌습니다. Zustand 즉시 거절, native mutex, Expo 공용 큐 분리는 유지합니다.
+
 ## Date
 2026-08-23
 

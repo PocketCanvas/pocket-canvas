@@ -91,7 +91,7 @@ Imported SafeTensors / GGUF
       GGUF header validation
             │
             ▼
-  <id>.gguf + models.json commit
+  <id>.gguf + SQLite commit
             │
             ▼
        mmap inference
@@ -110,13 +110,12 @@ Imported SafeTensors / GGUF
 
 ## Heavy operation coordination
 
-이미지 생성, 모델 양자화, 모델 가져오기는 비영속 Zustand 잠금으로 하나만 시작한다. 모델·이미지 JSON의 짧은 read-modify-write 구간은 저장소별 JS 큐로 직렬화하고, 생성·양자화의 네이티브 안전성은 `StableDiffusionBridge.cpp` mutex가 최종 보장한다. 히스토리 탐색과 이미지 관리는 무거운 작업 중에도 계속 사용할 수 있다.
+이미지 생성, 모델 양자화, 모델 가져오기는 비영속 Zustand 잠금으로 하나만 시작한다. 모델·이미지 SQLite 쓰기는 단일 JS commit 큐와 짧은 트랜잭션으로 직렬화하고, 생성·양자화의 네이티브 안전성은 `StableDiffusionBridge.cpp` mutex가 최종 보장한다. 히스토리 탐색과 이미지 관리는 무거운 작업 중에도 계속 사용할 수 있다.
 
 ```text
 React / Zustand        충돌 요청 즉시 거절, blocked UX
         │
-        ├── model index queue   models.json read-modify-write 직렬화
-        ├── image index queue   images/meta.json read-modify-write 직렬화
+        ├── SQLite commit queue 모델·이미지 행 단위 변경 직렬화
         │
 Kotlin operation scope 생성·양자화를 Expo 공용 AsyncFunctionQueue와 분리
         │
@@ -127,7 +126,7 @@ JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
 
 생성과 양자화 JNI 호출은 Expo Modules 공용 `AsyncFunctionQueue`가 아닌 별도 coroutine scope에서 실행한다. 긴 네이티브 작업이 FileSystem·Sharing 같은 독립 Expo 모듈 호출을 막지 않도록 하기 위함이다.
 
-> 상세 내용은 ADR-015 참조
+> 상세 내용은 ADR-015, ADR-020 참조
 
 ## Native boundary
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
@@ -163,15 +162,20 @@ resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 �
 ```text
 Paths.document/
 ├── models/
-│   ├── models.json
 │   ├── <내부 ID>.safetensors
 │   └── <내부 ID>.gguf
 └── images/
-    ├── meta.json
     └── YYYYMMDD-HHMMSS-<id>.png
+
+SQLite.defaultDatabaseDirectory/
+└── pocket-canvas.db               # models, images
 ```
-* `models/`: imported model 및 LoRA 와 metadata
-* `images/`: generated PNG와 현행 생성 옵션 전체를 포함하는 metadata
+
+* `models/`: imported model 및 LoRA 파일
+* `images/`: generated PNG 파일
+* SQLite: 모델 metadata, 생성 옵션 전체, 즐겨찾기. 중첩 옵션은 행 단위 JSON payload로 보존하고 ID·파일명·생성 시각·즐겨찾기는 SQL 열로 관리한다.
+
+즐겨찾기·삭제는 해당 레코드만 변경하며 PNG 디렉터리 스캔은 히스토리 로드의 복구 경로에 한정한다. `models.json`과 `meta.json`은 읽거나 쓰지 않는다. SQLite 트랜잭션은 파일 연산까지 원자적으로 묶지 않는다. → ADR-020
 
 > 가져오기는 validation 후 commit하며 실패한 import가 정상 데이터에 영향을 주지 않도록 rollback 가능한 흐름을 사용
 >

@@ -4,6 +4,7 @@
 Accepted
 
 이 문서에서 후속 범위로 둔 생성 이미지 저장소는 [ADR-007](ADR-007-generation-contract-progress-and-image-storage.md)에서 구체화되었습니다.
+JSON 인덱스(`models.json`) 저장은 [ADR-020](ADR-020-sqlite-metadata-storage.md)으로 옮겨졌습니다. 문서 선택, header 검증, 실패 롤백은 유지합니다.
 
 ## Date
 2026-08-17

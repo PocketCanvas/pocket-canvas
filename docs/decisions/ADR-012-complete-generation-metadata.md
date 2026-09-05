@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+메타데이터 인덱스를 `images/meta.json`에 기록하는 방식은 [ADR-020](ADR-020-sqlite-metadata-storage.md)으로 옮겨졌습니다. complete/missing 계약과 PNG 보존은 유지합니다.
+
 ## Date
 2026-08-20
 

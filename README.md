@@ -78,7 +78,7 @@ ggml / Vulkan
 - `StableDiffusionBridge.cpp`는 생성·양자화 직렬화, 메모리 정책, sampler/hires 변환, 진행 이벤트와 PNG 저장을 담당합니다.
 - `stable-diffusion.cpp`는 git submodule로 관리하며 Pocket Canvas에서 직접 수정하지 않습니다.
 
-생성과 양자화는 동시에 실행되지 않습니다. JS의 즉시 거절, JSON index commit queue, Kotlin 전용 실행 큐와 C++ mutex가 서로 다른 계층의 동시성 문제를 방지합니다.
+생성과 양자화는 동시에 실행되지 않습니다. JS의 즉시 거절, SQLite commit queue, Kotlin 전용 실행 큐와 C++ mutex가 서로 다른 계층의 동시성 문제를 방지합니다.
 
 상세 구조와 결정 배경은 [Architecture](docs/architecture.md)와 [Architecture Decision Records](docs/decisions)를 참고하세요.
 
@@ -90,7 +90,7 @@ ggml / Vulkan
 | UI·상태     | Expo Router, Zustand, Gesture Handler, Reanimated     |
 | Android     | Kotlin, Expo Modules API, JNI, Android NDK 27.1       |
 | 추론        | C++17, stable-diffusion.cpp, ggml, Vulkan, mmap       |
-| 저장소      | Expo FileSystem document storage, JSON index, PNG     |
+| 저장소      | expo-sqlite 메타데이터, Expo FileSystem 모델·PNG     |
 | 릴리즈 빌드 | Docker BuildKit, JDK 17, Android API 36, CMake 3.22.1 |
 
 정확한 패치 버전은 루트와 [`stable-diffusion/package.json`](stable-diffusion/package.json)을 함께 확인하세요. 두 패키지의 Expo, React와 React Native는 같은 호환 세대를 유지해야 합니다.
@@ -114,7 +114,7 @@ ggml / Vulkan
 │  ├─ architecture.md
 │  ├─ CMakeLists.txt                 # ggml-vulkan Android 빌드 workaround 보존본
 │  ├─ troubleshooting.md
-│  └─ decisions/                   # ADR-001 ~ ADR-019
+│  └─ decisions/                   # ADR-001 ~ ADR-020
 ├─ scripts/                        # Docker 릴리즈 APK 진입점
 ├─ Dockerfile.android
 └─ AGENTS.md

@@ -76,7 +76,7 @@ export default function HistoryScreen() {
     setSelectedId(nextSelectedId);
     try {
       const updated = await toggleFavoriteImage(id);
-      setItems(updated);
+      setItems((current) => current.map((item) => (item.id === id ? updated : item)));
     } catch (error) {
       Alert.alert(
         '즐겨찾기를 변경하지 못했습니다.',
@@ -95,8 +95,8 @@ export default function HistoryScreen() {
         onPress: async () => {
           try {
             const nextSelectedId = selectAfterViewerDelete(filteredItems, item.id);
-            const updated = await deleteStoredImage(item.id);
-            setItems(updated);
+            await deleteStoredImage(item.id);
+            setItems((current) => current.filter((image) => image.id !== item.id));
             setSelectedId(nextSelectedId);
           } catch (error) {
             Alert.alert(

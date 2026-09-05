@@ -2,7 +2,7 @@ import { getDocumentAsync } from 'expo-document-picker';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import { quantizeModel } from 'stable-diffusion';
 
-import { createAsyncOperationQueue } from '@/lib/async-operation-queue';
+import { getMetadataDatabase } from '@/lib/metadata-storage';
 import {
   describeModel,
   inspectModelFile,
@@ -15,7 +15,6 @@ import {
 } from '@/lib/model-file-inspection';
 import {
   createQuantizedModelRecord,
-  isQuantizationType,
   type QuantizationType,
 } from '@/lib/model-quantization';
 
@@ -35,8 +34,6 @@ export type StoredModel = {
 };
 
 const modelsDirectory = new Directory(Paths.document, 'models');
-const indexFile = new File(modelsDirectory, 'models.json');
-const enqueueModelIndexOperation = createAsyncOperationQueue();
 let didCleanupIncompleteFiles = false;
 
 export function getStoredModelUri(model: StoredModel) {
@@ -59,18 +56,16 @@ export function inspectStoredModelDescriptor(model: StoredModel): ModelDescripto
 }
 
 export async function loadModels(): Promise<StoredModel[]> {
+  return (await modelDatabase()).listModels();
+}
+
+async function modelDatabase() {
   ensureDirectory();
   if (!didCleanupIncompleteFiles) {
     cleanupIncompleteFiles();
     didCleanupIncompleteFiles = true;
   }
-  if (!indexFile.exists) return [];
-
-  const value: unknown = JSON.parse(await indexFile.text());
-  if (!Array.isArray(value) || !value.every(isStoredModel)) {
-    throw new Error('models.json 형식이 올바르지 않습니다.');
-  }
-  return value;
+  return getMetadataDatabase();
 }
 
 export async function quantizeStoredModel(
@@ -94,6 +89,7 @@ export async function quantizeStoredModel(
   const outputId = createId();
   const temporary = new File(modelsDirectory, `.quantizing-${outputId}.gguf`);
   const destination = new File(modelsDirectory, `${outputId}.gguf`);
+  let model: StoredModel;
 
   try {
     await quantizeModel(sourceFile.uri, temporary.uri, type);
@@ -105,32 +101,24 @@ export async function quantizeStoredModel(
     if (inspection.format !== 'gguf') throw new Error('양자화 결과가 GGUF 형식이 아닙니다.');
     await temporary.move(destination);
 
-    const model = createQuantizedModelRecord({
+    model = createQuantizedModelRecord({
       source,
       type,
       id: outputId,
       sizeBytes: destination.size,
     });
-    try {
-      const updated = await enqueueModelIndexOperation(async () => {
-        const current = await loadModels();
-        const next = [...current, model];
-        await writeModels(next);
-        return next;
-      });
-      return { model, models: updated };
-    } catch (error) {
-      if (destination.exists) destination.delete();
-      throw error;
-    }
+    await (await getMetadataDatabase()).addModel(model);
   } catch (error) {
     if (temporary.exists) temporary.delete();
     if (destination.exists) destination.delete();
     throw error;
   }
+  // The file is committed now; a subsequent catalog read must not roll it back.
+  return { model, models: await (await getMetadataDatabase()).listModels() };
 }
 
 export async function pickAndImportModel(): Promise<StoredModel | null> {
+  await modelDatabase();
   const selection = await getDocumentAsync({
     type: '*/*',
     copyToCacheDirectory: false,
@@ -169,10 +157,7 @@ export async function pickAndImportModel(): Promise<StoredModel | null> {
     };
 
     try {
-      await enqueueModelIndexOperation(async () => {
-        const current = await loadModels();
-        await writeModels([...current, model]);
-      });
+      await (await getMetadataDatabase()).addModel(model);
     } catch (error) {
       destination.delete();
       throw error;
@@ -188,32 +173,18 @@ export async function updateStoredModel(
   id: string,
   changes: Pick<StoredModel, 'alias' | 'kind' | 'description'>,
 ): Promise<StoredModel[]> {
-  return enqueueModelIndexOperation(async () => {
-    const models = await loadModels();
-    const updated = models.map((model) => (model.id === id ? { ...model, ...changes } : model));
-    if (!updated.some((model) => model.id === id)) throw new Error('모델을 찾을 수 없습니다.');
-    await writeModels(updated);
-    return updated;
-  });
+  const database = await modelDatabase();
+  await database.updateModel(id, changes);
+  return database.listModels();
 }
 
 export async function deleteStoredModel(id: string): Promise<StoredModel[]> {
-  return enqueueModelIndexOperation(async () => {
-    const models = await loadModels();
-    const target = models.find((model) => model.id === id);
-    if (!target) throw new Error('모델을 찾을 수 없습니다.');
-
-    const updated = models.filter((model) => model.id !== id);
-    await writeModels(updated);
-    try {
-      const file = new File(modelsDirectory, target.storedFileName);
-      if (file.exists) file.delete();
-    } catch (error) {
-      await writeModels(models);
-      throw error;
-    }
-    return updated;
+  const database = await modelDatabase();
+  await database.deleteModel(id, (fileName) => {
+    const file = new File(modelsDirectory, fileName);
+    if (file.exists) file.delete();
   });
+  return database.listModels();
 }
 
 function inspectFile(file: File) {
@@ -246,31 +217,6 @@ function cleanupIncompleteFiles() {
   }
 }
 
-async function writeModels(models: StoredModel[]) {
-  const temporaryIndex = new File(modelsDirectory, '.models.json.tmp');
-  temporaryIndex.create({ overwrite: true });
-  temporaryIndex.write(JSON.stringify(models));
-  await temporaryIndex.move(indexFile, { overwrite: true });
-}
-
 function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function isStoredModel(value: unknown): value is StoredModel {
-  if (!value || Array.isArray(value) || typeof value !== 'object') return false;
-  const model = value as Record<string, unknown>;
-  return (
-    ['id', 'fileName', 'storedFileName', 'alias', 'description', 'createdAt'].every(
-      (key) => typeof model[key] === 'string',
-    ) &&
-    ['model', 'lora', 'unknown'].includes(String(model.kind)) &&
-    ['model', 'lora', 'unknown'].includes(String(model.detectedKind)) &&
-    ['gguf', 'safetensors'].includes(String(model.format)) &&
-    typeof model.sizeBytes === 'number' &&
-    Number.isSafeInteger(model.sizeBytes) &&
-    model.sizeBytes >= 0 &&
-    (model.quantization === undefined || isQuantizationType(model.quantization)) &&
-    (model.sourceModelId === undefined || typeof model.sourceModelId === 'string')
-  );
 }

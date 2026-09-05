@@ -48,11 +48,12 @@
 | ADR-012 | 생성 메타데이터 완전성과 이미지 보존 | 정상 metadata 필수 계약 + missing 복구 variant + PNG 보존 우선 |
 | ADR-013 | 전체 화면 갤러리와 확대 제스처 | filteredItems 페이징 + zoom-toolkit Gallery + Modal 전용 GestureHandlerRootView |
 | ADR-014 | Android 온디바이스 스트리밍 양자화 | 클릭 시 tensor 저장 타입 검사 + 검증된 6개 타입 + 임시 GGUF 롤백 + 생성·양자화 직렬화 |
-| ADR-015 | 무거운 작업 전역 조정 | Zustand 즉시 거절 + JSON commit 큐 + native mutex + Expo 공용 큐 분리 |
+| ADR-015 | 무거운 작업 전역 조정 | Zustand 즉시 거절 + SQLite commit 큐 + native mutex + Expo 공용 큐 분리 |
 | ADR-016 | 생성 화면 상태 모델 | draft/run reducer 분리 + 명시적 실행 상태 전이 + 모델 카탈로그 재조정 |
 | ADR-017 | 검증 근거 기반 VAE 메모리 정책 | SDXL Turbo Q4 768²에만 48×48 tiling 자동 적용 + header 기반 보수적 판정 |
 | ADR-018 | 모델 기술자 기반 지능형 메모리 정책 | header 근거와 workload로 verified/conservative/default 정책을 C++ bridge에서 합성 |
 | ADR-019 | Docker 기반 Android 릴리즈 빌드 | 고정 Android/Vulkan 도구체인 + Git Bash 진입점 + 제한된 병렬도 |
+| ADR-020 | SQLite 메타데이터 저장 | expo-sqlite + 행 단위 변경 + PNG 복구 보존 |
 
 ## Known landmines
 - Docker 릴리즈 빌드의 기준 진입점은 Git Bash의 `./scripts/build-release-apk.sh`이며 결과는 `artifacts/android/pocket-canvas-release.apk`이다. host Vulkan generator에는 Ninja, SPIR-V headers, Vulkan `vulkan/`과 `vk_video/`가 모두 필요하다. → ADR-019, `docs/troubleshooting.md`
@@ -72,7 +73,8 @@
 - 양자화 입력 자체는 mmap이 아니라 upstream tensor 스트리밍을 사용한다. 결과 GGUF만 기존 mmap 추론 경로에서 사용한다. 진행률은 upstream callback의 완료 tensor 수를 표시하며 시간·byte 기준으로 합성하지 않고, 취소도 합성하지 않는다. → ADR-014
 - 사용자가 수동 분류한 파일을 지원하기 위해 `MODEL` 항목의 양자화 버튼을 자동 감지 결과나 파일명·확장자·용량만으로 숨기지 않는다. 버튼 클릭 시 SafeTensors dtype 또는 GGUF tensor type을 header에서 검사하고, 실제 `quantizeStoredModel` 진입점에서도 다시 검사한다. 이미 양자화된 GGUF와 알 수 없는 저장 타입은 실행하지 않는다. → ADR-014
 - 생성·양자화 JNI 호출을 기본 Expo Modules `AsyncFunctionQueue`에서 실행하지 않는다. 수분 동안 공용 큐를 점유하면 히스토리 최초 로드의 FileSystem 호출과 Sharing 등 독립 기능까지 대기한다. 두 호출 모두 `nativeOperationQueue`를 명시해야 한다. → ADR-015
-- 무거운 작업은 JS에서 FIFO로 예약하지 않고 충돌 시 즉시 거절한다. `models.json`과 `images/meta.json` 큐에는 긴 파일 복사·생성·양자화가 아니라 전체 read-modify-write commit 구간만 넣는다. → ADR-015
+- 무거운 작업은 JS에서 FIFO로 예약하지 않고 충돌 시 즉시 거절한다. SQLite commit 큐에는 짧은 트랜잭션만 넣으며 긴 파일 복사·생성·양자화·디렉터리 스캔을 넣지 않는다. → ADR-015, ADR-020
+- 모델·이미지 metadata의 원본은 `pocket-canvas.db`다. `models.json`/`meta.json`을 읽거나 쓰지 않으며 JSON 이전 경로를 다시 넣지 않는다. PNG·모델 본체는 FileSystem에 유지한다. → ADR-020
 - 생성 화면의 입력 중 설정은 `generationDraftReducer`, 실행 lifecycle은 `generationRunReducer`가 소유한다. 관련 상태를 개별 `useState`로 다시 분산하거나 draft와 run 상태를 하나의 reducer로 합치지 않는다. → ADR-016
 - 모델 카탈로그가 다시 로드되면 선택된 model·TAESD·LoRA를 현재 레코드와 ID로 재조정한다. 삭제된 리소스를 stale 객체로 유지하지 않으며 LoRA weight는 유지한다. → ADR-016
 - 생성 실패 중에는 직전 성공 이미지를 보존하고, PNG 생성 성공 후 metadata 기록만 실패한 경우는 생성 실패가 아니라 warning을 가진 성공 상태로 처리한다. → ADR-012, ADR-016

@@ -1,15 +1,14 @@
-import { Moon, Smartphone, Sun } from 'lucide-react-native';
-import { type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AppIcon, type IconName } from '@/components/common/app-icon';
 import { useTheme } from '@/hooks/use-theme';
 import { ThemeMode, useThemeStore } from '@/stores/use-theme-store';
 
 type ThemeOptionItem = {
   mode: ThemeMode;
   label: string;
-  icon: (color: string) => ReactNode;
+  iconName: IconName;
 };
 
 export default function SettingsScreen() {
@@ -21,17 +20,17 @@ export default function SettingsScreen() {
     {
       mode: 'system',
       label: '시스템 설정',
-      icon: (color) => <Smartphone color={color} size={20} />,
+      iconName: 'Smartphone',
     },
     {
       mode: 'dark',
       label: '다크 모드',
-      icon: (color) => <Moon color={color} size={20} />,
+      iconName: 'Moon',
     },
     {
       mode: 'light',
       label: '라이트 모드',
-      icon: (color) => <Sun color={color} size={20} />,
+      iconName: 'Sun',
     },
   ];
 
@@ -84,7 +83,11 @@ export default function SettingsScreen() {
                       },
                     ]}
                   >
-                    {option.icon(isSelected ? colors.accentIcon : colors.muted)}
+                    <AppIcon
+                      color={isSelected ? 'accentIcon' : 'muted'}
+                      name={option.iconName}
+                      size="md"
+                    />
                   </View>
 
                   <Text
@@ -133,7 +136,7 @@ export default function SettingsScreen() {
 
             <View style={styles.infoRow}>
               <Text style={[styles.infoLabel, { color: colors.text }]}>버전</Text>
-              <Text style={[styles.infoValue, { color: colors.muted }]}>1.0.0</Text>
+              <Text style={[styles.infoValue, { color: colors.muted }]}>0.1.0</Text>
             </View>
           </View>
         </View>

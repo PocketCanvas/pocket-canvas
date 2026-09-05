@@ -3,9 +3,8 @@
 // https://reactnative.dev/docs/usewindowdimensions
 // https://docs.expo.dev/router/reference/hooks/#usefocuseffect
 
-import { ArrowUpDown, EllipsisVertical, Search, Sparkles, X } from 'lucide-react-native';
-import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +17,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AppIcon } from '@/components/common/app-icon';
 
 import {
   HISTORY_TABS,
@@ -169,7 +170,7 @@ export default function HistoryScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <Search color={showSearch ? colors.accentText : colors.text} size={18} />
+            <AppIcon color={showSearch ? 'accentText' : 'text'} name="Search" size="base" />
           </Pressable>
 
           <Pressable
@@ -186,7 +187,7 @@ export default function HistoryScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <ArrowUpDown color={colors.text} size={18} />
+            <AppIcon color="text" name="ArrowUpDown" size="base" />
           </Pressable>
 
           <Pressable
@@ -203,7 +204,7 @@ export default function HistoryScreen() {
               pressed && styles.pressed,
             ]}
           >
-            <EllipsisVertical color={colors.text} size={18} />
+            <AppIcon color="text" name="EllipsisVertical" size="base" />
           </Pressable>
         </View>
       </View>
@@ -234,7 +235,7 @@ export default function HistoryScreen() {
               onPress={() => setSearchQuery('')}
               style={styles.clearSearch}
             >
-              <X color={colors.muted} size={16} />
+              <AppIcon color="muted" name="X" size="sm" />
             </Pressable>
           )}
         </View>
@@ -272,7 +273,7 @@ export default function HistoryScreen() {
       ) : filteredItems.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>
-            <Sparkles color={colors.accentIcon} size={22} />
+            <AppIcon color="accentIcon" name="Sparkles" size="lg" />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {searchQuery

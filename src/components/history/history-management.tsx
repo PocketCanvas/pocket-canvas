@@ -1,5 +1,6 @@
-import { Heart } from 'lucide-react-native';
 import { Image, Pressable, StyleSheet } from 'react-native';
+
+import { AppIcon } from '@/components/common/app-icon';
 
 import { useTheme } from '@/hooks/use-theme';
 import { getStoredImageUri } from '@/lib/image-files';
@@ -67,10 +68,11 @@ export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: Hist
           pressed && styles.pressed,
         ]}
       >
-        <Heart
-          color={item.favorite ? colors.error : colors.muted}
+        <AppIcon
+          color={item.favorite ? 'error' : 'muted'}
           fill={item.favorite ? colors.error : 'transparent'}
-          size={14}
+          name="Heart"
+          size="micro"
         />
       </Pressable>
     </Pressable>

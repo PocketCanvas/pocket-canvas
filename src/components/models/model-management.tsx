@@ -1,4 +1,3 @@
-import { Box, ChevronRight, CircleHelp, Layers, Trash2 } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
+import { AppIcon, type IconName } from '@/components/common/app-icon';
 
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -52,7 +53,8 @@ type ModelCardProps = {
 
 export function ModelCard({ item, onPress }: ModelCardProps) {
   const colors = useTheme();
-  const Icon = item.kind === 'model' ? Box : item.kind === 'lora' ? Layers : CircleHelp;
+  const iconName: IconName =
+    item.kind === 'model' ? 'Box' : item.kind === 'lora' ? 'Layers' : 'CircleHelp';
 
   return (
     <Pressable
@@ -70,7 +72,7 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
       ]}
     >
       <View style={[styles.thumbnail, { backgroundColor: colors.accentSoft }]}>
-        <Icon color={colors.accentIcon} size={28} />
+        <AppIcon color="accentIcon" name={iconName} size="xl" />
       </View>
       <View style={styles.cardBody}>
         <Text numberOfLines={1} style={[styles.itemName, { color: colors.text }]}>
@@ -83,7 +85,7 @@ export function ModelCard({ item, onPress }: ModelCardProps) {
           {item.description || '설명이 없습니다.'}
         </Text>
       </View>
-      <ChevronRight color={colors.muted} size={22} style={styles.chevron} />
+      <AppIcon color="muted" name="ChevronRight" size="md" style={styles.chevron} />
     </Pressable>
   );
 }
@@ -445,7 +447,7 @@ export function ModelDetailModal({
                   (isQuantizing || isOperationBlocked) && styles.disabled,
                 ]}
               >
-                <Trash2 color={colors.error} size={16} />
+                <AppIcon color="error" name="Trash2" size="sm" />
                 <Text style={[styles.deleteButtonText, { color: colors.error }]}>삭제</Text>
               </Pressable>
             </ScrollView>

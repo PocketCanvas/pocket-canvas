@@ -1,6 +1,7 @@
 import { Host } from '@expo/ui/jetpack-compose';
-import { ChevronDown, ChevronRight, Dices, TriangleAlert } from 'lucide-react-native';
 import { useState } from 'react';
+
+import { AppIcon } from '@/components/common/app-icon';
 import {
   Modal,
   Pressable,
@@ -142,11 +143,7 @@ export function AdvancedGenerationOptions({
         style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
       >
         <Text style={[styles.headerTitle, { color: colors.text }]}>고급 옵션</Text>
-        {isExpanded ? (
-          <ChevronDown color={colors.muted} size={20} />
-        ) : (
-          <ChevronRight color={colors.muted} size={20} />
-        )}
+        <AppIcon color="muted" name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size="md" />
       </Pressable>
 
       {isExpanded && (
@@ -209,7 +206,7 @@ export function AdvancedGenerationOptions({
               <Text numberOfLines={1} style={[styles.rowValue, { color: colors.muted }]}>
                 {taesd?.alias ?? '기본 VAE'}
               </Text>
-              <ChevronRight color={colors.muted} size={18} />
+              <AppIcon color="muted" name="ChevronRight" size="base" />
             </View>
           </Pressable>
 
@@ -232,7 +229,7 @@ export function AdvancedGenerationOptions({
                 >
                   {imageSize.label}
                 </Text>
-                <ChevronRight color={colors.muted} size={18} />
+                <AppIcon color="muted" name="ChevronRight" size="base" />
               </View>
             </Pressable>
             {Boolean(imageSize.warning) && (
@@ -242,7 +239,12 @@ export function AdvancedGenerationOptions({
                   { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder },
                 ]}
               >
-                <TriangleAlert color={colors.warning} size={15} style={styles.warningIcon} />
+                <AppIcon
+                  color="warning"
+                  name="TriangleAlert"
+                  size="micro"
+                  style={styles.warningIcon}
+                />
                 <Text style={[styles.warningBoxText, { color: colors.warning }]}>
                   {imageSize.warning}
                 </Text>
@@ -267,7 +269,7 @@ export function AdvancedGenerationOptions({
               <Text numberOfLines={1} style={[styles.rowValue, { color: colors.muted }]}>
                 {upscalerLabel}
               </Text>
-              <ChevronRight color={colors.muted} size={18} />
+              <AppIcon color="muted" name="ChevronRight" size="base" />
             </View>
           </Pressable>
 
@@ -364,7 +366,7 @@ export function AdvancedGenerationOptions({
             <Text style={[styles.rowLabel, { color: colors.text }]}>샘플링 방법</Text>
             <View style={styles.rowValueGroup}>
               <Text style={[styles.rowValue, { color: colors.muted }]}>{samplerLabel}</Text>
-              <ChevronRight color={colors.muted} size={18} />
+              <AppIcon color="muted" name="ChevronRight" size="base" />
             </View>
           </Pressable>
 
@@ -441,7 +443,7 @@ export function AdvancedGenerationOptions({
                 pressed && styles.pressed,
               ]}
             >
-              <Dices color={colors.accentText} size={20} />
+              <AppIcon color="accentText" name="Dices" size="md" />
             </Pressable>
           </View>
 

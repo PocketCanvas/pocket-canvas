@@ -1,20 +1,4 @@
-import { Box, ChevronRight, Plus, Sparkles } from 'lucide-react-native';
-import { useCallback, useEffect, useReducer, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text as RNText,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
+import { AppIcon } from '@/components/common/app-icon';
 import { AdvancedGenerationOptions } from '@/components/generate/advanced-generation-options';
 import { GenerationControls } from '@/components/generate/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
@@ -36,6 +20,22 @@ import {
   type StoredModel,
 } from '@/lib/model-files';
 import { useOperationStore } from '@/stores/use-operation-store';
+import { useCallback, useEffect, useReducer, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Text as RNText,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
 
 export default function GenerateScreen() {
   const colors = useTheme();
@@ -211,14 +211,8 @@ export default function GenerateScreen() {
             ) : (
               <View style={styles.previewEmpty}>
                 <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>
-                  <Sparkles color={colors.accentIcon} size={20} />
+                  <AppIcon color="accentIcon" name="Sparkles" size="hero" strokeWidth={1.8} />
                 </View>
-                <RNText style={[styles.previewTitle, { color: colors.text }]}>
-                  첫 이미지를 만들어 보세요
-                </RNText>
-                <RNText style={[styles.previewCaption, { color: colors.muted }]}>
-                  자세히 설명할수록 원하는 결과에 가까워집니다.
-                </RNText>
               </View>
             )}
           </View>
@@ -266,7 +260,7 @@ export default function GenerateScreen() {
               ]}
             >
               <View style={[styles.modelIcon, { backgroundColor: colors.accentSoft }]}>
-                <Box color={colors.accentIcon} size={18} />
+                <AppIcon color="accentIcon" name="Box" size="base" />
               </View>
               <View style={styles.selectText}>
                 <RNText numberOfLines={1} style={[styles.selectValue, { color: colors.text }]}>
@@ -278,7 +272,7 @@ export default function GenerateScreen() {
                   </RNText>
                 )}
               </View>
-              <ChevronRight color={colors.muted} size={20} />
+              <AppIcon color="muted" name="ChevronRight" size="md" />
             </Pressable>
           </View>
 
@@ -294,7 +288,7 @@ export default function GenerateScreen() {
                   pressed && styles.pressed,
                 ]}
               >
-                <Plus color={colors.accentText} size={14} strokeWidth={2.5} />
+                <AppIcon color="accentText" name="Plus" size="micro" strokeWidth={2.5} />
                 <RNText style={[styles.addButtonText, { color: colors.accentText }]}>추가</RNText>
               </Pressable>
             </View>
@@ -407,15 +401,12 @@ const styles = StyleSheet.create({
   },
   previewEmpty: { alignItems: 'center', gap: 8, padding: 24 },
   sparkle: {
-    width: 40,
-    height: 40,
+    width: 76,
+    height: 76,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-    marginBottom: 2,
+    borderRadius: 38,
   },
-  previewTitle: { fontSize: 16, fontWeight: '600' },
-  previewCaption: { fontSize: 13, textAlign: 'center' },
   progressBlock: { alignItems: 'center', gap: 8 },
   progressStages: { flexDirection: 'row', alignItems: 'center' },
   progressStage: { fontSize: 12, fontWeight: '600' },

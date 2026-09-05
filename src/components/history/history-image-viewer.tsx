@@ -1,7 +1,8 @@
 import { setStringAsync } from 'expo-clipboard';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
-import { Check, ChevronLeft, Copy, Heart, Info, Share2, Trash2 } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
+
+import { AppIcon } from '@/components/common/app-icon';
 import {
   Animated as RNAnimated,
   Modal,
@@ -132,7 +133,7 @@ export function HistoryImageViewer({
               pressed && viewerStyles.pressed,
             ]}
           >
-            <ChevronLeft color="#FFFFFF" size={26} />
+            <AppIcon color="#FFFFFF" name="ChevronLeft" size="xl" />
           </Pressable>
 
           <Text style={[viewerStyles.positionText, { top: topInset + 7 }]}>
@@ -143,10 +144,11 @@ export function HistoryImageViewer({
             <ViewerAction
               active={selectedItem.favorite}
               icon={
-                <Heart
-                  color={selectedItem.favorite ? colors.error : '#FFFFFF'}
+                <AppIcon
+                  color={selectedItem.favorite ? 'error' : '#FFFFFF'}
                   fill={selectedItem.favorite ? colors.error : 'transparent'}
-                  size={23}
+                  name="Heart"
+                  size="lg"
                 />
               }
               label={selectedItem.favorite ? '즐겨찾기 해제' : '즐겨찾기'}
@@ -154,17 +156,19 @@ export function HistoryImageViewer({
             />
             <ViewerAction
               active={detailsOpen}
-              icon={<Info color={detailsOpen ? colors.accentText : '#FFFFFF'} size={23} />}
+              icon={
+                <AppIcon color={detailsOpen ? 'accentText' : '#FFFFFF'} name="Info" size="lg" />
+              }
               label="상세 정보"
               onPress={() => (detailsOpen ? closeDetails() : setDetailsOpen(true))}
             />
             <ViewerAction
-              icon={<Share2 color="#FFFFFF" size={23} />}
+              icon={<AppIcon color="#FFFFFF" name="Share2" size="lg" />}
               label="공유"
               onPress={handleShare}
             />
             <ViewerAction
-              icon={<Trash2 color="#FFFFFF" size={23} />}
+              icon={<AppIcon color="#FFFFFF" name="Trash2" size="lg" />}
               label="삭제"
               onPress={() => onDelete(selectedItem)}
             />
@@ -321,9 +325,9 @@ function InformationSection({
             style={({ pressed }) => [viewerStyles.copyButton, pressed && viewerStyles.pressed]}
           >
             {copied ? (
-              <Check color={colors.accentText} size={15} />
+              <AppIcon color="accentText" name="Check" size="micro" />
             ) : (
-              <Copy color={colors.muted} size={15} />
+              <AppIcon color="muted" name="Copy" size="micro" />
             )}
             <Text
               style={[viewerStyles.copyText, { color: copied ? colors.accentText : colors.muted }]}

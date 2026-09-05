@@ -101,5 +101,17 @@ export const Spacing = {
   six: 64,
 } as const;
 
+export const IconSizes = {
+  micro: 14,
+  sm: 16,
+  base: 18,
+  md: 20,
+  lg: 24,
+  xl: 28,
+  hero: 42,
+} as const;
+
+export type IconSize = keyof typeof IconSizes;
+
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;

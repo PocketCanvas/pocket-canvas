@@ -7,6 +7,7 @@ export default function AppTabs() {
 
   return (
     <NativeTabs
+      labelVisibilityMode="labeled"
       backgroundColor={colors.surface}
       iconColor={{
         default: colors.muted,

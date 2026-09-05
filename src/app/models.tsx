@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,6 +10,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addQuantizationProgressListener, type QuantizationProgressEvent } from 'stable-diffusion';
+
+import { AppIcon } from '@/components/common/app-icon';
 
 import {
   ManagedModel,
@@ -276,7 +277,7 @@ export default function ModelsScreen() {
         {isImporting ? (
           <ActivityIndicator color={colors.onAccent} />
         ) : (
-          <Plus color={colors.onAccent} size={28} strokeWidth={2.2} />
+          <AppIcon color="onAccent" name="Plus" size="xl" strokeWidth={2.2} />
         )}
       </Pressable>
 

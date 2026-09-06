@@ -21,16 +21,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon } from '@/components/common/app-icon';
 import { ScreenHeader } from '@/components/common/screen-header';
 
+import { HistoryImageViewer } from '@/components/history/history-image-viewer';
 import {
   HISTORY_TABS,
   HistoryCard,
   HistorySortOrder,
   HistoryTab,
 } from '@/components/history/history-management';
-import { HistoryImageViewer } from '@/components/history/history-image-viewer';
 import { useTheme } from '@/hooks/use-theme';
-import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/lib/image-files';
 import { selectAfterViewerDelete } from '@/lib/history-viewer';
+import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/lib/image-files';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 
 export default function HistoryScreen() {
@@ -280,13 +280,6 @@ export default function HistoryScreen() {
                 ? '즐겨찾기한 이미지가 없습니다'
                 : '저장된 이미지가 없습니다'}
           </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.muted }]}>
-            {searchQuery
-              ? '다른 검색어로 다시 시도해 보세요.'
-              : activeTab === 'favorite'
-                ? '마음에 드는 이미지의 하트 아이콘을 눌러 추가해 보세요.'
-                : '생성 탭에서 새로운 이미지를 만들어 보세요.'}
-          </Text>
         </View>
       ) : (
         <FlatList
@@ -398,11 +391,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
   },
   pressed: {
     opacity: 0.72,

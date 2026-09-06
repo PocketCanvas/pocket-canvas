@@ -114,7 +114,7 @@ ggml / Vulkan
 │  ├─ architecture.md
 │  ├─ CMakeLists.txt                 # ggml-vulkan Android 빌드 workaround 보존본
 │  ├─ troubleshooting.md
-│  └─ decisions/                   # ADR-001 ~ ADR-020
+│  └─ decisions/                   # ADR-001 ~ ADR-022
 ├─ scripts/                        # Docker 릴리즈 APK 진입점
 ├─ Dockerfile.android
 └─ AGENTS.md

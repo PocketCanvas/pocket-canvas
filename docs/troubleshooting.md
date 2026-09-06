@@ -2,6 +2,36 @@
 
 반복적으로 확인된 문제와 해결 절차를 기록
 
+## 생성 중 앱이 예외 없이 사라짐
+
+근거는 ADR-021, ADR-022다. 생성 성공 로그(ADR-011)만으로는 죽은 단계를 알 수 없다.
+
+### 보고서 확인
+
+1. 앱을 다시 연다. 다음 실행이 breadcrumb를 `last-crash.json`으로 조립한다.
+2. 설정 → 디버그 → 크래시 로그, 또는 Git Bash:
+
+```bash
+adb logcat -s StableDiffusionBridge:I
+adb shell run-as com.anonymous.pocketcanvas cat files/diagnostics/last-crash.json
+```
+
+`[crash]` 한 줄과 JSON의 `title`, `breadcrumb.stage`, `exit.signal`, `stack.topSymbol`을 본다.
+
+### 빈 `stack.frames`
+
+- **원인:** API 31+ `getTraceInputStream()`은 `#00 pc` 텍스트가 아니라 tombstone protobuf다. 텍스트로만 파싱하면 프레임이 전부 버려진다.
+- **해결:** `TombstoneTraceParser`를 유지한다. `protobuf-javalite`를 추가하지 않는다.
+- **다른 원인:** tombstone 순환 버퍼가 덮여 stream이 null. 이 경우 `exit.reason`만으로 1차 분류한다.
+
+### `pssKb` / `rssKb`가 0
+
+native crash 기록은 메모리 스냅샷을 보장하지 않는다. 수집 실패가 아니다. `exit.signal.faultAddress`와 `stack.relPc`를 본다.
+
+### `memory_source=verified`인데 S20+에서 죽음
+
+`sd1-512-native-v1`의 verified 범위는 Galaxy S26이다. S20+ Adreno 650 Vulkan params alloc SIGSEGV를 검증 정책 실패로 가장하지 않는다. 서브모듈을 수정하지 않는다.
+
 ## Docker release APK 빌드
 
 기본 실행은 저장소 루트의 Git Bash에서 다음과 같다.

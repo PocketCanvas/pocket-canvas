@@ -29,6 +29,7 @@
 | 모듈 의존성 설치 | `cd stable-diffusion && npm install` |
 | 클린 빌드 (Windows) | `cd android && .\gradlew.bat clean` |
 | C++ 로그 모니터링 | `adb logcat -s StableDiffusionBridge:I '*:S'` |
+| 크래시 보고서 확인 | `adb logcat -s StableDiffusionBridge:I`에서 `[breadcrumb]`/`[crash]`, 설정 디버그 패널, `adb shell run-as com.anonymous.pocketcanvas cat files/diagnostics/last-crash.json` |
 
 ## Context routing
 
@@ -54,6 +55,8 @@
 | ADR-018 | 모델 기술자 기반 지능형 메모리 정책 | header 근거와 workload로 verified/conservative/default 정책을 C++ bridge에서 합성 |
 | ADR-019 | Docker 기반 Android 릴리즈 빌드 | 고정 Android/Vulkan 도구체인 + Git Bash 진입점 + 제한된 병렬도 |
 | ADR-020 | SQLite 메타데이터 저장 | expo-sqlite + 행 단위 변경 + PNG 복구 보존 |
+| ADR-021 | 강제 종료 생성 진단 | 단계 진입 fsync breadcrumb + 다음 실행 합치. 문서 형태는 ADR-022 |
+| ADR-022 | 생성 크래시 보고서 | `last-crash.json` 제목·tombstone protobuf 스택·signal·resolved backend. Firebase는 후속 |
 
 ## Known landmines
 - Docker 릴리즈 빌드의 기준 진입점은 Git Bash의 `./scripts/build-release-apk.sh`이며 결과는 `artifacts/android/pocket-canvas-release.apk`이다. host Vulkan generator에는 Ninja, SPIR-V headers, Vulkan `vulkan/`과 `vk_video/`가 모두 필요하다. → ADR-019, `docs/troubleshooting.md`
@@ -80,3 +83,9 @@
 - 생성 실패 중에는 직전 성공 이미지를 보존하고, PNG 생성 성공 후 metadata 기록만 실패한 경우는 생성 실패가 아니라 warning을 가진 성공 상태로 처리한다. → ADR-012, ADR-016
 - VAE 48×48 tiling의 직접 검증 범위는 Galaxy S26의 SDXL Turbo Q4 + 768×768 + 내장 VAE다. 64×64를 기본값으로 올리지 않으며, 더 넓은 조합에 적용할 때는 검증 정책으로 가장하지 않고 `memory_source=conservative`로 기록한다. → ADR-017, ADR-018
 - 메모리 정책 입력은 파일명 기반 모델 whitelist가 아니라 header에서 얻은 family·component별 storage/추정 byte와 별도 provenance를 가진 variant evidence다. `unknown`을 임의의 base 모델로 간주하지 않는다. 정책 합성·native 옵션 적용은 `StableDiffusionBridge.cpp`만 담당하며 사용자 설정 변경, 실패 후 fallback, 사전 거절을 추가하지 않는다. 적용 결과는 `[model]`과 `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`로 확인한다. → ADR-018
+- 생성 진단 JSON에는 prompt, 모델 경로, alias, seed를 넣지 않는다. 단계 종료 로그가 아니라 단계 진입 때 `fsync`한다. `consumeInterruptedGeneration`은 긴 생성 큐(`nativeOperationQueue`)에서 실행하지 않는다. Firebase SDK는 아직 없으며 전송은 `last-crash.json`을 올리는 후속 작업이다. → ADR-021, ADR-022
+- 수집 문서는 breadcrumb(`generation-run.json`)가 아니라 `diagnostics/last-crash.json`의 `generation_crash`다. logcat은 `[crash] <title> …` 한 줄이다. UI progress의 `encoding`과 breadcrumb 단계(`lora_apply`, `text_encoding_params` 등)를 섞지 않는다. → ADR-022
+- API 31+ `getTraceInputStream()`은 `#00 pc` 텍스트가 아니라 tombstone protobuf다. 텍스트로만 파싱하면 `stack.frames`가 비어 `topSymbol=null`이 된다. `protobuf-javalite`를 추가하지 않고 `TombstoneTraceParser`만 사용한다. → ADR-022
+- 크래시 API는 Android Kotlin/C++에만 둔다. `StableDiffusionModule.swift`와 `StableDiffusionModule.web.ts`는 Expo 모듈 껍데기이며 consume/crash 함수를 넣지 않는다. JS는 네이티브 함수가 없으면 `null`을 반환한다. → ADR-022
+- `pssKb`/`rssKb` 0을 수집 실패로 보지 않는다. native crash의 `exit.signal.faultAddress`와 `stack.relPc`/`buildId`가 주소 해석에 쓰인다. RAM·GPU 이름·samplingStep을 늘리지 않는다. → ADR-022
+- `sd1-512-native-v1`의 `verified`는 S26 근거다. S20+ Adreno 650에서 Vulkan params alloc SIGSEGV가 나도 검증 정책으로 가장하거나 서브모듈을 수정하지 않는다. → ADR-018, ADR-022

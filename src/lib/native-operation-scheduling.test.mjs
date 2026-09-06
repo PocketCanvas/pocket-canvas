@@ -38,3 +38,34 @@ test('resolves verified and conservative CPU residency without rejecting unknown
   assert.match(source, /ctx_params\.params_backend\s*=\s*memory_policy\.params_backend;/);
   assert.doesNotMatch(source, /Rejected|unsupported-unverified-memory-plan/);
 });
+
+test('writes durable generation breadcrumbs and omits prompt or model paths', async () => {
+  const source = await readFile(bridgeSourceUrl, 'utf8');
+
+  assert.match(source, /write_generation_diagnostic/);
+  assert.match(source, /fsync\(fileno\(file\)\)/);
+  assert.match(source, /query_vulkan_identity/);
+  assert.match(source, /kind\\":\\"breadcrumb/);
+  assert.match(source, /lora_apply/);
+  assert.match(source, /jDiagnosticPath/);
+  assert.doesNotMatch(source, /json \+= json_quote\(prompt\)/);
+  assert.doesNotMatch(source, /json \+= json_quote\(model_path\)/);
+  assert.doesNotMatch(source, /json \+= json_quote\(output_path\)/);
+});
+
+test('assembles a crash report outside the native operation queue', async () => {
+  const source = await readFile(moduleSourceUrl, 'utf8');
+  const consumeBlock = source.match(
+    /AsyncFunction\("consumeInterruptedGeneration"\)[\s\S]*?AsyncFunction\("quantizeModel"\)/,
+  )?.[0];
+
+  assert.ok(consumeBlock);
+  assert.match(source, /getHistoricalProcessExitReasons/);
+  assert.match(source, /traceInputStream/);
+  assert.match(source, /TombstoneTraceParser/);
+  assert.match(source, /last-crash.json/);
+  assert.match(source, /generation_crash/);
+  assert.match(source, /\[crash\]/);
+  assert.match(source, /FORBIDDEN_DIAGNOSTIC_KEYS/);
+  assert.doesNotMatch(consumeBlock, /runOnQueue/);
+});

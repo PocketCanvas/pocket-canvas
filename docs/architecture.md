@@ -62,7 +62,9 @@ Prompt / Model / LoRA / Steps / Optional TAESD
 6. 생성 결과를 앱 document storage에 PNG로 저장
 7. JS가 결과 URI와 metadata를 UI/history에 반영
 
-> 상세 내용은 ADR-007 참조
+생성 중 프로세스가 예외 없이 죽으면 단계 종료 로그는 남지 않는다. 브리지는 단계 **진입** 때 개인정보 없는 breadcrumb를 `filesDir/diagnostics/generation-run.json`에 `fsync`한다. 다음 실행에서 `ApplicationExitInfo`와 API 31+ tombstone protobuf를 합쳐 `diagnostics/last-crash.json` 보고서 한 건을 만들고 `[crash] <title>` 한 줄을 남긴다. UI의 `encoding`과 breadcrumb의 `lora_apply` / `text_encoding_params`는 별개다. prompt·모델 경로·alias·seed는 기록하지 않는다. Firebase는 이 보고서를 올리는 후속 작업이다. → ADR-021, ADR-022
+
+> 상세 내용은 ADR-007, ADR-021, ADR-022 참조
 
 TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을 통해
 `sd_ctx_params_t.taesd_path`로 전달되고 최종 decode의 기본 VAE를 대체한다. TAESD는
@@ -164,8 +166,11 @@ Paths.document/
 ├── models/
 │   ├── <내부 ID>.safetensors
 │   └── <내부 ID>.gguf
-└── images/
-    └── YYYYMMDD-HHMMSS-<id>.png
+├── images/
+│   └── YYYYMMDD-HHMMSS-<id>.png
+└── diagnostics/
+    ├── generation-run.json        # 생성 중 breadcrumb, 성공 시 삭제
+    └── last-crash.json            # 다음 실행에 조립한 크래시 보고서
 
 SQLite.defaultDatabaseDirectory/
 └── pocket-canvas.db               # models, images
@@ -173,6 +178,7 @@ SQLite.defaultDatabaseDirectory/
 
 * `models/`: imported model 및 LoRA 파일
 * `images/`: generated PNG 파일
+* `diagnostics/`: 생성 크래시 breadcrumb와 보고서. 설정 화면 디버그 패널이 `last-crash.json`을 표시한다. → ADR-022
 * SQLite: 모델 metadata, 생성 옵션 전체, 즐겨찾기. 중첩 옵션은 행 단위 JSON payload로 보존하고 ID·파일명·생성 시각·즐겨찾기는 SQL 열로 관리한다.
 
 즐겨찾기·삭제는 해당 레코드만 변경하며 PNG 디렉터리 스캔은 히스토리 로드의 복구 경로에 한정한다. `models.json`과 `meta.json`은 읽거나 쓰지 않는다. SQLite 트랜잭션은 파일 연산까지 원자적으로 묶지 않는다. → ADR-020

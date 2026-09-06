@@ -67,5 +67,10 @@ export function addQuantizationProgressListener(
   return StableDiffusionModule.addListener('onQuantizationProgress', listener);
 }
 
+export async function consumeInterruptedGeneration(): Promise<string | null> {
+  if (typeof StableDiffusionModule.consumeInterruptedGeneration !== 'function') return null;
+  return StableDiffusionModule.consumeInterruptedGeneration();
+}
+
 export { default as StableDiffusionModule } from './StableDiffusionModule';
 export * from './StableDiffusion.types';

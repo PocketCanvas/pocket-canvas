@@ -1,9 +1,13 @@
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppIcon, type IconName } from '@/components/common/app-icon';
 import { ScreenHeader } from '@/components/common/screen-header';
+import { CrashLogPanel } from '@/components/settings/crash-log-panel';
 import { useTheme } from '@/hooks/use-theme';
+import { loadDebugCrashLog, type DebugCrashLog } from '@/lib/crash-log';
 import { ThemeMode, useThemeStore } from '@/stores/use-theme-store';
 
 type ThemeOptionItem = {
@@ -16,6 +20,15 @@ export default function SettingsScreen() {
   const colors = useTheme();
   const themeMode = useThemeStore((state) => state.themeMode);
   const setThemeMode = useThemeStore((state) => state.setThemeMode);
+  const [crashLog, setCrashLog] = useState<DebugCrashLog | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadDebugCrashLog()
+        .then(setCrashLog)
+        .catch(() => setCrashLog(null));
+    }, []),
+  );
 
   const themeOptions: ThemeOptionItem[] = [
     {
@@ -137,6 +150,8 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+
+        <CrashLogPanel log={crashLog} />
       </ScrollView>
     </SafeAreaView>
   );

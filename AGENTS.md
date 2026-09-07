@@ -86,6 +86,6 @@
 - 생성 진단 JSON에는 prompt, 모델 경로, alias, seed를 넣지 않는다. 단계 종료 로그가 아니라 단계 진입 때 `fsync`한다. `consumeInterruptedGeneration`은 긴 생성 큐(`nativeOperationQueue`)에서 실행하지 않는다. Firebase SDK는 아직 없으며 전송은 `last-crash.json`을 올리는 후속 작업이다. → ADR-021, ADR-022
 - 수집 문서는 breadcrumb(`generation-run.json`)가 아니라 `diagnostics/last-crash.json`의 `generation_crash`다. logcat은 `[crash] <title> …` 한 줄이다. UI progress의 `encoding`과 breadcrumb 단계(`lora_apply`, `text_encoding_params` 등)를 섞지 않는다. → ADR-022
 - API 31+ `getTraceInputStream()`은 `#00 pc` 텍스트가 아니라 tombstone protobuf다. 텍스트로만 파싱하면 `stack.frames`가 비어 `topSymbol=null`이 된다. `protobuf-javalite`를 추가하지 않고 `TombstoneTraceParser`만 사용한다. → ADR-022
-- 크래시 API는 Android Kotlin/C++에만 둔다. `StableDiffusionModule.swift`와 `StableDiffusionModule.web.ts`는 Expo 모듈 껍데기이며 consume/crash 함수를 넣지 않는다. JS는 네이티브 함수가 없으면 `null`을 반환한다. → ADR-022
+- 크래시 API는 Android Kotlin/C++에만 둔다. `StableDiffusionModule.swift`는 Expo 모듈 껍데기이며 consume/crash 함수를 넣지 않는다. JS는 네이티브 함수가 없으면 `null`을 반환한다. → ADR-022
 - `pssKb`/`rssKb` 0을 수집 실패로 보지 않는다. native crash의 `exit.signal.faultAddress`와 `stack.relPc`/`buildId`가 주소 해석에 쓰인다. RAM·GPU 이름·samplingStep을 늘리지 않는다. → ADR-022
 - `sd1-512-native-v1`의 `verified`는 S26 근거다. S20+ Adreno 650에서 Vulkan params alloc SIGSEGV가 나도 검증 정책으로 가장하거나 서브모듈을 수정하지 않는다. → ADR-018, ADR-022

@@ -67,7 +67,7 @@ logcat은 JSON 덤프가 아니라 한 줄이다.
 
 설정 화면 디버그 패널은 `last-crash.json`을 읽고, 없으면 미완성 breadcrumb를 보여 준다. 제품 기능이 아니라 실험 확인용이다. USB는 `adb logcat -s StableDiffusionBridge:I`와 `run-as … cat files/diagnostics/last-crash.json`으로 확인한다.
 
-Firebase 전송은 이 파일을 올리는 후속 작업이다. iOS/웹 모듈 스텁에 크래시 API를 넣지 않는다. Android만 구현한다. JS는 네이티브 함수가 없으면 `null`을 반환한다.
+Firebase 전송은 이 파일을 올리는 후속 작업이다. iOS 모듈 스텁에 크래시 API를 넣지 않는다. Android만 구현한다. JS는 네이티브 함수가 없으면 `null`을 반환한다.
 
 ## Alternatives Considered
 

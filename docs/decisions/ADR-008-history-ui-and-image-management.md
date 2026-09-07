@@ -23,8 +23,9 @@ ADR-007에서 생성된 PNG 이미지(`Paths.document/images/YYYYMMDD-HHMMSS-<id
 ## Decision
 
 1. **화면과 컴포넌트의 책임 분리:**
-   - `src/app/history.tsx`는 화면 상태(목록, 탭, 검색어, 정렬 순서, 모달 선택 ID)와 `useFocusEffect`를 통한 자동 갱신 라이프사이클을 담당합니다.
-   - 3열 그리드 카드(`HistoryCard`), 상세 바텀시트 모달(`HistoryDetailModal`) 및 관련 타입은 `src/components/history-management.tsx`에 분리합니다.
+   - `src/app/history.tsx`는 탭, 검색어, 정렬 순서, 그리드 치수 같은 표시 상태와 화면 조합을 담당합니다.
+   - `src/hooks/use-history-management.ts`는 이미지 목록, 뷰어 선택 ID, 로딩 상태와 `useFocusEffect` 자동 갱신, 즐겨찾기·삭제 영속화 lifecycle을 담당합니다.
+   - 3열 그리드 카드(`HistoryCard`)는 `src/components/history/history-management.tsx`, 전체 화면 뷰어는 `src/components/history/history-image-viewer.tsx`에 둡니다. 필터·정렬과 뷰어 선택 계산은 `src/lib/history-viewer.ts`의 순수 함수로 유지합니다.
 
 2. **탭 구성 및 즉각적인 즐겨찾기 토글:**
    - 탭은 '전체'와 '즐겨찾기' 2개로 유지하며 각 탭의 항목 수를 뱃지로 표시합니다.

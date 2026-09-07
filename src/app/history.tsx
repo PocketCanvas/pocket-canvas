@@ -1,10 +1,8 @@
 // Official Documentation:
 // https://reactnative.dev/docs/flatlist
 // https://reactnative.dev/docs/usewindowdimensions
-// https://docs.expo.dev/router/reference/hooks/#usefocuseffect
 
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,117 +20,39 @@ import { AppIcon } from '@/components/common/app-icon';
 import { ScreenHeader } from '@/components/common/screen-header';
 
 import { HistoryImageViewer } from '@/components/history/history-image-viewer';
-import {
-  HISTORY_TABS,
-  HistoryCard,
-  HistorySortOrder,
-  HistoryTab,
-} from '@/components/history/history-management';
+import { HISTORY_TABS, HistoryCard } from '@/components/history/history-management';
+import { useHistoryManagement } from '@/hooks/use-history-management';
 import { useTheme } from '@/hooks/use-theme';
-import { selectAfterViewerDelete } from '@/lib/history-viewer';
-import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/storage/image-storage';
-import { StoredImageMetadata } from '@/lib/image-metadata';
+import type { HistorySortOrder, HistoryTab } from '@/lib/history-viewer';
 
 export default function HistoryScreen() {
   const colors = useTheme();
   const { width } = useWindowDimensions();
-  const [items, setItems] = useState<StoredImageMetadata[]>([]);
   const [activeTab, setActiveTab] = useState<HistoryTab>('all');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [sortOrder, setSortOrder] = useState<HistorySortOrder>('newest');
-
-  const refreshImages = useCallback(async () => {
-    try {
-      const loaded = await loadStoredImages();
-      setItems(loaded);
-    } catch (error) {
-      Alert.alert(
-        '히스토리를 불러오지 못했습니다.',
-        error instanceof Error ? error.message : String(error),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      refreshImages();
-    }, [refreshImages]),
-  );
-
-  const handleToggleFavorite = async (id: string) => {
-    const nextSelectedId =
-      activeTab === 'favorite' && selectedId === id
-        ? selectAfterViewerDelete(filteredItems, id)
-        : selectedId;
-    // Optimistic update
-    setItems((current) =>
-      current.map((img) => (img.id === id ? { ...img, favorite: !img.favorite } : img)),
-    );
-    setSelectedId(nextSelectedId);
-    try {
-      const updated = await toggleFavoriteImage(id);
-      setItems((current) => current.map((item) => (item.id === id ? updated : item)));
-    } catch (error) {
-      Alert.alert(
-        '즐겨찾기를 변경하지 못했습니다.',
-        error instanceof Error ? error.message : String(error),
-      );
-      refreshImages();
-    }
-  };
-
-  const handleDelete = (item: StoredImageMetadata) => {
-    Alert.alert('이미지를 삭제할까요?', '기기에서 영구히 삭제됩니다.', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const nextSelectedId = selectAfterViewerDelete(filteredItems, item.id);
-            await deleteStoredImage(item.id);
-            setItems((current) => current.filter((image) => image.id !== item.id));
-            setSelectedId(nextSelectedId);
-          } catch (error) {
-            Alert.alert(
-              '이미지를 삭제하지 못했습니다.',
-              error instanceof Error ? error.message : String(error),
-            );
-          }
-        },
-      },
-    ]);
-  };
+  const {
+    closeViewer,
+    deleteImage,
+    filteredItems,
+    isLoading,
+    refreshImages,
+    selectedId,
+    selectImage,
+    tabCounts,
+    toggleFavorite,
+  } = useHistoryManagement({ activeTab, searchQuery, sortOrder });
 
   const handleMoreMenu = () => {
-    Alert.alert('히스토리 옵션', `총 ${items.length}개의 생성 이미지가 저장되어 있습니다.`, [
+    Alert.alert('히스토리 옵션', `총 ${tabCounts.all}개의 생성 이미지가 저장되어 있습니다.`, [
       { text: '닫기', style: 'cancel' },
       {
         text: '목록 새로고침',
-        onPress: () => {
-          setIsLoading(true);
-          refreshImages();
-        },
+        onPress: refreshImages,
       },
     ]);
   };
-
-  // Filter and sort items
-  const filteredItems = filterHistoryItems(items, activeTab, searchQuery, sortOrder);
-
-  // Tab counts
-  const tabCounts = useMemo(() => {
-    const favoriteCount = items.filter((i) => i.favorite).length;
-    return {
-      all: items.length,
-      favorite: favoriteCount,
-    };
-  }, [items]);
 
   // 3-column grid calculation
   const padding = 20;
@@ -294,8 +214,8 @@ export default function HistoryScreen() {
             <HistoryCard
               cardWidth={cardWidth}
               item={item}
-              onPress={() => setSelectedId(item.id)}
-              onToggleFavorite={() => handleToggleFavorite(item.id)}
+              onPress={() => selectImage(item.id)}
+              onToggleFavorite={() => toggleFavorite(item.id)}
             />
           )}
           showsVerticalScrollIndicator={false}
@@ -307,10 +227,10 @@ export default function HistoryScreen() {
         <HistoryImageViewer
           items={filteredItems}
           key="history-image-viewer"
-          onClose={() => setSelectedId(null)}
-          onDelete={handleDelete}
-          onSelect={setSelectedId}
-          onToggleFavorite={handleToggleFavorite}
+          onClose={closeViewer}
+          onDelete={deleteImage}
+          onSelect={selectImage}
+          onToggleFavorite={toggleFavorite}
           selectedId={selectedId}
         />
       )}
@@ -396,28 +316,3 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
 });
-
-function filterHistoryItems(
-  items: StoredImageMetadata[],
-  activeTab: HistoryTab,
-  searchQuery: string,
-  sortOrder: HistorySortOrder,
-) {
-  let result = activeTab === 'favorite' ? items.filter((item) => item.favorite) : items;
-  const query = searchQuery.trim().toLowerCase();
-  if (query) {
-    result = result.filter(
-      (item) =>
-        item.fileName.toLowerCase().includes(query) ||
-        (item.metadataStatus === 'complete' &&
-          (item.prompt.toLowerCase().includes(query) ||
-            item.model.name.toLowerCase().includes(query) ||
-            item.loras.some((lora) => lora.name.toLowerCase().includes(query)))),
-    );
-  }
-
-  return [...result].sort((a, b) => {
-    const difference = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    return sortOrder === 'oldest' ? difference : -difference;
-  });
-}

@@ -3,11 +3,9 @@ import { Image, Pressable, StyleSheet } from 'react-native';
 import { AppIcon } from '@/components/common/app-icon';
 
 import { useTheme } from '@/hooks/use-theme';
+import type { HistoryTab } from '@/lib/history-viewer';
 import { getStoredImageUri } from '@/storage/image-storage';
 import { StoredImageMetadata } from '@/lib/image-metadata';
-
-export type HistoryTab = 'all' | 'favorite';
-export type HistorySortOrder = 'newest' | 'oldest';
 
 export const HISTORY_TABS: readonly [HistoryTab, string][] = [
   ['all', '전체'],

@@ -25,7 +25,7 @@ Accepted
 2. 슬라이더와 생성 버튼처럼 네이티브 동작이 유리한 컨트롤에만 Expo UI Jetpack Compose를 사용합니다.
 3. LoRA 정렬은 이미 설치된 Gesture Handler와 Reanimated로 만든 전용 컴포넌트에서 처리합니다. 정렬 핸들을 길게 눌러 이동하며 접근성 순서 변경 액션도 제공합니다.
 4. 생성 화면의 상태와 이벤트 조정은 `src/app/index.tsx`에 유지합니다. 고급 옵션, 생성 컨트롤, 모델·LoRA 선택기와 LoRA 정렬 UI는 `src/components/generate/` 아래 컴포넌트로 분리합니다.
-5. 모델 관리의 상태와 저장·가져오기·양자화 lifecycle은 `src/hooks/use-model-management.ts`가 소유합니다. `src/app/models.tsx`는 훅 결과를 화면에 조합하고, 카드·상세 모달·관련 타입은 `src/components/models/model-management.tsx`에 둡니다. 히스토리는 `src/app/history.tsx`가 화면 상태와 수명 주기를, `src/components/history/history-management.tsx`가 카드와 상세 모달을 담당합니다.
+5. 모델 관리의 상태와 저장·가져오기·양자화 lifecycle은 `src/hooks/use-model-management.ts`가 소유합니다. `src/app/models.tsx`는 훅 결과를 화면에 조합하고, 카드·상세 모달·관련 타입은 `src/components/models/model-management.tsx`에 둡니다. 히스토리의 목록·선택 상태와 저장 작업 lifecycle은 `src/hooks/use-history-management.ts`가 소유하고, `src/app/history.tsx`는 탭·검색·정렬 같은 표시 상태와 화면 조합을 담당합니다. 카드와 전체 화면 뷰어는 `src/components/history/`에 둡니다.
 6. 모델 관리와 생성 시 모델 선택의 책임을 분리합니다. 관리 화면은 리소스 정보와 분류를 관리하며 모델/LoRA 선택 및 LoRA 가중치 설정은 생성 화면에서 처리합니다.
 7. 모델 카드를 누르면 키보드 회피와 내부 스크롤을 지원하는 하단 상세 모달을 엽니다. 이름은 명시적 변경 버튼으로 확정하고, 설명은 입력 즉시 반영하며, 자동 판별된 분류는 사용자가 직접 덮어쓸 수 있습니다. 파일 형식·크기·원본 파일명은 읽기 전용으로 표시합니다.
 8. 앱 색상은 `src/constants/theme.ts`의 단일 `Colors` 객체에 `light`와 `dark` 팔레트로 정의합니다. 두 팔레트는 같은 의미 기반 토큰 키를 유지하며, 경고·오버레이·네이티브 컨트롤 색상을 포함해 화면과 컴포넌트는 색상 리터럴을 갖지 않습니다.

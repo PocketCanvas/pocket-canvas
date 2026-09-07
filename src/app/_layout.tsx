@@ -6,11 +6,8 @@ import { consumeInterruptedGeneration } from 'stable-diffusion';
 
 import { AnimatedSplashOverlay } from '@/components/common/animated-icon';
 import AppTabs from '@/components/common/app-tabs';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import {
-  isGenerationCrashReport,
-  parseGenerationCrashReport,
-} from '@/lib/generation-diagnostics';
+import { useColorScheme } from '@/hooks/use-theme';
+import { isGenerationCrashReport, parseGenerationCrashReport } from '@/lib/generation-diagnostics';
 
 preventAutoHideAsync();
 

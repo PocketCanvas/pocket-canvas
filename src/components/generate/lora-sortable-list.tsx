@@ -12,8 +12,7 @@ import Animated, {
 import type { SharedValue } from 'react-native-reanimated';
 
 import { CompactSlider } from '@/components/common/compact-slider';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useTheme } from '@/hooks/use-theme';
+import { useColorScheme, useTheme } from '@/hooks/use-theme';
 import { StoredModel } from '@/lib/model-files';
 
 export type LoraSelection = { model: StoredModel; weight: number };

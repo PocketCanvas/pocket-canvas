@@ -3,11 +3,11 @@ import { ScreenHeader } from '@/components/common/screen-header';
 import { AdvancedGenerationOptions } from '@/components/generate/advanced-generation-options';
 import { GenerationControls } from '@/components/generate/generation-controls';
 import { formatModelInfo, LoraPicker, ModelPicker } from '@/components/generate/generation-pickers';
+import { GenerationProgress } from '@/components/generate/generation-progress';
 import { LoraSortableList } from '@/components/generate/lora-sortable-list';
 import { useModelCatalog } from '@/hooks/use-model-catalog';
 import { useTheme } from '@/hooks/use-theme';
 import { createInitialGenerationDraft, generationDraftReducer } from '@/lib/generation-draft';
-import { generationProgressDetail } from '@/lib/generation-progress';
 import {
   createInitialGenerationRunState,
   generationRunReducer,
@@ -21,7 +21,7 @@ import {
   type StoredModel,
 } from '@/storage/model-storage';
 import { useOperationStore } from '@/stores/use-operation-store';
-import { useCallback, useEffect, useReducer, useState } from 'react';
+import { useCallback, useReducer, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -36,7 +36,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addProgressListener, generateImage, GenerationProgressEvent } from 'stable-diffusion';
+import { addProgressListener, generateImage } from 'stable-diffusion';
 
 export default function GenerateScreen() {
   const colors = useTheme();
@@ -54,12 +54,12 @@ export default function GenerateScreen() {
   const isGenerating = runState.status === 'running';
   const imageUri = visibleGenerationImageUri(runState);
   const progress = runState.status === 'running' ? runState.progress : null;
-  const generationMessage =
-    runState.status === 'failed'
-      ? runState.error
-      : runState.status === 'succeeded'
-        ? runState.warning
-        : null;
+  let generationMessage: string | null = null;
+  if (runState.status === 'failed') {
+    generationMessage = runState.error;
+  } else if (runState.status === 'succeeded') {
+    generationMessage = runState.warning;
+  }
   const { prompt, negativePrompt, resources, sampling, imageSize, seed, hires } = draft;
   const { model, taesd, loras } = resources;
   const activeOperation = useOperationStore((state) => state.activeOperation);
@@ -172,6 +172,26 @@ export default function GenerateScreen() {
     }
   };
 
+  let previewContent = (
+    <View style={styles.previewEmpty}>
+      <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>
+        <AppIcon color="accentIcon" name="Sparkles" size="hero" strokeWidth={1.8} />
+      </View>
+    </View>
+  );
+  if (isGenerating) {
+    previewContent = (
+      <View style={styles.previewEmpty}>
+        <ActivityIndicator color={colors.accent} size="large" />
+        <GenerationProgress progress={progress} />
+      </View>
+    );
+  } else if (imageUri) {
+    previewContent = (
+      <Image source={{ uri: imageUri }} resizeMode="contain" style={styles.generatedImage} />
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]} edges={['top']}>
       <KeyboardAvoidingView
@@ -194,24 +214,7 @@ export default function GenerateScreen() {
               },
             ]}
           >
-            {isGenerating ? (
-              <View style={styles.previewEmpty}>
-                <ActivityIndicator color={colors.accent} size="large" />
-                <GenerationProgress progress={progress} />
-              </View>
-            ) : imageUri ? (
-              <Image
-                source={{ uri: imageUri }}
-                resizeMode="contain"
-                style={styles.generatedImage}
-              />
-            ) : (
-              <View style={styles.previewEmpty}>
-                <View style={[styles.sparkle, { backgroundColor: colors.accentSoft }]}>
-                  <AppIcon color="accentIcon" name="Sparkles" size="hero" strokeWidth={1.8} />
-                </View>
-              </View>
-            )}
+            {previewContent}
           </View>
 
           <View style={styles.section}>
@@ -403,11 +406,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 38,
   },
-  progressBlock: { alignItems: 'center', gap: 8 },
-  progressStages: { flexDirection: 'row', alignItems: 'center' },
-  progressStage: { fontSize: 12, fontWeight: '600' },
-  progressArrow: { fontSize: 12, marginHorizontal: 5 },
-  progressDetail: { fontSize: 14, fontWeight: '600' },
   generatedImage: { width: '100%', height: '100%' },
   section: { gap: 10 },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -453,72 +451,3 @@ const styles = StyleSheet.create({
   error: { fontSize: 13 },
   pressed: { opacity: 0.72 },
 });
-
-const GENERATION_STAGES: { stage: GenerationProgressEvent['stage']; label: string }[] = [
-  { stage: 'loading', label: 'Loading' },
-  { stage: 'encoding', label: 'Encoding' },
-  { stage: 'sampling', label: 'Steps' },
-  { stage: 'decoding', label: 'Decoding' },
-];
-
-function GenerationProgress({ progress }: { progress: GenerationProgressEvent | null }) {
-  const colors = useTheme();
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    const startedAt = performance.now();
-    const timer = setInterval(() => {
-      setElapsedSeconds(Math.floor((performance.now() - startedAt) / 1000));
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  const current = Math.max(
-    0,
-    GENERATION_STAGES.findIndex(({ stage }) => stage === progress?.stage),
-  );
-  const step = progress?.step ?? 0;
-  const steps = progress?.steps ?? 0;
-  const currentProgress = progress ?? { stage: 'loading' };
-  const detail = generationProgressDetail(currentProgress, elapsedSeconds);
-  const accessibilityLabel =
-    currentProgress.stage === 'sampling'
-      ? `Steps ${step}/${steps}`
-      : GENERATION_STAGES[current].label;
-
-  return (
-    <View
-      accessibilityLabel={accessibilityLabel}
-      accessibilityLiveRegion="polite"
-      accessibilityRole="progressbar"
-      style={styles.progressBlock}
-    >
-      <View accessible={false} style={styles.progressStages}>
-        {GENERATION_STAGES.map(({ stage, label }, index) => (
-          <View key={stage} style={styles.progressStages}>
-            {index > 0 && (
-              <RNText style={[styles.progressArrow, { color: colors.border }]}>›</RNText>
-            )}
-            <RNText
-              style={[
-                styles.progressStage,
-                {
-                  color:
-                    index === current
-                      ? colors.accentText
-                      : index < current
-                        ? colors.textSecondary
-                        : colors.muted,
-                },
-              ]}
-            >
-              {label}
-            </RNText>
-          </View>
-        ))}
-      </View>
-      <RNText style={[styles.progressDetail, { color: colors.text }]}>{detail}</RNText>
-    </View>
-  );
-}

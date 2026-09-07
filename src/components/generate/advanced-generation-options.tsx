@@ -16,7 +16,7 @@ import {
 import { CompactSlider } from '@/components/common/compact-slider';
 import { useColorScheme, useTheme } from '@/hooks/use-theme';
 import { IMAGE_SIZE_OPTIONS, type ImageSizeOption } from '@/lib/generation-draft';
-import { StoredModel } from '@/lib/model-files';
+import { StoredModel } from '@/storage/model-storage';
 import type { BuiltInUpscalerType, SamplingPreset } from 'stable-diffusion';
 
 export const SAMPLER_OPTIONS: readonly [SamplingPreset, string][] = [

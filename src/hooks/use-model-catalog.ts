@@ -1,7 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { loadModels, type StoredModel } from '@/lib/model-files';
+import { loadModels, type StoredModel } from '@/storage/model-storage';
 
 export function useModelCatalog(onModelsLoaded: (models: StoredModel[]) => void) {
   const [models, setModels] = useState<StoredModel[]>([]);

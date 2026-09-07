@@ -32,7 +32,7 @@ import {
   quantizeStoredModel,
   StoredModel,
   updateStoredModel,
-} from '@/lib/model-files';
+} from '@/storage/model-storage';
 import {
   createQuantizationTask,
   type QuantizationTask,

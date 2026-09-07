@@ -1,6 +1,6 @@
 import type { BuiltInUpscalerType, SamplingPreset } from 'stable-diffusion';
 
-import type { StoredModel } from '@/lib/model-files';
+import type { StoredModel } from '@/storage/model-storage';
 
 export type ImageSizeOption = {
   label: string;

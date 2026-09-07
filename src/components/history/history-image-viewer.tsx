@@ -19,7 +19,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
-import { getImageFileSize, getStoredImageUri } from '@/lib/image-files';
+import { getImageFileSize, getStoredImageUri } from '@/storage/image-storage';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 import { findViewerIndex } from '@/lib/history-viewer';
 import { ZoomableHistoryGallery } from '@/components/history/zoomable-history-gallery';

@@ -1,8 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { createAsyncOperationQueue } from './async-operation-queue.ts';
-import type { StoredModel } from './model-files';
-import type { StoredImageMetadata } from './image-metadata';
+import { createAsyncOperationQueue } from './transaction-queue.ts';
+import type { StoredImageMetadata } from '@/lib/image-metadata';
+import type { StoredModel } from '@/storage/model-storage';
 
 type Connection = Pick<SQLiteDatabase, 'execAsync' | 'runAsync' | 'getAllAsync' | 'getFirstAsync'>;
 type Database = Connection & {
@@ -32,7 +32,9 @@ export function createMetadataDatabase(db: Database) {
   const insertModel = (connection: Connection, model: StoredModel) =>
     connection.runAsync(
       'INSERT INTO models (id, file_name, metadata) VALUES (?, ?, ?)',
-      model.id, model.storedFileName, JSON.stringify(model),
+      model.id,
+      model.storedFileName,
+      JSON.stringify(model),
     );
   const insertImage = (connection: Connection, image: StoredImageMetadata) =>
     connection.runAsync(
@@ -41,15 +43,22 @@ export function createMetadataDatabase(db: Database) {
          metadata = excluded.metadata,
          created_at = excluded.created_at
        WHERE json_extract(excluded.metadata, '$.metadataStatus') = 'complete'`,
-      image.id, image.fileName, image.createdAt, Number(image.favorite), JSON.stringify(image),
+      image.id,
+      image.fileName,
+      image.createdAt,
+      Number(image.favorite),
+      JSON.stringify(image),
     );
 
   return {
     async initialize() {
       await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
       await transaction(async (connection) => {
-        const version = await connection.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-        if ((version?.user_version ?? 0) > 1) throw new Error('더 새로운 앱에서 만든 데이터베이스입니다.');
+        const version = await connection.getFirstAsync<{ user_version: number }>(
+          'PRAGMA user_version',
+        );
+        if ((version?.user_version ?? 0) > 1)
+          throw new Error('더 새로운 앱에서 만든 데이터베이스입니다.');
         await connection.execAsync(`
           DROP TABLE IF EXISTS storage_migrations;
           CREATE TABLE IF NOT EXISTS models (
@@ -71,7 +80,9 @@ export function createMetadataDatabase(db: Database) {
       });
     },
     async listModels(): Promise<StoredModel[]> {
-      const rows = await db.getAllAsync<{ metadata: string }>('SELECT metadata FROM models ORDER BY rowid');
+      const rows = await db.getAllAsync<{ metadata: string }>(
+        'SELECT metadata FROM models ORDER BY rowid',
+      );
       return rows.map(({ metadata }) => JSON.parse(metadata));
     },
     addModel: (model: StoredModel) => transaction((connection) => insertModel(connection, model)),
@@ -79,13 +90,19 @@ export function createMetadataDatabase(db: Database) {
       transaction(async (connection) => {
         const result = await connection.runAsync(
           `UPDATE models SET metadata = json_set(metadata, '$.alias', ?, '$.kind', ?, '$.description', ?) WHERE id = ?`,
-          changes.alias, changes.kind, changes.description, id,
+          changes.alias,
+          changes.kind,
+          changes.description,
+          id,
         );
         if (!result.changes) throw new Error('모델을 찾을 수 없습니다.');
       }),
     deleteModel: (id: string, deleteFile: (fileName: string) => void) =>
       transaction(async (connection) => {
-        const row = await connection.getFirstAsync<{ file_name: string }>('SELECT file_name FROM models WHERE id = ?', id);
+        const row = await connection.getFirstAsync<{ file_name: string }>(
+          'SELECT file_name FROM models WHERE id = ?',
+          id,
+        );
         if (!row) throw new Error('모델을 찾을 수 없습니다.');
         await connection.runAsync('DELETE FROM models WHERE id = ?', id);
         deleteFile(row.file_name);
@@ -96,27 +113,34 @@ export function createMetadataDatabase(db: Database) {
       );
       return rows.map(readImage);
     },
-    saveImage: (image: StoredImageMetadata) => transaction((connection) => insertImage(connection, image)),
+    saveImage: (image: StoredImageMetadata) =>
+      transaction((connection) => insertImage(connection, image)),
     recoverImage: (image: StoredImageMetadata, fileExists: () => boolean) =>
       transaction(async (connection) => {
         // A delete may have completed since the directory scan took its snapshot.
         if (!fileExists()) return null;
         await insertImage(connection, image);
         const row = await connection.getFirstAsync<ImageRow>(
-          'SELECT id, favorite, metadata FROM images WHERE file_name = ?', image.fileName,
+          'SELECT id, favorite, metadata FROM images WHERE file_name = ?',
+          image.fileName,
         );
         return row ? readImage(row) : null;
       }),
-    toggleFavorite: (id: string) => transaction(async (connection) => {
-      const row = await connection.getFirstAsync<ImageRow>(
-        'UPDATE images SET favorite = 1 - favorite WHERE id = ? RETURNING id, favorite, metadata', id,
-      );
-      if (!row) throw new Error('이미지를 찾을 수 없습니다.');
-      return readImage(row);
-    }),
+    toggleFavorite: (id: string) =>
+      transaction(async (connection) => {
+        const row = await connection.getFirstAsync<ImageRow>(
+          'UPDATE images SET favorite = 1 - favorite WHERE id = ? RETURNING id, favorite, metadata',
+          id,
+        );
+        if (!row) throw new Error('이미지를 찾을 수 없습니다.');
+        return readImage(row);
+      }),
     deleteImage: (id: string, deleteFile: (fileName: string) => void) =>
       transaction(async (connection) => {
-        const row = await connection.getFirstAsync<{ file_name: string }>('SELECT file_name FROM images WHERE id = ?', id);
+        const row = await connection.getFirstAsync<{ file_name: string }>(
+          'SELECT file_name FROM images WHERE id = ?',
+          id,
+        );
         if (!row) throw new Error('삭제할 이미지를 찾을 수 없습니다.');
         await connection.runAsync('DELETE FROM images WHERE id = ?', id);
         deleteFile(row.file_name);

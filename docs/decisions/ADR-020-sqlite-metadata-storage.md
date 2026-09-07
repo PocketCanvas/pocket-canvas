@@ -18,7 +18,8 @@ ADR-006/007/008/012의 JSON 인덱스 저장 방식과 ADR-015의 저장소별 J
 
 - Expo SDK 57 호환 `expo-sqlite ~57.0.2`를 사용한다. ORM은 추가하지 않는다.
 - 기본 앱 전용 DB 디렉터리에 `pocket-canvas.db`를 지연 생성한다. Android의 현재 Expo 구현은 `files/SQLite`를 사용한다. 캐시 디렉터리는 사용하지 않는다.
-- `metadata-storage.ts`는 연결과 초기화 재시도를, `metadata-database.ts`는 SQL·스키마·짧은 쓰기 트랜잭션을 소유한다. 화면은 기존 파일 저장소 모듈을 통해 접근한다.
+- `src/database/connection.ts`는 연결과 초기화 재시도를, `src/database/metadata-database.ts`는 SQL·스키마·짧은 쓰기 트랜잭션을 소유한다.
+- `src/storage/`는 SQLite metadata와 FileSystem의 모델·PNG 본체를 함께 조정하는 앱 저장소 API를 제공한다. 화면은 `database`를 직접 사용하지 않고 `storage`를 통해 접근한다.
 - 모델·PNG 본체는 계속 Expo FileSystem의 document 디렉터리에 둔다. DB에 BLOB으로 넣거나 파일을 이동하지 않는다. 테마의 AsyncStorage도 유지한다.
 - `models`는 ID·고유 파일명·레코드별 metadata, `images`는 ID·고유 파일명·생성 시각·즐겨찾기·레코드별 metadata를 저장한다. 중첩 생성 설정은 행 하나의 JSON payload로 보존한다. 이는 전체 카탈로그 JSON 파일 관리와 다르며, 옵션마다 테이블·관계·마이그레이션을 늘리지 않기 위한 선택이다.
 - 즐겨찾기는 SQL에서 한 행의 값을 반전한다. 이미지 상세 payload와 별도인 ID·favorite 열이 조회 결과의 기준이다. 모델 별칭·분류·설명도 해당 행만 수정한다.

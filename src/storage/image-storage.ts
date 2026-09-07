@@ -4,7 +4,7 @@
 
 import { Directory, File, Paths } from 'expo-file-system';
 
-import { getMetadataDatabase } from '@/lib/metadata-storage';
+import { getMetadataDatabase } from '@/database/connection';
 import {
   createImageMetadata,
   createRecoveredImageMetadata,
@@ -56,7 +56,9 @@ export async function loadStoredImages(): Promise<StoredImageMetadata[]> {
     }
   }
 
-  const items = Array.from(known.values()).filter((item) => new File(imagesDirectory, item.fileName).exists);
+  const items = Array.from(known.values()).filter(
+    (item) => new File(imagesDirectory, item.fileName).exists,
+  );
   items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   return items;
 }
@@ -70,7 +72,9 @@ export async function toggleFavoriteImage(id: string): Promise<StoredImageMetada
 }
 
 export async function deleteStoredImage(id: string): Promise<void> {
-  await (await getMetadataDatabase()).deleteImage(id, (fileName) => {
+  await (
+    await getMetadataDatabase()
+  ).deleteImage(id, (fileName) => {
     const file = new File(imagesDirectory, fileName);
     if (file.exists) file.delete();
   });

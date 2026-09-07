@@ -7,7 +7,7 @@ import { ScreenHeader } from '@/components/common/screen-header';
 import { CrashLogPanel } from '@/components/settings/crash-log-panel';
 import { ThemeSettings } from '@/components/settings/theme-settings';
 import { useTheme } from '@/hooks/use-theme';
-import { loadDebugCrashLog, type DebugCrashLog } from '@/lib/crash-log';
+import { loadDebugCrashLog, type DebugCrashLog } from '@/storage/diagnostic-storage';
 
 export default function SettingsScreen() {
   const colors = useTheme();

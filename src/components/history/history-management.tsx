@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet } from 'react-native';
 import { AppIcon } from '@/components/common/app-icon';
 
 import { useTheme } from '@/hooks/use-theme';
-import { getStoredImageUri } from '@/lib/image-files';
+import { getStoredImageUri } from '@/storage/image-storage';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 
 export type HistoryTab = 'all' | 'favorite';

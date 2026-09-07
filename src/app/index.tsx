@@ -14,12 +14,12 @@ import {
   visibleGenerationImageUri,
 } from '@/lib/generation-state';
 import { showOperationBlockedAlert } from '@/lib/heavy-operation';
-import { createImageDestination, saveImageMetadata } from '@/lib/image-files';
+import { createImageDestination, saveImageMetadata } from '@/storage/image-storage';
 import {
   getStoredModelUri,
   inspectStoredModelDescriptor,
   type StoredModel,
-} from '@/lib/model-files';
+} from '@/storage/model-storage';
 import { useOperationStore } from '@/stores/use-operation-store';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import {

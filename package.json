@@ -50,7 +50,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test:model-files": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/lib/*.test.mjs src/stores/*.test.mjs",
+    "test:model-files": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test src/database/*.test.mjs src/lib/*.test.mjs src/stores/*.test.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

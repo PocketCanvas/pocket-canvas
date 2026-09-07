@@ -40,7 +40,7 @@ ADR-007에서 생성된 PNG 이미지(`Paths.document/images/YYYYMMDD-HHMMSS-<id
    - 이 패턴은 모델 관리 모달(`ModelDetailModal`)에도 동일하게 적용하여 앱 전반의 일관성을 유지합니다.
 
 5. **고아 이미지 파일 자동 복구 (Reconciliation):**
-   - `src/lib/image-files.ts`의 `loadStoredImages()`는 `meta.json`을 읽는 동시에 `Paths.document/images/` 디렉토리를 스캔합니다.
+   - 현재 `src/storage/image-storage.ts`의 `loadStoredImages()`는 SQLite metadata를 읽는 동시에 `Paths.document/images/` 디렉터리를 스캔합니다. JSON 인덱스는 ADR-020으로 대체되었습니다.
    - 메타데이터에 등록되지 않은 PNG 파일이 발견되면 파일명 타임스탬프(`parseDateFromFileName`)를 파싱하여 복구 목록에 포함합니다.
 
 6. **원자적 삭제 및 롤백:**

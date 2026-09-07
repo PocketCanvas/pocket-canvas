@@ -2,7 +2,7 @@ import { getDocumentAsync } from 'expo-document-picker';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import { quantizeModel } from 'stable-diffusion';
 
-import { getMetadataDatabase } from '@/lib/metadata-storage';
+import { getMetadataDatabase } from '@/database/connection';
 import {
   describeModel,
   inspectModelFile,
@@ -13,10 +13,7 @@ import {
   type QuantizationAvailability,
   supportedModelExtension,
 } from '@/lib/model-file-inspection';
-import {
-  createQuantizedModelRecord,
-  type QuantizationType,
-} from '@/lib/model-quantization';
+import { createQuantizedModelRecord, type QuantizationType } from '@/lib/model-quantization';
 
 export type StoredModel = {
   id: string;

@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { Image, LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gallery } from 'react-native-zoom-toolkit';
 
-import { getStoredImageUri } from '@/lib/image-files';
+import { getStoredImageUri } from '@/storage/image-storage';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 import { createViewerItemsKey } from '@/lib/history-viewer';
 

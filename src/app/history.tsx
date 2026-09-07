@@ -30,7 +30,7 @@ import {
 } from '@/components/history/history-management';
 import { useTheme } from '@/hooks/use-theme';
 import { selectAfterViewerDelete } from '@/lib/history-viewer';
-import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/lib/image-files';
+import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/storage/image-storage';
 import { StoredImageMetadata } from '@/lib/image-metadata';
 
 export default function HistoryScreen() {

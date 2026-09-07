@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createAsyncOperationQueue } from './async-operation-queue.ts';
+import { createAsyncOperationQueue } from './transaction-queue.ts';
 
 test('runs queued read-modify-write operations in order', async () => {
   const enqueue = createAsyncOperationQueue();

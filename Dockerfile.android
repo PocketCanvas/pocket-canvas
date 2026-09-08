@@ -55,7 +55,9 @@ COPY . .
 RUN --mount=type=cache,target=/root/.npm \
     npm ci \
     && npm --prefix stable-diffusion ci \
-    && npm --prefix stable-diffusion run build
+    && npm --prefix stable-diffusion run build \
+    && CI=1 npx expo prebuild --platform android --no-install \
+    && cp docs/CMakeLists.txt stable-diffusion/cpp/stable-diffusion.cpp/ggml/src/ggml-vulkan/CMakeLists.txt
 
 RUN --mount=type=cache,target=/root/.gradle \
     --mount=type=cache,target=/workspace/android/.gradle \

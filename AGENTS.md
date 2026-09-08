@@ -61,7 +61,7 @@
 
 ## Known landmines
 - 프로젝트 소유 네이티브 코드의 변경 위치는 책임으로 정한다. JNI 실행 순서·자원 수명은 `StableDiffusionBridge.cpp`, sampler/upscaler 변환은 `GenerationOptions`, 메모리 정책은 `MemoryPolicy`, upstream 로그 tail은 `NativeLogCollector`, breadcrumb/Vulkan 진단은 `GenerationDiagnostics`, JNI callback은 `NativeCallbacks`가 소유한다. Kotlin에서는 Expo/JNI 조정은 `StableDiffusionModule`, 옵션 계약은 `GenerationOptions`, 앱 저장소 경계는 `AppStorageFiles`, 종료 보고서 조립은 `GenerationCrashReporter`가 소유한다. 기계적인 Kotlin↔C++ 1:1 파일 대응을 만들지 않는다. → ADR-023
-- Docker 릴리즈 빌드의 기준 진입점은 Git Bash의 `./scripts/build-release-apk.sh`이며 결과는 `artifacts/android/pocket-canvas-release.apk`이다. host Vulkan generator에는 Ninja, SPIR-V headers, Vulkan `vulkan/`과 `vk_video/`가 모두 필요하다. → ADR-019, `docs/troubleshooting.md`
+- Docker 릴리즈 빌드의 기준 진입점은 Git Bash의 `./scripts/build-release-apk.sh`이며 결과는 `artifacts/android/pocket-canvas-release.apk`이다. Docker가 clean clone에서 `expo prebuild`와 `docs/CMakeLists.txt` workaround 적용을 수행하므로 호스트 `android/`를 build context에 넣지 않는다. host Vulkan generator에는 Ninja, SPIR-V headers, Vulkan `vulkan/`과 `vk_video/`가 모두 필요하다. → ADR-019, `docs/troubleshooting.md`
 - Docker BuildKit가 Gradle 오류 없이 `rpc error: code = Unavailable ... EOF`로 종료되면 엔진 중단 또는 peak memory를 먼저 의심한다. `--max-workers=2`, `--no-parallel`, `CMAKE_BUILD_PARALLEL_LEVEL=2`를 제거하지 않는다. → ADR-019
 - `stable-diffusion/android/build.gradle`의 `ndkVersion rootProject.ext.ndkVersion`은 루트와 Expo 모듈이 NDK 27.1을 공유하기 위한 설정이다. 이를 제거하거나 별도 NDK 버전으로 바꾸지 않는다. `minSdkVersion` 금지 규칙과는 별개다. → ADR-002, ADR-019
 - `NativeMicrotasksCxx could not be found` → root/module React Native version mismatch 가능성이 높음. ADR-004 참조

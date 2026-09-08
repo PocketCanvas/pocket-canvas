@@ -2,6 +2,8 @@
 
 Pocket Canvas를 Docker Desktop의 Linux 컨테이너에서 빌드해 개인 Android 기기 테스트용 release APK를 만든다.
 
+recursive submodule을 포함한 clean clone에서 바로 실행할 수 있다. 호스트에서 `expo prebuild`, Android Studio 빌드 또는 ggml-vulkan CMake 보존본 복사를 먼저 수행할 필요가 없다. Docker가 컨테이너 안에서 Android 프로젝트를 생성하고 `docs/CMakeLists.txt` workaround를 적용한다.
+
 빌드 환경과 병렬도 결정의 근거는 [ADR-019](decisions/ADR-019-docker-android-release-build.md), 오류별 복구 절차는 [Troubleshooting](troubleshooting.md)을 참조한다.
 
 ## Build with Git Bash
@@ -31,6 +33,8 @@ artifacts/android/pocket-canvas-release.apk
 ```
 
 최초 실행은 전체 도구체인과 의존성을 준비하므로 오래 걸리고 디스크 공간을 많이 사용한다. 이후 실행은 Docker BuildKit cache를 재사용한다.
+
+호스트의 `android/` 디렉터리와 debug keystore는 build context에 포함하지 않는다. 앱 설정 변경은 `app.json`과 config plugin에 기록해야 하며, 로컬에서 생성된 Android 파일만 수정하면 Docker release 빌드에는 반영되지 않는다.
 
 ## Install on a connected device
 

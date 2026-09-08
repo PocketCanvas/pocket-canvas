@@ -27,6 +27,8 @@ Docker Desktop Linux 빌드를 구성하는 과정에서 다음 제약을 확인
 - Node 22 Bookworm 이미지는 digest로 고정한다.
 - JDK 17, Android API 36, Build Tools 36.0.0과 35.0.0, NDK `27.1.12297006`, CMake 3.22.1을 설치한다.
 - host Vulkan-Headers는 개발 호스트에서 검증된 SDK와 같은 `1.4.350.0`을 사용하고 `vulkan/`과 `vk_video/`를 함께 설치한다. SPIR-V headers, `glslc`, Ninja도 host 도구로 설치한다.
+- Git에서 제외되는 `android/`를 호스트의 사전 생성물로 받지 않는다. 루트와 모듈 의존성을 설치한 뒤 컨테이너 안에서 `npx expo prebuild --platform android --no-install`로 생성한다.
+- prebuild 뒤 `docs/CMakeLists.txt` 보존본을 ggml-vulkan 대상 파일에 복사한다. 따라서 clean clone의 upstream submodule 상태에서도 Android SPIRV-Headers workaround가 항상 동일하게 적용된다.
 - 앱과 `stable-diffusion` 로컬 모듈이 같은 NDK를 사용하도록 모듈의 `android.ndkVersion`을 `rootProject.ext.ndkVersion`에 연결한다. `minSdkVersion`은 모듈 Gradle에 추가하지 않고 native target API 28은 기존 CMake 설정이 계속 소유한다.
 - APK는 `arm64-v8a`만 빌드한다.
 - Docker Desktop의 순간 메모리 사용량을 제한하기 위해 Gradle `--max-workers=2`, `--no-parallel`과 `CMAKE_BUILD_PARALLEL_LEVEL=2`를 적용한다.
@@ -55,6 +57,7 @@ Bookworm의 Vulkan-Headers가 프로젝트에서 사용 중인 API보다 오래�
 ## Consequences
 
 - 개발자는 Docker Desktop과 Git Bash만으로 같은 Android native 도구 버전을 재사용할 수 있다.
+- recursive submodule을 포함한 clean clone이면 호스트에서 `expo prebuild`나 Android Studio 빌드를 먼저 실행하지 않아도 된다. 로컬 `android/`와 debug keystore는 Docker build context에서 제외된다.
 - 최초 빌드는 SDK/NDK와 npm 의존성을 내려받고 C++를 컴파일하므로 오래 걸리고 디스크를 많이 사용한다. 이후 빌드는 BuildKit cache를 활용한다.
 - 병렬도 제한으로 최대 처리량은 낮아지지만 Docker 엔진 중단 가능성과 peak memory를 줄인다.
 - Debian apt repository와 Android SDK 다운로드 서버의 가용성에는 계속 의존한다. Node base image와 주요 Android/Vulkan 버전은 고정되어도 완전한 bit-for-bit 재현 빌드를 보장하지는 않는다.

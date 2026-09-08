@@ -195,15 +195,17 @@ function parseTextSignal(text: string): TombstoneSignal | null {
 function parseTextTombstone(bytes: Uint8Array): TombstoneTrace {
   const text = new TextDecoder().decode(bytes);
   const frames: NativeCrashFrame[] = [];
-  const linePattern =
-    /^#\d+\s+pc\s+([0-9a-fA-Fx]+)\s+(\S+)(?:\s+\((.+)\))?/;
+  const linePattern = /^#\d+\s+pc\s+([0-9a-fA-Fx]+)\s+(\S+)(?:\s+\((.+)\))?/;
   for (const line of text.split(/\r?\n/)) {
     const match = line.trim().match(linePattern);
     if (!match) continue;
     const detail = match[3] ?? '';
     const offsetMatch = detail.match(/\+(\d+)\s*$/);
     const buildIdMatch = detail.match(/BuildId:\s*([0-9a-fA-F]+)/i);
-    const symbol = detail.replace(/\+\d+\s*$/, '').replace(/\s*\(BuildId:.*$/i, '').trim();
+    const symbol = detail
+      .replace(/\+\d+\s*$/, '')
+      .replace(/\s*\(BuildId:.*$/i, '')
+      .trim();
     const relPc = match[1].startsWith('0x') ? match[1] : `0x${match[1]}`;
     frames.push({
       library: libraryBasename(match[2]),
@@ -238,40 +240,8 @@ export function parseTombstoneTrace(bytes: Uint8Array): TombstoneTrace {
     } else reader.skip(wire);
   }
 
-  const crashing = threads.find((thread) => thread.id === tid) ?? threads.find((thread) => thread.frames.length > 0);
+  const crashing =
+    threads.find((thread) => thread.id === tid) ??
+    threads.find((thread) => thread.frames.length > 0);
   return { frames: (crashing?.frames ?? []).slice(0, 16), signal };
-}
-
-export function encodeVarint(value: number | bigint): Uint8Array {
-  let rest = BigInt(value);
-  const bytes: number[] = [];
-  while (rest >= 0x80n) {
-    bytes.push(Number((rest & 0x7fn) | 0x80n));
-    rest >>= 7n;
-  }
-  bytes.push(Number(rest));
-  return Uint8Array.from(bytes);
-}
-
-function concat(chunks: Uint8Array[]) {
-  const length = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const out = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return out;
-}
-
-export function encodeLengthDelimited(field: number, payload: Uint8Array) {
-  return concat([encodeVarint((field << 3) | 2), encodeVarint(payload.length), payload]);
-}
-
-export function encodeVarintField(field: number, value: number | bigint) {
-  return concat([encodeVarint((field << 3) | 0), encodeVarint(value)]);
-}
-
-export function encodeStringField(field: number, value: string) {
-  return encodeLengthDelimited(field, new TextEncoder().encode(value));
 }

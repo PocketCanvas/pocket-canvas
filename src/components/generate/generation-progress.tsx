@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { GenerationProgressEvent } from 'stable-diffusion';
 
 import { useTheme } from '@/hooks/use-theme';
-import { generationProgressDetail } from '@/lib/generation-progress';
+import { generationProgressDetail } from '@/features/generation/progress';
 
 const GENERATION_STAGES: { stage: GenerationProgressEvent['stage']; label: string }[] = [
   { stage: 'loading', label: 'Loading' },

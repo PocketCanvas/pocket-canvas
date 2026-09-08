@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import { Colors } from '@/constants/theme';
+import { Colors } from '@/shared/theme/tokens';
 
 const DURATION = 600;
 

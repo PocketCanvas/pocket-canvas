@@ -7,20 +7,17 @@ import { GenerationProgress } from '@/components/generate/generation-progress';
 import { LoraSortableList } from '@/components/generate/lora-sortable-list';
 import { useModelCatalog } from '@/hooks/use-model-catalog';
 import { useTheme } from '@/hooks/use-theme';
-import { createInitialGenerationDraft, generationDraftReducer } from '@/lib/generation-draft';
+import { createInitialGenerationDraft, generationDraftReducer } from '@/features/generation/draft';
 import {
   createInitialGenerationRunState,
   generationRunReducer,
   visibleGenerationImageUri,
-} from '@/lib/generation-state';
-import { showOperationBlockedAlert } from '@/lib/heavy-operation';
+} from '@/features/generation/run-state';
+import { showOperationBlockedAlert } from '@/shared/heavy-operation/blocked-alert';
 import { createImageDestination, saveImageMetadata } from '@/storage/image-storage';
-import {
-  getStoredModelUri,
-  inspectStoredModelDescriptor,
-  type StoredModel,
-} from '@/storage/model-storage';
-import { useOperationStore } from '@/stores/use-operation-store';
+import { getStoredModelUri, inspectStoredModelDescriptor } from '@/storage/model-storage';
+import type { StoredModel } from '@/features/models/model';
+import { useOperationStore } from '@/shared/heavy-operation/store';
 import { useCallback, useReducer, useState } from 'react';
 import {
   ActivityIndicator,

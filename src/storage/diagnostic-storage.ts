@@ -1,6 +1,6 @@
 import { File, Paths } from 'expo-file-system';
 
-import { parseDebugCrashLog, type DebugCrashLog } from '@/lib/generation-diagnostics';
+import { parseDebugCrashLog, type DebugCrashLog } from '@/features/diagnostics/debug-log';
 
 export type { DebugCrashLog };
 

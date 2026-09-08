@@ -5,7 +5,7 @@ import {
   createViewerItemsKey,
   findViewerIndex,
   selectAfterViewerDelete,
-} from './history-viewer.ts';
+} from './viewer-navigation.ts';
 
 const items = [{ id: 'first' }, { id: 'second' }, { id: 'third' }];
 

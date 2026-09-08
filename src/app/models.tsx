@@ -13,7 +13,7 @@ import {
 } from '@/components/models/model-management';
 import { useModelManagement } from '@/hooks/use-model-management';
 import { useTheme } from '@/hooks/use-theme';
-import type { StoredModel } from '@/storage/model-storage';
+import type { StoredModel } from '@/features/models/model';
 
 export default function ModelsScreen() {
   const colors = useTheme();

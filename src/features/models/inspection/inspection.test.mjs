@@ -7,7 +7,7 @@ import {
   inspectModelBytes,
   inspectQuantizationAvailability,
   supportedModelExtension,
-} from './model-file-inspection.ts';
+} from './index.ts';
 
 const encoder = new TextEncoder();
 

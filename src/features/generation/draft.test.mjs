@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createInitialGenerationDraft, generationDraftReducer } from './generation-draft.ts';
+import { createInitialGenerationDraft, generationDraftReducer } from './draft.ts';
 
 function model(id, kind = 'model') {
   return {

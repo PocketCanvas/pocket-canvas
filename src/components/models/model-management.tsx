@@ -16,11 +16,13 @@ import { AppIcon, type IconName } from '@/components/common/app-icon';
 
 import { useTheme } from '@/hooks/use-theme';
 import {
-  quantizationProgressPercent,
   QUANTIZATION_OPTIONS,
-  type QuantizationTask,
   type QuantizationType,
-} from '@/lib/model-quantization';
+} from '@/features/models/quantization/options';
+import {
+  quantizationProgressPercent,
+  type QuantizationTask,
+} from '@/features/models/quantization/progress';
 
 export type ModelKind = 'model' | 'lora' | 'unknown';
 

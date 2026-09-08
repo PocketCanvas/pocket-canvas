@@ -1,81 +1,21 @@
 import { crashFrameTopSymbol, type NativeCrashFrame } from './tombstone-trace.ts';
+import {
+  GENERATION_BREADCRUMB_KIND,
+  GENERATION_CRASH_KIND,
+  GENERATION_CRASH_SCHEMA_VERSION,
+  GENERATION_DIAGNOSTIC_FORBIDDEN_KEYS,
+  type GenerationBreadcrumb,
+  type GenerationCrashReport,
+} from './types.ts';
 
-export const GENERATION_CRASH_SCHEMA_VERSION = 2;
-export const GENERATION_CRASH_KIND = 'generation_crash';
-export const GENERATION_BREADCRUMB_KIND = 'breadcrumb';
-
-export const GENERATION_DIAGNOSTIC_FORBIDDEN_KEYS = [
-  'prompt',
-  'negativePrompt',
-  'negative',
-  'modelPath',
-  'taesdPath',
-  'outputPath',
-  'alias',
-  'fileName',
-  'storedFileName',
-  'uri',
-  'seed',
-] as const;
-
-export type GenerationCrashStage =
-  | 'loading'
-  | 'lora_apply'
-  | 'encoding'
-  | 'text_encoding_prepare'
-  | 'text_encoding_params'
-  | 'text_encoding_compute'
-  | 'sampling'
-  | 'decoding';
-
-export type GenerationBreadcrumb = {
-  schemaVersion: number;
-  kind: typeof GENERATION_BREADCRUMB_KIND;
-  status: 'running';
-  stage: GenerationCrashStage | string;
-  samplingStep?: number;
-  samplingSteps?: number;
-  width?: number;
-  height?: number;
-  steps?: number;
-  cfgScale?: number;
-  preset?: string;
-  family?: string;
-  variant?: string;
-  familyEvidence?: string;
-  diffusionStorage?: string;
-  loraCount?: number;
-  taesd?: boolean;
-  hires?: boolean;
-  memorySource?: string;
-  memoryPolicy?: string;
-  diffusionFa?: boolean;
-  paramsBackend?: string;
-  backend?: {
-    diffusion: string;
-    textEncoder: string;
-    vae: string;
-    textEncoderParams: string;
-  };
-  nativeTail?: string[];
-  vaeTiling?: string;
-  vulkanDevice?: string;
-  vulkanApi?: string;
-  vulkanDriver?: string;
-};
-
-export type GenerationCrashReport = {
-  schemaVersion: number;
-  kind: typeof GENERATION_CRASH_KIND;
-  title: string;
-  breadcrumb: GenerationBreadcrumb;
-  device: Record<string, string | number>;
-  exit: Record<string, string | number>;
-  stack: {
-    topSymbol: string | null;
-    frames: NativeCrashFrame[];
-  };
-};
+export {
+  GENERATION_BREADCRUMB_KIND,
+  GENERATION_CRASH_KIND,
+  GENERATION_CRASH_SCHEMA_VERSION,
+  GENERATION_DIAGNOSTIC_FORBIDDEN_KEYS,
+  type GenerationBreadcrumb,
+  type GenerationCrashReport,
+} from './types.ts';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -211,48 +151,6 @@ function isNativeCrashFrame(value: unknown): value is NativeCrashFrame {
     typeof value.symbolOffset === 'number' &&
     typeof value.buildId === 'string'
   );
-}
-
-export type DebugCrashLog = {
-  source: 'report' | 'breadcrumb';
-  title: string;
-  detail: string;
-};
-
-export function parseDebugCrashLog(raw: string): DebugCrashLog | null {
-  let value: unknown;
-  try {
-    value = JSON.parse(raw);
-  } catch {
-    return null;
-  }
-
-  const report = parseGenerationCrashReport(value);
-  if (report) {
-    return {
-      source: 'report',
-      title: report.title,
-      detail: JSON.stringify(report, null, 2),
-    };
-  }
-
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    'stage' in value &&
-    typeof (value as { stage: unknown }).stage === 'string'
-  ) {
-    const stage = (value as { stage: string }).stage;
-    const kind = (value as { kind?: string }).kind;
-    if (kind != null && kind !== GENERATION_BREADCRUMB_KIND) return null;
-    return {
-      source: 'breadcrumb',
-      title: `미완성 breadcrumb · ${stage}`,
-      detail: JSON.stringify(value, null, 2),
-    };
-  }
-
-  return null;
 }
 
 export function isGenerationCrashReport(

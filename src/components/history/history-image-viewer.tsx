@@ -19,13 +19,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/hooks/use-theme';
-import { getImageFileSize, getStoredImageUri } from '@/storage/image-storage';
-import { StoredImageMetadata } from '@/lib/image-metadata';
-import { findViewerIndex } from '@/lib/history-viewer';
+import { StoredImageMetadata } from '@/features/images/metadata';
+import { findViewerIndex } from '@/features/history/viewer-navigation';
 import { ZoomableHistoryGallery } from '@/components/history/zoomable-history-gallery';
 
 type HistoryImageViewerProps = {
   items: StoredImageMetadata[];
+  getImageFileSize: (fileName: string) => number | null;
+  getImageUri: (fileName: string) => string;
   selectedId: string;
   onClose: () => void;
   onDelete: (item: StoredImageMetadata) => void;
@@ -35,6 +36,8 @@ type HistoryImageViewerProps = {
 
 export function HistoryImageViewer({
   items,
+  getImageFileSize,
+  getImageUri,
   selectedId,
   onClose,
   onDelete,
@@ -91,7 +94,7 @@ export function HistoryImageViewer({
 
   const handleShare = async () => {
     if (!selectedItem) return;
-    const uri = getStoredImageUri(selectedItem.fileName);
+    const uri = getImageUri(selectedItem.fileName);
     try {
       if (await isAvailableAsync()) {
         await shareAsync(uri, {
@@ -121,7 +124,12 @@ export function HistoryImageViewer({
     >
       <GestureHandlerRootView style={viewerStyles.screen}>
         <View style={viewerStyles.screen}>
-          <ZoomableHistoryGallery items={items} onSelect={onSelect} selectedIndex={selectedIndex} />
+          <ZoomableHistoryGallery
+            getImageUri={getImageUri}
+            items={items}
+            onSelect={onSelect}
+            selectedIndex={selectedIndex}
+          />
 
           <Pressable
             accessibilityLabel="이미지 뷰어 닫기"
@@ -200,7 +208,7 @@ export function HistoryImageViewer({
                 >
                   <View style={[viewerStyles.dragHandle, { backgroundColor: colors.muted }]} />
                 </View>
-                <ImageInformation item={selectedItem} />
+                <ImageInformation getImageFileSize={getImageFileSize} item={selectedItem} />
               </RNAnimated.View>
             </>
           )}
@@ -234,7 +242,13 @@ function ViewerAction({
   );
 }
 
-function ImageInformation({ item }: { item: StoredImageMetadata }) {
+function ImageInformation({
+  getImageFileSize,
+  item,
+}: {
+  getImageFileSize: (fileName: string) => number | null;
+  item: StoredImageMetadata;
+}) {
   const colors = useTheme();
   const [copiedField, setCopiedField] = useState<'prompt' | 'negativePrompt' | null>(null);
   const complete = item.metadataStatus === 'complete' ? item : null;

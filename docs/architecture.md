@@ -220,3 +220,29 @@ PNG 생성 뒤 metadata 기록만 실패한 경우는 warning을 가진 성공 �
 → ADR-008
 → ADR-013
 → ADR-016
+
+## TypeScript module boundaries
+
+TypeScript 코드는 기술 형태만으로 모으는 전역 `lib`, `constants`, `stores` 대신 기능 소유권과 계층 책임을 함께 표현한다.
+
+```text
+app ───────→ components ───────→ features ───────→ shared
+ │                │                  │
+ ├─────────────→ hooks ──────────────┤
+ │                ├──→ storage ──────┤
+ │                └──→ native module │
+ └────────────────────────────────→ shared
+
+storage ─→ database
+storage ─→ feature domain types/parsers
+```
+
+- `features`: 생성, 모델, 이미지, 히스토리와 진단의 상태 모델·정책·parser·순수 로직
+- `shared`: 여러 feature가 함께 쓰는 theme와 heavy-operation 같은 공통 앱 기능
+- `components`: React presentation과 로컬 UI 상태
+- `hooks`: React lifecycle, 저장소/native 호출과 feature 로직의 조정
+- `storage` / `database`: FileSystem과 SQLite 부수 효과
+
+`shared`는 `features`를 참조하지 않고, `features`는 UI·hook·storage 구현을 참조하지 않는다. component는 feature/shared를 사용할 수 있지만 파일과 DB를 직접 다루지 않는다. 세부 결정은 ADR-024를 따른다.
+
+→ ADR-024

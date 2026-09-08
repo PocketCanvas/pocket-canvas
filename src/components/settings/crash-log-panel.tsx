@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/common/app-icon';
-import { Fonts } from '@/constants/theme';
+import { Fonts } from '@/shared/theme/tokens';
 import { useTheme } from '@/hooks/use-theme';
-import type { DebugCrashLog } from '@/lib/generation-diagnostics';
+import type { DebugCrashLog } from '@/features/diagnostics/debug-log';
 
 type CrashLogPanelProps = {
   log: DebugCrashLog | null;
@@ -35,7 +35,10 @@ export function CrashLogPanel({ log }: CrashLogPanelProps) {
         >
           <View style={styles.summaryText}>
             <Text style={[styles.infoLabel, { color: colors.text }]}>크래시 로그</Text>
-            <Text style={[styles.infoValue, { color: colors.muted }]} numberOfLines={expanded ? 0 : 2}>
+            <Text
+              style={[styles.infoValue, { color: colors.muted }]}
+              numberOfLines={expanded ? 0 : 2}
+            >
               {log?.title ?? '기록된 크래시가 없습니다'}
             </Text>
           </View>
@@ -64,8 +67,14 @@ export function CrashLogPanel({ log }: CrashLogPanelProps) {
                 pressed && styles.pressed,
               ]}
             >
-              <AppIcon color={copied ? 'accentIcon' : 'muted'} name={copied ? 'Check' : 'Copy'} size="sm" />
-              <Text style={[styles.copyLabel, { color: copied ? colors.accentText : colors.muted }]}>
+              <AppIcon
+                color={copied ? 'accentIcon' : 'muted'}
+                name={copied ? 'Check' : 'Copy'}
+                size="sm"
+              />
+              <Text
+                style={[styles.copyLabel, { color: copied ? colors.accentText : colors.muted }]}
+              >
                 {copied ? '복사됨' : '복사'}
               </Text>
             </Pressable>

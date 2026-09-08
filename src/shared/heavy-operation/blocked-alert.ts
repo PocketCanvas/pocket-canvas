@@ -1,6 +1,6 @@
 import { Alert } from 'react-native';
 
-import type { HeavyOperation } from '@/stores/use-operation-store';
+import type { HeavyOperation } from './store';
 
 export function showOperationBlockedAlert(
   activeOperation: HeavyOperation,

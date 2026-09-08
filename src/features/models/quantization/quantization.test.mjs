@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { QUANTIZATION_OPTIONS } from './options.ts';
 import {
   createQuantizationTask,
-  createQuantizedModelRecord,
   quantizationProgressPercent,
-  QUANTIZATION_OPTIONS,
   updateQuantizationTaskProgress,
-} from './model-quantization.ts';
+} from './progress.ts';
+import { createQuantizedModelRecord } from './record.ts';
 
 test('exposes only the quantization types supported by the app contract', () => {
   assert.deepEqual(

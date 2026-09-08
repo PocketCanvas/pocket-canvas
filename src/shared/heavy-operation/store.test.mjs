@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { useOperationStore } from './use-operation-store.ts';
+import { useOperationStore } from './store.ts';
 
 test('allows only one heavy operation to start at a time', () => {
   useOperationStore.setState({ activeOperation: null });

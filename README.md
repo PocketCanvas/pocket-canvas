@@ -95,7 +95,7 @@ ggml / Vulkan
 | UI·상태     | Expo Router, Zustand, Gesture Handler, Reanimated     |
 | Android     | Kotlin, Expo Modules API, JNI, Android NDK 27.1       |
 | 추론        | C++17, stable-diffusion.cpp, ggml, Vulkan, mmap       |
-| 저장소      | expo-sqlite 메타데이터, Expo FileSystem 모델·PNG     |
+| 저장소      | expo-sqlite 메타데이터, Expo FileSystem 모델·PNG      |
 | 릴리즈 빌드 | Docker BuildKit, JDK 17, Android API 36, CMake 3.22.1 |
 
 정확한 패치 버전은 루트와 [`stable-diffusion/package.json`](stable-diffusion/package.json)을 함께 확인하세요. 두 패키지의 Expo, React와 React Native는 같은 호환 세대를 유지해야 합니다.
@@ -107,8 +107,11 @@ ggml / Vulkan
 ├─ src/
 │  ├─ app/                         # Expo Router 화면과 orchestration
 │  ├─ components/                  # 생성·모델·히스토리 UI
-│  ├─ lib/                         # 파일 검사, 영속화, reducer와 queue
-│  └─ stores/                      # 테마와 전역 무거운 작업 상태
+│  ├─ features/                    # 기능별 상태·정책·parser
+│  ├─ shared/                      # 테마와 전역 무거운 작업 조정
+│  ├─ hooks/                       # React lifecycle과 기능 조정
+│  ├─ storage/                     # 모델·이미지·진단 파일 경계
+│  └─ database/                    # SQLite metadata 경계
 ├─ stable-diffusion/
 │  ├─ src/                         # Expo module TypeScript API
 │  ├─ android/                     # Kotlin module과 Android 빌드 설정

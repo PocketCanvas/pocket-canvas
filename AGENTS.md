@@ -58,6 +58,7 @@
 | ADR-021 | 강제 종료 생성 진단 | 단계 진입 fsync breadcrumb + 다음 실행 합치. 문서 형태는 ADR-022 |
 | ADR-022 | 생성 크래시 보고서 | `last-crash.json` 제목·tombstone protobuf 스택·signal·resolved backend. Firebase는 후속 |
 | ADR-023 | 네이티브 모듈 책임 분리 | Kotlin/C++ 프로젝트 소유 코드를 책임별 파일로 분리하고 bridge는 JNI 조정에 집중 |
+| ADR-024 | TypeScript 기능·공유 모듈 경계 | 기능 순수 로직은 `features`, 교차 기능은 `shared`, UI·hook·storage는 기존 계층 책임 유지 |
 
 ## Known landmines
 - 프로젝트 소유 네이티브 코드의 변경 위치는 책임으로 정한다. JNI 실행 순서·자원 수명은 `StableDiffusionBridge.cpp`, sampler/upscaler 변환은 `GenerationOptions`, 메모리 정책은 `MemoryPolicy`, upstream 로그 tail은 `NativeLogCollector`, breadcrumb/Vulkan 진단은 `GenerationDiagnostics`, JNI callback은 `NativeCallbacks`가 소유한다. Kotlin에서는 Expo/JNI 조정은 `StableDiffusionModule`, 옵션 계약은 `GenerationOptions`, 앱 저장소 경계는 `AppStorageFiles`, 종료 보고서 조립은 `GenerationCrashReporter`가 소유한다. 기계적인 Kotlin↔C++ 1:1 파일 대응을 만들지 않는다. → ADR-023
@@ -91,3 +92,4 @@
 - 크래시 API는 Android Kotlin/C++에만 둔다. `StableDiffusionModule.swift`는 Expo 모듈 껍데기이며 consume/crash 함수를 넣지 않는다. JS는 네이티브 함수가 없으면 `null`을 반환한다. → ADR-022
 - `pssKb`/`rssKb` 0을 수집 실패로 보지 않는다. native crash의 `exit.signal.faultAddress`와 `stack.relPc`/`buildId`가 주소 해석에 쓰인다. RAM·GPU 이름·samplingStep을 늘리지 않는다. → ADR-022
 - `sd1-512-native-v1`의 `verified`는 S26 근거다. S20+ Adreno 650에서 Vulkan params alloc SIGSEGV가 나도 검증 정책으로 가장하거나 서브모듈을 수정하지 않는다. → ADR-018, ADR-022
+- TypeScript 기능 상태·정책·parser는 `src/features/<feature>/`, 둘 이상의 기능이 공유하는 앱 메커니즘은 `src/shared/<capability>/`가 소유한다. `features`는 `components`·`hooks`·`app`·`storage`·`database`를 참조하지 않고 `shared`는 `features`를 참조하지 않는다. → ADR-024

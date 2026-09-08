@@ -23,7 +23,8 @@ import { HistoryImageViewer } from '@/components/history/history-image-viewer';
 import { HISTORY_TABS, HistoryCard } from '@/components/history/history-management';
 import { useHistoryManagement } from '@/hooks/use-history-management';
 import { useTheme } from '@/hooks/use-theme';
-import type { HistorySortOrder, HistoryTab } from '@/lib/history-viewer';
+import { getImageFileSize, getStoredImageUri } from '@/storage/image-storage';
+import type { HistorySortOrder, HistoryTab } from '@/features/history/query';
 
 export default function HistoryScreen() {
   const colors = useTheme();
@@ -213,6 +214,7 @@ export default function HistoryScreen() {
           renderItem={({ item }) => (
             <HistoryCard
               cardWidth={cardWidth}
+              imageUri={getStoredImageUri(item.fileName)}
               item={item}
               onPress={() => selectImage(item.id)}
               onToggleFavorite={() => toggleFavorite(item.id)}
@@ -225,6 +227,8 @@ export default function HistoryScreen() {
 
       {selectedId && filteredItems.length > 0 && (
         <HistoryImageViewer
+          getImageFileSize={getImageFileSize}
+          getImageUri={getStoredImageUri}
           items={filteredItems}
           key="history-image-viewer"
           onClose={closeViewer}

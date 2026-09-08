@@ -3,9 +3,8 @@ import { Image, Pressable, StyleSheet } from 'react-native';
 import { AppIcon } from '@/components/common/app-icon';
 
 import { useTheme } from '@/hooks/use-theme';
-import type { HistoryTab } from '@/lib/history-viewer';
-import { getStoredImageUri } from '@/storage/image-storage';
-import { StoredImageMetadata } from '@/lib/image-metadata';
+import type { HistoryTab } from '@/features/history/query';
+import { StoredImageMetadata } from '@/features/images/metadata';
 
 export const HISTORY_TABS: readonly [HistoryTab, string][] = [
   ['all', '전체'],
@@ -14,14 +13,20 @@ export const HISTORY_TABS: readonly [HistoryTab, string][] = [
 
 type HistoryCardProps = {
   item: StoredImageMetadata;
+  imageUri: string;
   onPress: () => void;
   onToggleFavorite: () => void;
   cardWidth: number;
 };
 
-export function HistoryCard({ item, onPress, onToggleFavorite, cardWidth }: HistoryCardProps) {
+export function HistoryCard({
+  item,
+  imageUri,
+  onPress,
+  onToggleFavorite,
+  cardWidth,
+}: HistoryCardProps) {
   const colors = useTheme();
-  const imageUri = getStoredImageUri(item.fileName);
   const accessibilityLabel =
     item.metadataStatus === 'complete'
       ? `생성된 이미지: ${item.prompt}`

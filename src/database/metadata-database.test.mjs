@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createMetadataDatabase } from './metadata-database.ts';
-import { createImageMetadata } from '../lib/image-metadata.ts';
+import { createImageMetadata } from '../features/images/metadata.ts';
 
 async function setup(t) {
   const sqlite = new DatabaseSync(':memory:');

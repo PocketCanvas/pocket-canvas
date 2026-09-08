@@ -1,4 +1,4 @@
-import { IconSizes, type IconSize, type ThemeColor } from '@/constants/theme';
+import { IconSizes, type IconSize, type ThemeColor } from '@/shared/theme/tokens';
 import { useTheme } from '@/hooks/use-theme';
 import {
   ArrowUpDown,

@@ -9,7 +9,7 @@ import {
   isGenerationCrashReport,
   parseGenerationCrashReport,
   selectCrashStackFrames,
-} from './generation-diagnostics.ts';
+} from './report-parser.ts';
 
 const breadcrumb = {
   schemaVersion: 2,

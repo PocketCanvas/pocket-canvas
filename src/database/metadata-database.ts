@@ -1,8 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { createAsyncOperationQueue } from './transaction-queue.ts';
-import type { StoredImageMetadata } from '@/lib/image-metadata';
-import type { StoredModel } from '@/storage/model-storage';
+import type { StoredImageMetadata } from '@/features/images/metadata';
+import type { StoredModel } from '@/features/models/model';
 
 type Connection = Pick<SQLiteDatabase, 'execAsync' | 'runAsync' | 'getAllAsync' | 'getFirstAsync'>;
 type Database = Connection & {

@@ -5,7 +5,7 @@ import {
   createImageMetadata,
   createRecoveredImageMetadata,
   isStoredImageMetadata,
-} from './image-metadata.ts';
+} from './metadata.ts';
 
 test('creates a dated PNG name and preserves generation settings', () => {
   const metadata = createImageMetadata(

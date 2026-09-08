@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { LoraSelection } from '@/components/generate/lora-sortable-list';
 import { useTheme } from '@/hooks/use-theme';
-import { StoredModel } from '@/storage/model-storage';
+import { StoredModel } from '@/features/models/model';
 
 export function ModelPicker({
   title = '모델 선택',

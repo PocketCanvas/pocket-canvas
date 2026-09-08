@@ -10,7 +10,7 @@ import {
   createRecoveredImageMetadata,
   ImageGenerationMetadataInput,
   StoredImageMetadata,
-} from '@/lib/image-metadata';
+} from '@/features/images/metadata';
 
 const imagesDirectory = new Directory(Paths.document, 'images');
 

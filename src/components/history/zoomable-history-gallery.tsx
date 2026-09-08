@@ -2,12 +2,12 @@ import { useCallback, useState } from 'react';
 import { Image, LayoutChangeEvent, StyleSheet, View } from 'react-native';
 import { Gallery } from 'react-native-zoom-toolkit';
 
-import { getStoredImageUri } from '@/storage/image-storage';
-import { StoredImageMetadata } from '@/lib/image-metadata';
-import { createViewerItemsKey } from '@/lib/history-viewer';
+import { StoredImageMetadata } from '@/features/images/metadata';
+import { createViewerItemsKey } from '@/features/history/viewer-navigation';
 
 type ZoomableHistoryGalleryProps = {
   items: StoredImageMetadata[];
+  getImageUri: (fileName: string) => string;
   onSelect: (id: string) => void;
   selectedIndex: number;
 };
@@ -21,6 +21,7 @@ const MAX_SCALE = 4;
 
 export function ZoomableHistoryGallery({
   items,
+  getImageUri,
   onSelect,
   selectedIndex,
 }: ZoomableHistoryGalleryProps) {
@@ -53,12 +54,12 @@ export function ZoomableHistoryGallery({
           accessibilityIgnoresInvertColors
           accessibilityLabel={accessibilityLabel}
           resizeMode="contain"
-          source={{ uri: getStoredImageUri(item.fileName) }}
+          source={{ uri: getImageUri(item.fileName) }}
           style={imageSize}
         />
       );
     },
-    [viewport],
+    [getImageUri, viewport],
   );
 
   return (

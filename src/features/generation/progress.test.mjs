@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { formatElapsedTime, generationProgressDetail } from './generation-progress.ts';
+import { formatElapsedTime, generationProgressDetail } from './progress.ts';
 
 test('formats elapsed generation time as minutes and seconds', () => {
   assert.equal(formatElapsedTime(0), '00:00');

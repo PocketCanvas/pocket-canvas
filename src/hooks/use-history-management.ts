@@ -9,9 +9,9 @@ import {
   filterHistoryItems,
   type HistorySortOrder,
   type HistoryTab,
-  selectAfterViewerDelete,
-} from '@/lib/history-viewer';
-import type { StoredImageMetadata } from '@/lib/image-metadata';
+} from '@/features/history/query';
+import { selectAfterViewerDelete } from '@/features/history/viewer-navigation';
+import type { StoredImageMetadata } from '@/features/images/metadata';
 import { deleteStoredImage, loadStoredImages, toggleFavoriteImage } from '@/storage/image-storage';
 
 type UseHistoryManagementOptions = {

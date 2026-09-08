@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseDebugCrashLog } from './generation-diagnostics.ts';
+import { parseDebugCrashLog } from './debug-log.ts';
 
 const report = {
   schemaVersion: 2,

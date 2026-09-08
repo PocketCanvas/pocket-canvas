@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon, type IconName } from '@/components/common/app-icon';
 import { useTheme, useThemeSettings } from '@/hooks/use-theme';
-import type { ThemeMode } from '@/stores/theme-store';
+import type { ThemeMode } from '@/shared/theme/store';
 
 type ThemeOption = {
   mode: ThemeMode;

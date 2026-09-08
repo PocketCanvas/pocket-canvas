@@ -3,32 +3,17 @@ import { Directory, File, FileMode, Paths } from 'expo-file-system';
 import { quantizeModel } from 'stable-diffusion';
 
 import { getMetadataDatabase } from '@/database/connection';
+import type { StoredModel } from '@/features/models/model';
 import {
   describeModel,
   inspectModelFile,
   inspectQuantizationAvailability,
-  ModelFileFormat,
-  ModelFileKind,
   type ModelDescriptor,
   type QuantizationAvailability,
   supportedModelExtension,
-} from '@/lib/model-file-inspection';
-import { createQuantizedModelRecord, type QuantizationType } from '@/lib/model-quantization';
-
-export type StoredModel = {
-  id: string;
-  fileName: string;
-  storedFileName: string;
-  alias: string;
-  kind: ModelFileKind;
-  detectedKind: ModelFileKind;
-  format: ModelFileFormat;
-  sizeBytes: number;
-  description: string;
-  createdAt: string;
-  quantization?: QuantizationType;
-  sourceModelId?: string;
-};
+} from '@/features/models/inspection';
+import type { QuantizationType } from '@/features/models/quantization/options';
+import { createQuantizedModelRecord } from '@/features/models/quantization/record';
 
 const modelsDirectory = new Directory(Paths.document, 'models');
 let didCleanupIncompleteFiles = false;

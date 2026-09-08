@@ -2,23 +2,23 @@ import { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { addQuantizationProgressListener, type QuantizationProgressEvent } from 'stable-diffusion';
 
-import { showOperationBlockedAlert } from '@/lib/heavy-operation';
+import { showOperationBlockedAlert } from '@/shared/heavy-operation/blocked-alert';
+import { type QuantizationType } from '@/features/models/quantization/options';
 import {
   createQuantizationTask,
   type QuantizationTask,
-  type QuantizationType,
   updateQuantizationTaskProgress,
-} from '@/lib/model-quantization';
-import { useOperationStore } from '@/stores/use-operation-store';
+} from '@/features/models/quantization/progress';
+import { useOperationStore } from '@/shared/heavy-operation/store';
 import {
   deleteStoredModel,
   inspectStoredModelQuantization,
   loadModels,
   pickAndImportModel,
   quantizeStoredModel,
-  type StoredModel,
   updateStoredModel,
 } from '@/storage/model-storage';
+import type { StoredModel } from '@/features/models/model';
 
 export function useModelManagement() {
   const [models, setModels] = useState<StoredModel[]>([]);

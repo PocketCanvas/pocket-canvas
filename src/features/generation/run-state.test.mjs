@@ -5,7 +5,7 @@ import {
   createInitialGenerationRunState,
   generationRunReducer,
   visibleGenerationImageUri,
-} from './generation-state.ts';
+} from './run-state.ts';
 
 test('starts generation while preserving the previous image', () => {
   const initial = createInitialGenerationRunState('file:///previous.png');

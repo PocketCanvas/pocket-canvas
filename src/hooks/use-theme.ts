@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Platform, useColorScheme as useRNColorScheme } from 'react-native';
 import { useStore } from 'zustand';
 
-import { Colors } from '@/constants/theme';
-import { themeStore } from '@/stores/theme-store';
+import { themeStore } from '@/shared/theme/store';
+import { Colors } from '@/shared/theme/tokens';
 
 export function useThemeSettings() {
   const themeMode = useStore(themeStore, (state) => state.themeMode);

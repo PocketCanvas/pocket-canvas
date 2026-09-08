@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+프로젝트 소유 Kotlin/C++ 코드의 단일 파일 소유권은 [ADR-023](ADR-023-native-module-responsibility-split.md)이 갱신한다. Expo Modules API → JNI → upstream 구조와 공개 계약은 유지된다.
+
 ## Date
 2026-08-11
 

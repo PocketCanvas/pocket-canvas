@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+현재 양자화 JNI 진입과 `convert()` 실행 순서는 `StableDiffusionBridge.cpp`, 타입 매핑은 C++ `GenerationOptions`, worker thread callback 연결은 `NativeCallbacks`가 담당한다. 동작 계약은 유지된다. → ADR-023
+
 ## Date
 2026-08-22
 

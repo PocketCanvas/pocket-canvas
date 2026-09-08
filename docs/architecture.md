@@ -17,13 +17,16 @@ Expo Module (Kotlin)
 StableDiffusionBridge.cpp
         │
         ▼
+Pocket Canvas C++ modules
+        │
+        ▼
 stable-diffusion.cpp
         │
         ▼
 ggml / Vulkan
 ```
 
-`stable-diffusion.cpp`는 git submodule로 관리하며 Pocket Canvas의 custom native logic은 bridge 계층에서 구현
+`stable-diffusion.cpp`는 git submodule로 관리한다. Pocket Canvas의 custom native logic은 `stable-diffusion/cpp/`의 프로젝트 소유 모듈에서 구현하고, bridge는 JNI 진입점과 실행 조정을 담당한다. 세부 경계는 ADR-023을 따른다.
 
 ## Generation flow
 
@@ -58,13 +61,13 @@ Prompt / Model / LoRA / Steps / Optional TAESD
 2. Kotlin 계층에서 앱 storage URI 등 native boundary를 검증
 3. JNI bridge가 inference context를 생성
 4. stable-diffusion.cpp가 Vulkan backend에서 inference를 수행
-5. bridge가 생성 단계를 JS progress event로 변환
+5. C++ `NativeCallbacks`가 upstream 생성 단계를 Kotlin의 JS progress event 전달 메서드에 연결
 6. 생성 결과를 앱 document storage에 PNG로 저장
 7. JS가 결과 URI와 metadata를 UI/history에 반영
 
-생성 중 프로세스가 예외 없이 죽으면 단계 종료 로그는 남지 않는다. 브리지는 단계 **진입** 때 개인정보 없는 breadcrumb를 `filesDir/diagnostics/generation-run.json`에 `fsync`한다. 다음 실행에서 `ApplicationExitInfo`와 API 31+ tombstone protobuf를 합쳐 `diagnostics/last-crash.json` 보고서 한 건을 만들고 `[crash] <title>` 한 줄을 남긴다. UI의 `encoding`과 breadcrumb의 `lora_apply` / `text_encoding_params`는 별개다. prompt·모델 경로·alias·seed는 기록하지 않는다. Firebase는 이 보고서를 올리는 후속 작업이다. → ADR-021, ADR-022
+생성 중 프로세스가 예외 없이 죽으면 단계 종료 로그는 남지 않는다. C++ `GenerationDiagnostics`는 단계 **진입** 때 개인정보 없는 breadcrumb를 `filesDir/diagnostics/generation-run.json`에 `fsync`한다. 다음 실행에서 Kotlin `GenerationCrashReporter`가 `ApplicationExitInfo`와 API 31+ tombstone protobuf를 합쳐 `diagnostics/last-crash.json` 보고서 한 건을 만들고 `[crash] <title>` 한 줄을 남긴다. UI의 `encoding`과 breadcrumb의 `lora_apply` / `text_encoding_params`는 별개다. prompt·모델 경로·alias·seed는 기록하지 않는다. Firebase는 이 보고서를 올리는 후속 작업이다. → ADR-021, ADR-022, ADR-023
 
-> 상세 내용은 ADR-007, ADR-021, ADR-022 참조
+> 상세 내용은 ADR-007, ADR-021, ADR-022, ADR-023 참조
 
 TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을 통해
 `sd_ctx_params_t.taesd_path`로 전달되고 최종 decode의 기본 VAE를 대체한다. TAESD는
@@ -132,9 +135,10 @@ JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
 
 ## Native boundary
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
-2. Kotlin: Android lifecycle, URI/storage validation 및 JNI 호출을 담당
-3. JNI bridge: Pocket Canvas 전용 inference orchestration과 `stable-diffusion.cpp` API adaptation을 담당한다.
-4. stable-diffusion.cpp: 실제 model loading 및 diffusion inference를 수행하는 upstream core
+2. Kotlin 책임 모듈: Android lifecycle, API 계약, URI/storage validation, 종료 보고서 조립과 JNI 호출을 담당
+3. JNI bridge: 진입점, 실행 순서, 직렬화와 native 자원 수명을 담당
+4. 프로젝트 소유 C++ 모듈: 옵션 변환, 메모리 정책, 로그 수집, 생성 진단과 callback adaptation을 담당
+5. stable-diffusion.cpp: 실제 model loading 및 diffusion inference를 수행하는 upstream core
 
 ## Intelligent memory policy
 
@@ -146,7 +150,7 @@ Model header + import provenance
         ModelDescriptor
               + Workload (해상도, TAESD, Hires, LoRA)
               ↓
- StableDiffusionBridge.cpp resolver
+ MemoryPolicy resolver
               ↓
  verified → conservative → native-default
               ↓
@@ -155,7 +159,7 @@ Model header + import provenance
 
 resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 적용한다. 정확히 일치하는 실험값이 없어도 SDXL의 diffusion parameter cost가 큰 경우에는 flash attention과 CPU 공유 parameter backend를, SD1/SDXL AutoEncoderKL의 768² 이상 decode에는 48×48 overlap 0.50 tiling을 서로 독립적으로 합성할 수 있다. 이 경로는 `conservative`로 기록하며 검증 완료를 의미하지 않는다. 어느 조건에도 해당하지 않으면 upstream 기본값을 유지한다.
 
-이 정책은 사용자 생성 설정이나 UI 옵션이 아니다. 사용자 설정을 수정하지 않고, 실패 후 다른 조건으로 재시도하지 않으며, 아직은 미검증 조합을 사전 거절하지도 않는다. Kotlin은 descriptor 계약 검증과 전달만 담당하고 최종 정책 판정과 native 옵션 적용은 `StableDiffusionBridge.cpp`가 소유한다. `[model]` 로그는 판정 입력을, `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`은 판정 결과를 보여준다.
+이 정책은 사용자 생성 설정이나 UI 옵션이 아니다. 사용자 설정을 수정하지 않고, 실패 후 다른 조건으로 재시도하지 않으며, 아직은 미검증 조합을 사전 거절하지도 않는다. Kotlin은 descriptor 계약 검증과 전달만 담당하고, `MemoryPolicy`가 최종 정책을 판정하며 `StableDiffusionBridge.cpp`가 native 옵션에 적용한다. `[model]` 로그는 판정 입력을, `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`은 판정 결과를 보여준다.
 
 > VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018 참조
 

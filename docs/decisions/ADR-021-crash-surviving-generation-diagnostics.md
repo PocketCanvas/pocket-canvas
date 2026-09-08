@@ -5,6 +5,8 @@ Accepted
 
 재실행 때 남기는 JSON 문서 형태·파일 이름·logcat 태그는 [ADR-022](ADR-022-generation-crash-report-schema.md)가 대체한다. 단계 진입 `fsync` breadcrumb와 다음 실행 합치는 수집 파이프는 유지한다. `last-interrupted.json`과 `[diagnostic] interrupted`는 쓰지 않는다.
 
+현재 breadcrumb·Vulkan 식별·파일 기록은 C++ `GenerationDiagnostics`, native 로그 tail은 `NativeLogCollector`, 다음 실행의 종료 보고서 조립은 Kotlin `GenerationCrashReporter`가 담당한다. 수집 동작은 유지된다. → ADR-023
+
 ## Date
 2026-09-06
 

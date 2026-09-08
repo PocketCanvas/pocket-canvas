@@ -42,3 +42,9 @@ body:
       description: 원하는 동작이나 사용자 경험을 설명해 주세요.
     validations:
       required: true
+
+  - type: textarea
+    id: native_scope
+    attributes:
+      label: 네이티브 책임 범위
+      description: 네이티브 모듈 제안이라면 Kotlin API·저장소·lifecycle과 C++ 추론·정책·진단 중 어느 책임이 변경되는지 적어 주세요. 구현 파일을 정하지 못했다면 비워도 됩니다.

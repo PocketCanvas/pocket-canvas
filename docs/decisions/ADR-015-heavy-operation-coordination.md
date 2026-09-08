@@ -5,6 +5,8 @@ Accepted
 
 `models.json`과 `images/meta.json`의 저장소별 JSON commit 큐는 [ADR-020](ADR-020-sqlite-metadata-storage.md)의 SQLite commit 큐로 옮겨졌습니다. Zustand 즉시 거절, native mutex, Expo 공용 큐 분리는 유지합니다.
 
+프로젝트 소유 네이티브 파일의 세부 책임은 [ADR-023](ADR-023-native-module-responsibility-split.md)이 갱신한다. 최종 동시 실행 방지 mutex는 계속 `StableDiffusionBridge.cpp`가 소유한다.
+
 ## Date
 2026-08-23
 

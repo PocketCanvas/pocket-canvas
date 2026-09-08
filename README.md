@@ -41,7 +41,7 @@ Pocket Canvas는 사용자가 가져온 Stable Diffusion 모델과 LoRA를 외�
 
 ### 모바일 메모리 정책
 
-Pocket Canvas는 모델 이름 whitelist 대신 header에서 얻은 모델 family, variant 근거, component별 저장 타입과 추정 크기를 생성 workload와 조합합니다. 네이티브 bridge는 이 정보로 다음 중 하나의 실행 정책을 선택합니다.
+Pocket Canvas는 모델 이름 whitelist 대신 header에서 얻은 모델 family, variant 근거, component별 저장 타입과 추정 크기를 생성 workload와 조합합니다. 프로젝트 소유 C++의 `MemoryPolicy`는 이 정보로 다음 중 하나의 실행 정책을 선택하고 JNI bridge가 결과를 upstream 옵션에 적용합니다.
 
 - `verified`: Galaxy S26 실기기에서 검증된 정확한 조합
 - `conservative`: 모델 구조와 메모리 비용에 따른 보수적 설정
@@ -66,6 +66,9 @@ Expo Module (Kotlin)
 StableDiffusionBridge.cpp
         │
         ▼
+Pocket Canvas C++ modules
+        │
+        ▼
 stable-diffusion.cpp
         │
         ▼
@@ -74,9 +77,11 @@ ggml / Vulkan
 
 - React Native는 화면, 생성 상태, 모델·이미지 영속화와 전역 작업 조정을 담당합니다.
 - TypeScript 모듈은 앱과 네이티브 모듈 사이의 공개 계약을 제공합니다.
-- Kotlin은 앱 저장소 경로와 API 계약을 검증하고, 긴 JNI 호출을 Expo 공용 큐와 분리된 전용 큐에서 실행합니다.
-- `StableDiffusionBridge.cpp`는 생성·양자화 직렬화, 메모리 정책, sampler/hires 변환, 진행 이벤트와 PNG 저장을 담당합니다.
+- Kotlin은 책임별 파일에서 앱 저장소 경로와 API 계약, 프로세스 종료 진단을 처리하고, 긴 JNI 호출을 Expo 공용 큐와 분리된 전용 큐에서 실행합니다.
+- 프로젝트 소유 C++ 모듈은 메모리 정책, sampler/hires 변환, 로그 수집과 생성 진단을 담당하며, `StableDiffusionBridge.cpp`는 JNI 실행 순서·직렬화·native 자원 수명과 PNG 저장을 조정합니다.
 - `stable-diffusion.cpp`는 git submodule로 관리하며 Pocket Canvas에서 직접 수정하지 않습니다.
+
+네이티브 변경 위치는 Kotlin과 C++의 이름을 억지로 맞추지 않고 실제 책임으로 정합니다. 옵션 계약·앱 저장소·종료 보고서는 Kotlin의 전용 파일에, sampler 변환·메모리 정책·로그 수집·breadcrumb·callback은 프로젝트 소유 C++ 모듈에 둡니다. JNI 진입과 실행 순서만 bridge가 조정합니다. 자세한 기준은 [ADR-023](docs/decisions/ADR-023-native-module-responsibility-split.md)을 참고하세요.
 
 생성과 양자화는 동시에 실행되지 않습니다. JS의 즉시 거절, SQLite commit queue, Kotlin 전용 실행 큐와 C++ mutex가 서로 다른 계층의 동시성 문제를 방지합니다.
 
@@ -108,13 +113,18 @@ ggml / Vulkan
 │  ├─ src/                         # Expo module TypeScript API
 │  ├─ android/                     # Kotlin module과 Android 빌드 설정
 │  └─ cpp/
-│     ├─ StableDiffusionBridge.cpp # Pocket Canvas 전용 네이티브 로직
+│     ├─ StableDiffusionBridge.cpp # JNI 진입점과 native 실행 조정
+│     ├─ GenerationOptions.*       # sampler/scheduler와 hires 변환
+│     ├─ MemoryPolicy.*            # 모델·workload 기반 메모리 정책
+│     ├─ NativeLogCollector.*      # upstream 로그 tail 수집
+│     ├─ GenerationDiagnostics.*   # breadcrumb와 Vulkan 진단
+│     ├─ NativeCallbacks.*         # JNI callback과 진행 이벤트 연결
 │     └─ stable-diffusion.cpp/     # upstream git submodule
 ├─ docs/
 │  ├─ architecture.md
 │  ├─ CMakeLists.txt                 # ggml-vulkan Android 빌드 workaround 보존본
 │  ├─ troubleshooting.md
-│  └─ decisions/                   # ADR-001 ~ ADR-022
+│  └─ decisions/                   # Architecture Decision Records
 ├─ scripts/                        # Docker 릴리즈 APK 진입점
 ├─ Dockerfile.android
 └─ AGENTS.md

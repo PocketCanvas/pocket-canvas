@@ -1,25 +1,32 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const moduleSourceUrl = new URL(
-  '../../stable-diffusion/android/src/main/java/expo/modules/stablediffusion/StableDiffusionModule.kt',
+const kotlinSourceDirectory = new URL(
+  '../../stable-diffusion/android/src/main/java/expo/modules/stablediffusion/',
   import.meta.url,
 );
-const bridgeSourceUrl = new URL(
-  '../../stable-diffusion/cpp/StableDiffusionBridge.cpp',
-  import.meta.url,
-);
+const cppSourceDirectory = new URL('../../stable-diffusion/cpp/', import.meta.url);
+
+async function readSources(directory, extension) {
+  const names = (await readdir(directory, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith(extension))
+    .map((entry) => entry.name)
+    .sort();
+  return (await Promise.all(names.map((name) => readFile(new URL(name, directory), 'utf8')))).join(
+    '\n',
+  );
+}
 
 test('runs long native operations outside the shared Expo Modules queue', async () => {
-  const source = await readFile(moduleSourceUrl, 'utf8');
+  const source = await readSources(kotlinSourceDirectory, '.kt');
 
   assert.match(source, /private val nativeOperationQueue = CoroutineScope/);
   assert.equal(source.match(/\.runOnQueue\(nativeOperationQueue\)/g)?.length, 2);
 });
 
 test('resolves the verified SDXL Turbo Q4 768 VAE policy in the native bridge', async () => {
-  const source = await readFile(bridgeSourceUrl, 'utf8');
+  const source = await readSources(cppSourceDirectory, '.cpp');
 
   assert.match(source, /resolve_memory_policy/);
   assert.match(source, /sdxl-turbo-q4-768-safe-v1/);
@@ -30,7 +37,7 @@ test('resolves the verified SDXL Turbo Q4 768 VAE policy in the native bridge', 
 });
 
 test('resolves verified and conservative CPU residency without rejecting unknown models', async () => {
-  const source = await readFile(bridgeSourceUrl, 'utf8');
+  const source = await readSources(cppSourceDirectory, '.cpp');
 
   assert.match(source, /sdxl-turbo-float-512-safe-v1/);
   assert.match(source, /conservative_residency_threshold/);
@@ -40,7 +47,7 @@ test('resolves verified and conservative CPU residency without rejecting unknown
 });
 
 test('writes durable generation breadcrumbs and omits prompt or model paths', async () => {
-  const source = await readFile(bridgeSourceUrl, 'utf8');
+  const source = await readSources(cppSourceDirectory, '.cpp');
 
   assert.match(source, /write_generation_diagnostic/);
   assert.match(source, /fsync\(fileno\(file\)\)/);
@@ -54,7 +61,7 @@ test('writes durable generation breadcrumbs and omits prompt or model paths', as
 });
 
 test('assembles a crash report outside the native operation queue', async () => {
-  const source = await readFile(moduleSourceUrl, 'utf8');
+  const source = await readSources(kotlinSourceDirectory, '.kt');
   const consumeBlock = source.match(
     /AsyncFunction\("consumeInterruptedGeneration"\)[\s\S]*?AsyncFunction\("quantizeModel"\)/,
   )?.[0];

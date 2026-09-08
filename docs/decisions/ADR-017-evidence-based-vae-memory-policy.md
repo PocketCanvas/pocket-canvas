@@ -4,6 +4,8 @@
 
 Accepted
 
+현재 정책 판정은 프로젝트 소유 C++ `MemoryPolicy`, 판정 결과의 native 옵션 적용은 `StableDiffusionBridge.cpp`가 담당한다. 검증 근거와 적용 조건은 유지된다. → ADR-023
+
 ## Date
 
 2026-08-24

@@ -3,6 +3,8 @@
 ## Status
 Accepted
 
+현재 sampler/scheduler와 내장 upscaler 문자열 변환은 프로젝트 소유 C++ `GenerationOptions`가 담당한다. JNI 전달 계약과 생성 동작은 유지된다. → ADR-023
+
 ## Date
 2026-08-20
 

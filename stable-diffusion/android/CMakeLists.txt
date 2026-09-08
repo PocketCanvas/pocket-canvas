@@ -21,6 +21,11 @@ add_library(
     stable_diffusion_bridge
     SHARED
     ../cpp/StableDiffusionBridge.cpp
+    ../cpp/GenerationDiagnostics.cpp
+    ../cpp/GenerationOptions.cpp
+    ../cpp/MemoryPolicy.cpp
+    ../cpp/NativeCallbacks.cpp
+    ../cpp/NativeLogCollector.cpp
 )
 
 # stable-diffusion(C++ 코어 라이브러리)와 안드로이드 기본 log 라이브러리 링크

@@ -4,6 +4,8 @@
 
 Accepted
 
+현재 descriptor/workload 정책 합성은 프로젝트 소유 C++ `MemoryPolicy`, 적용과 JNI 실행 조정은 `StableDiffusionBridge.cpp`가 담당한다. 정책 우선순위와 관측 계약은 유지된다. → ADR-023
+
 ## Date
 
 2026-08-25

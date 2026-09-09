@@ -13,8 +13,8 @@ struct DiagnosticRecord {
     std::string vulkan_driver = "unknown";
     const char* family = "unknown";
     const char* family_evidence = "insufficient";
-    const char* variant = "unknown";
     const char* diffusion_storage = "unknown";
+    double diffusion_bytes = 0;
     const char* preset = "";
     const char* memory_source = "native-default";
     const char* memory_policy = "default";

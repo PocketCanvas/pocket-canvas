@@ -5,6 +5,8 @@
 
 namespace pocket_canvas {
 
+std::string sanitize_native_log(const char* text);
+
 class NativeLogCollector {
 public:
     void push(const char* text);

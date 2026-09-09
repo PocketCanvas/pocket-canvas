@@ -4,7 +4,7 @@
 
 ## 생성 중 앱이 예외 없이 사라짐
 
-근거는 ADR-021, ADR-022다. 생성 성공 로그(ADR-011)만으로는 죽은 단계를 알 수 없다.
+근거는 ADR-021, ADR-022, ADR-025다. 생성 성공 로그(ADR-011)만으로는 죽은 단계를 알 수 없다.
 
 ### 보고서 확인
 
@@ -17,6 +17,10 @@ adb shell run-as com.anonymous.pocketcanvas cat files/diagnostics/last-crash.jso
 ```
 
 `[crash]` 한 줄과 JSON의 `title`, `breadcrumb.stage`, `exit.signal`, `stack.topSymbol`을 본다.
+현행 보고서는 `schemaVersion: 3`이다. prompt, seed, 모델명·경로·파일명·alias와 명시적
+variant는 없어야 한다. 모델 조건별 분석에 필요한 family, storage·양자화, 추정 byte와
+정제된 `nativeTail`은 남는 것이 정상이다. `nativeTail`의 `<app-file>`은 원본 경로가
+정상적으로 치환됐다는 뜻이다.
 
 ### 빈 `stack.frames`
 

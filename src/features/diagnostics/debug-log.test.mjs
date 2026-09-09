@@ -4,11 +4,11 @@ import test from 'node:test';
 import { parseDebugCrashLog } from './debug-log.ts';
 
 const report = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   kind: 'generation_crash',
   title: 'native SIGSEGV at ggml_backend_buft_alloc_buffer',
   breadcrumb: {
-    schemaVersion: 2,
+    schemaVersion: 3,
     kind: 'breadcrumb',
     status: 'running',
     stage: 'encoding',
@@ -29,7 +29,7 @@ test('shows a completed crash report title for the settings debug panel', () => 
 test('labels an unfinished breadcrumb so it is not mistaken for a full report', () => {
   const parsed = parseDebugCrashLog(
     JSON.stringify({
-      schemaVersion: 2,
+      schemaVersion: 3,
       kind: 'breadcrumb',
       status: 'running',
       stage: 'encoding',

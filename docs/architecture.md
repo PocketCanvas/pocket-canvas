@@ -65,9 +65,9 @@ Prompt / Model / LoRA / Steps / Optional TAESD
 6. 생성 결과를 앱 document storage에 PNG로 저장
 7. JS가 결과 URI와 metadata를 UI/history에 반영
 
-생성 중 프로세스가 예외 없이 죽으면 단계 종료 로그는 남지 않는다. C++ `GenerationDiagnostics`는 단계 **진입** 때 개인정보 없는 breadcrumb를 `filesDir/diagnostics/generation-run.json`에 `fsync`한다. 다음 실행에서 Kotlin `GenerationCrashReporter`가 `ApplicationExitInfo`와 API 31+ tombstone protobuf를 합쳐 `diagnostics/last-crash.json` 보고서 한 건을 만들고 `[crash] <title>` 한 줄을 남긴다. UI의 `encoding`과 breadcrumb의 `lora_apply` / `text_encoding_params`는 별개다. prompt·모델 경로·alias·seed는 기록하지 않는다. Firebase는 이 보고서를 올리는 후속 작업이다. → ADR-021, ADR-022, ADR-023
+생성 중 프로세스가 예외 없이 죽으면 단계 종료 로그는 남지 않는다. C++ `GenerationDiagnostics`는 단계 **진입** 때 개인정보 없는 breadcrumb를 `filesDir/diagnostics/generation-run.json`에 `fsync`한다. 다음 실행에서 Kotlin `GenerationCrashReporter`가 `ApplicationExitInfo`와 API 31+ tombstone protobuf를 합쳐 `diagnostics/last-crash.json` 보고서 한 건을 만들고 `[crash] <title>` 한 줄을 남긴다. UI의 `encoding`과 breadcrumb의 `lora_apply` / `text_encoding_params`는 별개다. prompt·모델 경로·파일명·alias·seed·명시적 variant는 기록하지 않는다. 모델별 크래시 분석에 필요한 family, tensor/component 구성, storage·양자화와 추정 byte는 유지한다. `nativeTail`은 정상 로그를 포함한 마지막 40줄을 보존하되 사용자 입력 행과 Android 경로·URI를 정제하며, upstream logcat도 같은 정제를 사용한다. Firebase는 이 보고서를 올리는 후속 작업이다. → ADR-021, ADR-022, ADR-023, ADR-025
 
-> 상세 내용은 ADR-007, ADR-021, ADR-022, ADR-023 참조
+> 상세 내용은 ADR-007, ADR-021, ADR-022, ADR-023, ADR-025 참조
 
 TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을 통해
 `sd_ctx_params_t.taesd_path`로 전달되고 최종 decode의 기본 VAE를 대체한다. TAESD는

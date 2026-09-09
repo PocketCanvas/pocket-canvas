@@ -47,9 +47,9 @@ Pocket Canvas는 모델 이름 whitelist 대신 header에서 얻은 모델 famil
 - `conservative`: 모델 구조와 메모리 비용에 따른 보수적 설정
 - `native-default`: 근거가 부족할 때 upstream 기본 동작 유지
 
-정책은 diffusion flash attention, parameter backend와 VAE tiling을 조정하지만 sampler, 해상도 같은 사용자 설정을 변경하지 않습니다. 실패 후 자동 fallback이나 미검증 조합의 사전 거절도 수행하지 않습니다. 판정 근거와 적용 결과는 `[model]`, `[settings]` 로그에서 확인할 수 있습니다.
+정책은 diffusion flash attention, parameter backend와 VAE tiling을 조정하지만 sampler, 해상도 같은 사용자 설정을 변경하지 않습니다. 실패 후 자동 fallback이나 미검증 조합의 사전 거절도 수행하지 않습니다. 로그에는 모델명·경로·파일명·alias와 명시적 variant 같은 직접 식별자를 제외하고, 모델별 크래시 분석에 필요한 family, tensor/component 구성, storage·양자화와 추정 byte, `[settings]`의 적용 결과를 남깁니다.
 
-자세한 내용은 [ADR-017](docs/decisions/ADR-017-evidence-based-vae-memory-policy.md)과 [ADR-018](docs/decisions/ADR-018-model-descriptor-memory-policy-resolution.md)을 참고하세요.
+자세한 내용은 [ADR-017](docs/decisions/ADR-017-evidence-based-vae-memory-policy.md), [ADR-018](docs/decisions/ADR-018-model-descriptor-memory-policy-resolution.md), [ADR-025](docs/decisions/ADR-025-crash-log-data-minimization.md)을 참고하세요.
 
 ## 아키텍처
 

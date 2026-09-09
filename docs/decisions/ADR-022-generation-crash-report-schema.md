@@ -3,6 +3,9 @@
 ## Status
 Accepted
 
+보고서의 제목·breadcrumb·tombstone 결합 구조는 유지한다. `schemaVersion: 3`과 데이터
+최소화·`nativeTail` 정제 계약은 ADR-025가 개정한다.
+
 ADR-021의 재실행 JSON 덤프(`last-interrupted.json`, `[diagnostic] interrupted {JSON}`)를 대체한다. 죽기 전 단계 진입 `fsync`와 다음 실행 합치는 파이프는 ADR-021을 유지한다.
 
 ## Date
@@ -20,7 +23,7 @@ Firebase SDK는 아직 없다. SDK 이전에도 **한 줄 제목 + 안정된 키
 
 ### 두 층
 
-1. **breadcrumb** — `filesDir/diagnostics/generation-run.json`. C++가 단계 **진입** 때 덮어쓰고 `fsync`한다. `schemaVersion: 2`, `kind: "breadcrumb"`, `status: "running"`.
+1. **breadcrumb** — `filesDir/diagnostics/generation-run.json`. C++가 단계 **진입** 때 덮어쓰고 `fsync`한다. 최초 계약은 `schemaVersion: 2`였으며, ADR-025 이후 최소화된 문서는 `schemaVersion: 3`을 사용한다. `kind: "breadcrumb"`, `status: "running"`.
 2. **generation_crash** — `filesDir/diagnostics/last-crash.json`. 다음 실행의 `consumeInterruptedGeneration`이 breadcrumb + 기기 스냅샷 + `ApplicationExitInfo` + tombstone 파싱 결과를 조립한다. 공용 Expo 큐가 아니라 기본 모듈 큐에서 실행한다.
 
 생성이 JS로 성공·실패를 반환하면 breadcrumb 파일을 삭제한다. `status=running`으로 남으면 다음 실행에서 보고서로 만든다.
@@ -42,14 +45,18 @@ UI progress는 `loading` / `encoding` / `sampling` / `decoding`을 유지한다.
 
 - `title`: 한 줄. 예: `native SIGSEGV at ggml_backend_buft_alloc_buffer`
 - `breadcrumb.backend`: 실제 선택값 `{ diffusion, textEncoder, vae, textEncoderParams }`. `paramsBackend=default`를 그대로 남기지 않는다. compute는 Vulkan, `*=cpu`면 `textEncoderParams=cpu`
-- `breadcrumb.nativeTail`: 네이티브 로그 링버퍼 최대 40줄. 앱 파일 경로는 `<app-file>`. 전체 upstream 로그·prompt는 넣지 않는다
+- `breadcrumb.nativeTail`: 로그 레벨과 관계없이 네이티브 로그 링버퍼 최대 40줄. prompt
+  설정 행은 제외하고 Android 경로와 URI는 `<app-file>`로 정제한다
 - `device`: 제조사, 모델, SoC, RAM, SDK
 - `exit.reason`, `exit.status`, `exit.signalName`
 - `exit.signal`: `{ number, name, code, codeName, faultAddress }` — tombstone Signal. `faultAddress=0x0` + `codeName=SEGV_MAPERR`는 null 접근 가설을 강하게 한다
 - `stack.topSymbol`
 - `stack.frames[]`: `{ library, pc, relPc, symbol, symbolOffset, buildId }` 최대 16개. `relPc`와 `buildId`는 llvm-addr2line·릴리즈 대응용. `pc`만으로는 ASLR 때문에 부족하다
 
-prompt, 모델 경로, alias, seed, 출력 URI는 금지한다. family·해상도·preset·memory policy·Vulkan 장치/API/드라이버는 허용한다.
+prompt, 모델·LoRA·출력·양자화 경로, 파일명, alias, seed와 명시적 모델 variant는
+금지한다. family·tensor 구조·component storage/양자화·추정 byte·해상도·preset·memory
+policy·Vulkan 장치/API/드라이버는 모델 조건별 크래시 분석을 위해 허용한다. 이 계약은
+모델 기술 특성까지 익명화하는 것이 아니라 사용자 입력과 직접 식별자를 제거하는 것이다.
 
 ### tombstone 파싱
 
@@ -91,3 +98,4 @@ Firebase 전송은 이 파일을 올리는 후속 작업이다. iOS 모듈 스�
 - [tombstone.proto](https://android.googlesource.com/platform/system/core/+/master/debuggerd/proto/tombstone.proto)
 - [ADR-011](ADR-011-generation-request-logging.md)
 - [ADR-021](ADR-021-crash-surviving-generation-diagnostics.md)
+- [ADR-025](ADR-025-crash-log-data-minimization.md)

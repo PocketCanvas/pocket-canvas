@@ -45,7 +45,7 @@
 | ADR-008 | 히스토리 화면과 이미지 관리 | 3열 그리드, 2탭 필터, expo-sharing 이미지 공유, 모달 스크롤 분리, 고아 파일 자동 복구 |
 | ADR-009 | 생성 병목 계측과 TAESD PoC | Vulkan 정상 확인, VAE decode 병목, TAESD는 빠르지만 최종 품질 부족 |
 | ADR-010 | 생성 옵션과 내장 Hires 업스케일 | sampler+scheduler preset, 해상도·CFG·seed, 내장 hires 1.5×~4.0× |
-| ADR-011 | 생성 요청 로그 정책 | 요청당 약 10줄: Vulkan·설정·단계별 wall time, upstream은 warning/error만 전달 |
+| ADR-011 | 생성 요청 로그 정책 | 요청당 약 10줄: Vulkan·설정·단계별 wall time, 일반 logcat은 정제된 upstream warning/error만 전달 |
 | ADR-012 | 생성 메타데이터 완전성과 이미지 보존 | 정상 metadata 필수 계약 + missing 복구 variant + PNG 보존 우선 |
 | ADR-013 | 전체 화면 갤러리와 확대 제스처 | filteredItems 페이징 + zoom-toolkit Gallery + Modal 전용 GestureHandlerRootView |
 | ADR-014 | Android 온디바이스 스트리밍 양자화 | 클릭 시 tensor 저장 타입 검사 + 검증된 6개 타입 + 임시 GGUF 롤백 + 생성·양자화 직렬화 |
@@ -59,6 +59,7 @@
 | ADR-022 | 생성 크래시 보고서 | `last-crash.json` 제목·tombstone protobuf 스택·signal·resolved backend. Firebase는 후속 |
 | ADR-023 | 네이티브 모듈 책임 분리 | Kotlin/C++ 프로젝트 소유 코드를 책임별 파일로 분리하고 bridge는 JNI 조정에 집중 |
 | ADR-024 | TypeScript 기능·공유 모듈 경계 | 기능 순수 로직은 `features`, 교차 기능은 `shared`, UI·hook·storage는 기존 계층 책임 유지 |
+| ADR-025 | 크래시 로그 데이터 최소화 | 직접 식별자·사용자 입력 제거 + 모델별 지표용 family/storage/양자화/byte 유지 + 전체 레벨 nativeTail 정제 |
 
 ## Known landmines
 - 프로젝트 소유 네이티브 코드의 변경 위치는 책임으로 정한다. JNI 실행 순서·자원 수명은 `StableDiffusionBridge.cpp`, sampler/upscaler 변환은 `GenerationOptions`, 메모리 정책은 `MemoryPolicy`, upstream 로그 tail은 `NativeLogCollector`, breadcrumb/Vulkan 진단은 `GenerationDiagnostics`, JNI callback은 `NativeCallbacks`가 소유한다. Kotlin에서는 Expo/JNI 조정은 `StableDiffusionModule`, 옵션 계약은 `GenerationOptions`, 앱 저장소 경계는 `AppStorageFiles`, 종료 보고서 조립은 `GenerationCrashReporter`가 소유한다. 기계적인 Kotlin↔C++ 1:1 파일 대응을 만들지 않는다. → ADR-023
@@ -86,7 +87,7 @@
 - 생성 실패 중에는 직전 성공 이미지를 보존하고, PNG 생성 성공 후 metadata 기록만 실패한 경우는 생성 실패가 아니라 warning을 가진 성공 상태로 처리한다. → ADR-012, ADR-016
 - VAE 48×48 tiling의 직접 검증 범위는 Galaxy S26의 SDXL Turbo Q4 + 768×768 + 내장 VAE다. 64×64를 기본값으로 올리지 않으며, 더 넓은 조합에 적용할 때는 검증 정책으로 가장하지 않고 `memory_source=conservative`로 기록한다. → ADR-017, ADR-018
 - 메모리 정책 입력은 파일명 기반 모델 whitelist가 아니라 header에서 얻은 family·component별 storage/추정 byte와 별도 provenance를 가진 variant evidence다. `unknown`을 임의의 base 모델로 간주하지 않는다. 정책 합성은 `MemoryPolicy`, native 옵션 적용은 `StableDiffusionBridge.cpp`가 담당하며 사용자 설정 변경, 실패 후 fallback, 사전 거절을 추가하지 않는다. 적용 결과는 `[model]`과 `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`로 확인한다. → ADR-018, ADR-023
-- 생성 진단 JSON에는 prompt, 모델 경로, alias, seed를 넣지 않는다. 단계 종료 로그가 아니라 단계 진입 때 `fsync`한다. `consumeInterruptedGeneration`은 긴 생성 큐(`nativeOperationQueue`)에서 실행하지 않는다. Firebase SDK는 아직 없으며 전송은 `last-crash.json`을 올리는 후속 작업이다. → ADR-021, ADR-022
+- 생성 진단 JSON과 logcat에는 prompt, negative prompt, 모델·LoRA·출력·양자화 경로, 파일명, alias, seed, 명시적 모델 variant를 넣지 않는다. 모델별 크래시 분석에 필요한 family, tensor/component 구성, storage·양자화와 추정 byte는 유지하며, 그 특성으로 모델 계열을 추정할 수 있는 것은 허용한다. `nativeTail`은 warning/error로 제한하지 않고 마지막 40줄의 실행 맥락을 보존하되 사용자 입력 행과 Android 경로·URI를 정제한다. 단계 종료 로그가 아니라 단계 진입 때 `fsync`한다. `consumeInterruptedGeneration`은 긴 생성 큐(`nativeOperationQueue`)에서 실행하지 않는다. Firebase SDK는 아직 없으며 전송은 `last-crash.json`을 올리는 후속 작업이다. → ADR-021, ADR-022, ADR-025
 - 수집 문서는 breadcrumb(`generation-run.json`)가 아니라 `diagnostics/last-crash.json`의 `generation_crash`다. logcat은 `[crash] <title> …` 한 줄이다. UI progress의 `encoding`과 breadcrumb 단계(`lora_apply`, `text_encoding_params` 등)를 섞지 않는다. → ADR-022
 - API 31+ `getTraceInputStream()`은 `#00 pc` 텍스트가 아니라 tombstone protobuf다. 텍스트로만 파싱하면 `stack.frames`가 비어 `topSymbol=null`이 된다. `protobuf-javalite`를 추가하지 않고 `TombstoneTraceParser`만 사용한다. → ADR-022
 - 크래시 API는 Android Kotlin/C++에만 둔다. `StableDiffusionModule.swift`는 Expo 모듈 껍데기이며 consume/crash 함수를 넣지 않는다. JS는 네이티브 함수가 없으면 `null`을 반환한다. → ADR-022

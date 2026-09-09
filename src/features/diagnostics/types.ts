@@ -1,6 +1,6 @@
 import type { NativeCrashFrame } from './tombstone-trace';
 
-export const GENERATION_CRASH_SCHEMA_VERSION = 2;
+export const GENERATION_CRASH_SCHEMA_VERSION = 3;
 export const GENERATION_CRASH_KIND = 'generation_crash';
 export const GENERATION_BREADCRUMB_KIND = 'breadcrumb';
 
@@ -16,6 +16,8 @@ export const GENERATION_DIAGNOSTIC_FORBIDDEN_KEYS = [
   'storedFileName',
   'uri',
   'seed',
+  'variant',
+  'variantEvidence',
 ] as const;
 
 export type GenerationCrashStage =
@@ -41,9 +43,9 @@ export type GenerationBreadcrumb = {
   cfgScale?: number;
   preset?: string;
   family?: string;
-  variant?: string;
   familyEvidence?: string;
   diffusionStorage?: string;
+  diffusionBytes?: number;
   loraCount?: number;
   taesd?: boolean;
   hires?: boolean;

@@ -22,6 +22,8 @@ internal object GenerationCrashReporter {
     "storedFileName",
     "uri",
     "seed",
+    "variant",
+    "variantEvidence",
   )
 
   fun consume(context: Context): String? {
@@ -36,7 +38,7 @@ internal object GenerationCrashReporter {
       file.delete()
       return null
     }
-    breadcrumb.put("schemaVersion", 2)
+    breadcrumb.put("schemaVersion", 3)
     breadcrumb.put("kind", "breadcrumb")
     val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     val device = deviceSnapshot(activityManager)
@@ -65,7 +67,7 @@ internal object GenerationCrashReporter {
     }
     stack.put("frames", frameArray)
     val report = JSONObject()
-    report.put("schemaVersion", 2)
+    report.put("schemaVersion", 3)
     report.put("kind", "generation_crash")
     report.put("title", title)
     report.put("breadcrumb", breadcrumb)

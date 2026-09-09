@@ -4,7 +4,7 @@
 
 Accepted
 
-현재 descriptor/workload 정책 합성은 프로젝트 소유 C++ `MemoryPolicy`, 적용과 JNI 실행 조정은 `StableDiffusionBridge.cpp`가 담당한다. 정책 우선순위와 관측 계약은 유지된다. → ADR-023
+현재 descriptor/workload 정책 합성은 프로젝트 소유 C++ `MemoryPolicy`, 적용과 JNI 실행 조정은 `StableDiffusionBridge.cpp`가 담당한다. 정책 우선순위는 유지하며 외부 로그에 노출하는 필드는 ADR-025가 개정한다. → ADR-023, ADR-025
 
 ## Date
 
@@ -58,10 +58,14 @@ sampling과 decode 결정은 독립적으로 합성한다. 이 구조를 통해 
 
 요청당 로그에 다음을 기록한다.
 
-- `[model]`: family와 evidence, variant와 evidence, diffusion storage와 추정 byte, VAE architecture.
+- `[model]`: family와 evidence, diffusion storage와 추정 byte, VAE architecture. variant와
+  provenance는 정책 판정 입력으로만 사용하고 외부 로그에는 기록하지 않는다.
 - `[settings]`: `memory_source`, versioned `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`.
 
-이 로그는 정책이 활성화되었는지뿐 아니라 어떤 입력 근거로 verified/conservative/default가 선택되었는지 확인하기 위한 계약이다.
+이 로그는 정책이 활성화되었는지와 어떤 구조·저장 특성으로
+verified/conservative/default가 선택되었는지 확인하기 위한 계약이다. 모델명, 파일명,
+alias 또는 명시적 variant 없이도 모델 계열·양자화·크기별 크래시 지표를 집계할 수 있어야
+한다.
 
 ## Alternatives Considered
 

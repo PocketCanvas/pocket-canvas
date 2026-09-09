@@ -56,7 +56,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_quantizeModel(
     }
 
     const auto started = Clock::now();
-    LOGI("[quantize] input=%s output=%s type=%s", input_path, output_path, type_name);
+    LOGI("[quantize] start type=%s", type_name);
     JavaVM* java_vm = nullptr;
     env->GetJavaVM(&java_vm);
     jclass module_class = env->GetObjectClass(thiz);
@@ -172,11 +172,10 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
 
     // ?? Diagnostic: elapsed time tracker ??
     const auto generation_started = Clock::now();
-    LOGI("[request] model=%s taesd=%s loras=%d", model_path,
-         taesd_path[0] ? taesd_path : "disabled", static_cast<int>(lora_count));
-    LOGI("[settings] prompt_bytes=%zu negative_bytes=%zu size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f seed=%lld",
-         std::strlen(prompt), std::strlen(negative_prompt), width, height, sampling_preset,
-         sd_scheduler_name(scheduler), steps, cfgScale, static_cast<long long>(seed));
+    LOGI("[request] start taesd=%s loras=%d",
+         taesd_path[0] ? "enabled" : "disabled", static_cast<int>(lora_count));
+    LOGI("[settings] size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f",
+         width, height, sampling_preset, sd_scheduler_name(scheduler), steps, cfgScale);
     const ModelMemoryDescriptor model_descriptor{
         model_family, model_family_evidence, model_variant, model_variant_evidence,
         diffusion_storage, diffusionBytes, vae_architecture
@@ -188,12 +187,11 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     const ResolvedMemoryPolicy memory_policy =
         resolve_memory_policy(model_descriptor, memory_workload);
     const char* vae_tiling = memory_policy.vae_tiling ? "48x48@0.50" : "disabled";
-    LOGI("[model] family=%s family_evidence=%s variant=%s variant_evidence=%s diffusion_storage=%s diffusion_bytes=%.0f vae=%s",
-         model_family, model_family_evidence, model_variant, model_variant_evidence,
-         diffusion_storage, diffusionBytes, vae_architecture);
-    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f memory_source=%s memory_policy=%s output=%s",
+    LOGI("[model] family=%s family_evidence=%s diffusion_storage=%s diffusion_bytes=%.0f vae=%s",
+         model_family, model_family_evidence, diffusion_storage, diffusionBytes, vae_architecture);
+    LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f memory_source=%s memory_policy=%s",
          upscaler_type, upscaleFactor, hiresSteps, hiresDenoisingStrength,
-         memory_policy.source, memory_policy.id, output_path);
+         memory_policy.source, memory_policy.id);
     LOGI("[settings] diffusion_fa=%s params_backend=%s max_vram=disabled stream_layers=disabled vae_tiling=%s",
          memory_policy.diffusion_flash_attn ? "enabled" : "disabled",
          memory_policy.params_backend ? memory_policy.params_backend : "default", vae_tiling);
@@ -202,8 +200,8 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     diagnostic.path = diagnostic_path ? diagnostic_path : "";
     diagnostic.family = model_family;
     diagnostic.family_evidence = model_family_evidence;
-    diagnostic.variant = model_variant;
     diagnostic.diffusion_storage = diffusion_storage;
+    diagnostic.diffusion_bytes = diffusionBytes;
     diagnostic.preset = sampling_preset;
     diagnostic.memory_source = memory_policy.source;
     diagnostic.memory_policy = memory_policy.id;

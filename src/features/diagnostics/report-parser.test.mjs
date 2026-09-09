@@ -12,7 +12,7 @@ import {
 } from './report-parser.ts';
 
 const breadcrumb = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   kind: 'breadcrumb',
   status: 'running',
   stage: 'lora_apply',
@@ -75,7 +75,7 @@ test('assembles a privacy-safe generation crash report', () => {
   assert.equal(isGenerationCrashReport(report), true);
 });
 
-test('rejects prompt, path, alias, and seed fields', () => {
+test('rejects prompt, model identity, path, alias, and seed fields', () => {
   const withPrompt = assembleGenerationCrashReport({
     breadcrumb: { ...breadcrumb, prompt: 'secret' },
     device: { model: 'SM-G986N' },
@@ -83,9 +83,48 @@ test('rejects prompt, path, alias, and seed fields', () => {
     stackFrames: [],
   });
   assert.equal(withPrompt, null);
-  for (const key of ['prompt', 'modelPath', 'outputPath', 'alias', 'fileName', 'uri', 'seed']) {
+  for (const key of [
+    'prompt',
+    'modelPath',
+    'outputPath',
+    'alias',
+    'fileName',
+    'uri',
+    'seed',
+    'variant',
+    'variantEvidence',
+  ]) {
     assert.deepEqual(diagnosticContainsForbiddenKeys({ ...breadcrumb, [key]: 'secret' }), [key]);
   }
+});
+
+test('keeps model family, storage size, and crash execution context', () => {
+  const report = assembleGenerationCrashReport({
+    breadcrumb: {
+      ...breadcrumb,
+      diffusionBytes: 1_234_567,
+      nativeTail: ['loading tensor', 'allocating Vulkan buffer'],
+    },
+    device: { model: 'SM-G986N' },
+    exit: { reason: 'crash_native', status: 11 },
+    stackFrames: [],
+  });
+
+  assert.equal(report?.breadcrumb.family, 'sd1');
+  assert.equal(report?.breadcrumb.diffusionStorage, 'f32');
+  assert.equal(report?.breadcrumb.diffusionBytes, 1_234_567);
+  assert.deepEqual(report?.breadcrumb.nativeTail, ['loading tensor', 'allocating Vulkan buffer']);
+});
+
+test('rejects the previous crash report schema after data minimization', () => {
+  const report = assembleGenerationCrashReport({
+    breadcrumb,
+    device: { model: 'SM-G986N' },
+    exit: { reason: 'crash_native', status: 11 },
+    stackFrames: [],
+  });
+
+  assert.equal(parseGenerationCrashReport({ ...report, schemaVersion: 2 }), null);
 });
 
 test('names a low-memory kill without pretending it is a native symbol crash', () => {

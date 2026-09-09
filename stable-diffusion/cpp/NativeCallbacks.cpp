@@ -57,7 +57,10 @@ void android_sd_log_callback(sd_log_level_t level, const char* text, void* data)
                        : level == SD_LOG_WARN  ? ANDROID_LOG_WARN
                                                : ANDROID_LOG_INFO;
     if (level >= SD_LOG_WARN) {
-        __android_log_print(priority, LOG_TAG, "[stable-diffusion.cpp] %s", text);
+        const std::string sanitized = sanitize_native_log(text);
+        if (!sanitized.empty()) {
+            __android_log_print(priority, LOG_TAG, "[stable-diffusion.cpp] %s", sanitized.c_str());
+        }
     }
     auto* context = static_cast<ProgressLogContext*>(data);
     if (context->diagnostic) context->diagnostic->native_tail.push(text);
@@ -91,7 +94,10 @@ void android_quantization_log_callback(sd_log_level_t level, const char* text, v
     if (level < SD_LOG_WARN) return;
     const int priority = level == SD_LOG_ERROR ? ANDROID_LOG_ERROR
                                                : ANDROID_LOG_WARN;
-    __android_log_print(priority, LOG_TAG, "[quantize] %s", text);
+    const std::string sanitized = sanitize_native_log(text);
+    if (!sanitized.empty()) {
+        __android_log_print(priority, LOG_TAG, "[quantize] %s", sanitized.c_str());
+    }
 }
 
 void android_quantization_progress_callback(int step, int steps, float, void* data) {

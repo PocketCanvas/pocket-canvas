@@ -92,7 +92,7 @@ void query_vulkan_identity(std::string& device, std::string& api, std::string& d
 void write_generation_diagnostic(DiagnosticRecord& record, const char* stage, bool durable) {
     if (record.path.empty()) return;
 
-    std::string json = "{\"schemaVersion\":2";
+    std::string json = "{\"schemaVersion\":3";
     json += ",\"kind\":\"breadcrumb\"";
     json += ",\"status\":\"running\"";
     json += ",\"stage\":";
@@ -117,10 +117,10 @@ void write_generation_diagnostic(DiagnosticRecord& record, const char* stage, bo
     json += json_quote(record.family);
     json += ",\"familyEvidence\":";
     json += json_quote(record.family_evidence);
-    json += ",\"variant\":";
-    json += json_quote(record.variant);
     json += ",\"diffusionStorage\":";
     json += json_quote(record.diffusion_storage);
+    json += ",\"diffusionBytes\":";
+    json += std::to_string(record.diffusion_bytes);
     json += ",\"loraCount\":";
     json += std::to_string(record.lora_count);
     json += ",\"taesd\":";
@@ -157,7 +157,7 @@ void write_generation_diagnostic(DiagnosticRecord& record, const char* stage, bo
 
     FILE* file = std::fopen(record.path.c_str(), "wb");
     if (!file) {
-        LOGW("[diagnostic] failed to open %s", record.path.c_str());
+        LOGW("[diagnostic] failed to open breadcrumb file");
         return;
     }
     std::fwrite(json.data(), 1, json.size(), file);

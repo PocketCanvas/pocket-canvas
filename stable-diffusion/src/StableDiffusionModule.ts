@@ -28,6 +28,7 @@ type NativeGenerationOptions = {
 
 declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEvents> {
   getSystemInfo(): string;
+  probeOpenCL(): string;
   quantizeModel(inputUri: string, outputUri: string, type: QuantizationType): Promise<string>;
   consumeInterruptedGeneration(): Promise<string | null>;
   generateImage(

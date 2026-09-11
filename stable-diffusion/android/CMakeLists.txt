@@ -42,6 +42,13 @@ add_library(
     ../cpp/MemoryPolicy.cpp
     ../cpp/NativeCallbacks.cpp
     ../cpp/NativeLogCollector.cpp
+    ../cpp/OpenCLProbe.cpp
+)
+
+target_include_directories(
+    stable_diffusion_bridge
+    PRIVATE
+    "${POCKET_CANVAS_OPENCL_HEADERS_DIR}"
 )
 
 # stable-diffusion(C++ 코어 라이브러리)와 안드로이드 기본 log 라이브러리 링크
@@ -51,4 +58,5 @@ target_link_libraries(
     log
     vulkan
     OpenCL
+    dl
 )

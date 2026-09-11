@@ -8,10 +8,12 @@ import { CrashLogPanel } from '@/components/settings/crash-log-panel';
 import { ThemeSettings } from '@/components/settings/theme-settings';
 import { useTheme } from '@/hooks/use-theme';
 import { loadDebugCrashLog, type DebugCrashLog } from '@/storage/diagnostic-storage';
+import { probeOpenCL } from 'stable-diffusion';
 
 export default function SettingsScreen() {
   const colors = useTheme();
   const [crashLog, setCrashLog] = useState<DebugCrashLog | null>(null);
+  const [openCLProbeResult, setOpenCLProbeResult] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,7 +60,20 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <CrashLogPanel log={crashLog} />
+        <CrashLogPanel
+          log={crashLog}
+          openCLProbeResult={openCLProbeResult}
+          onProbeOpenCL={() => {
+            try {
+              const result = probeOpenCL();
+              setOpenCLProbeResult(result ?? '이 빌드에는 OpenCL probe가 없습니다.');
+            } catch (error) {
+              setOpenCLProbeResult(
+                error instanceof Error ? error.message : 'OpenCL probe를 실행하지 못했습니다.',
+              );
+            }
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

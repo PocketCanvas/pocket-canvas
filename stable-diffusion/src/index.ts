@@ -12,6 +12,11 @@ export function getSystemInfo(): string {
   return StableDiffusionModule.getSystemInfo();
 }
 
+export function probeOpenCL(): string | null {
+  if (typeof StableDiffusionModule.probeOpenCL !== 'function') return null;
+  return StableDiffusionModule.probeOpenCL();
+}
+
 export async function generateImage(options: GenerateImageOptions): Promise<string> {
   const result = await StableDiffusionModule.generateImage(
     options.prompt,

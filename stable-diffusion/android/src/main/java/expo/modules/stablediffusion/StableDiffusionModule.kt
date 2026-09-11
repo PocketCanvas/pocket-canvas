@@ -18,6 +18,7 @@ class StableDiffusionModule : Module() {
   }
 
   private external fun getSystemInfo(): String
+  private external fun probeOpenCL(): String
   private external fun quantizeModel(inputPath: String, outputPath: String, type: String): String
   private external fun generateImage(
     prompt: String,
@@ -67,6 +68,10 @@ class StableDiffusionModule : Module() {
 
     Function("getSystemInfo") {
       return@Function getSystemInfo()
+    }
+
+    Function("probeOpenCL") {
+      return@Function probeOpenCL()
     }
 
     AsyncFunction("consumeInterruptedGeneration") {

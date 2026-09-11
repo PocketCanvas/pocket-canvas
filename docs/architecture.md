@@ -23,7 +23,7 @@ Pocket Canvas C++ modules
 stable-diffusion.cpp
         │
         ▼
-ggml / Vulkan
+ggml / Vulkan (+ OpenCL 컴파일, 생성은 아직 Vulkan)
 ```
 
 `stable-diffusion.cpp`는 git submodule로 관리한다. Pocket Canvas의 custom native logic은 `stable-diffusion/cpp/`의 프로젝트 소유 모듈에서 구현하고, bridge는 JNI 진입점과 실행 조정을 담당한다. 세부 경계는 ADR-023을 따른다.
@@ -137,8 +137,12 @@ JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
 2. Kotlin 책임 모듈: Android lifecycle, API 계약, URI/storage validation, 종료 보고서 조립과 JNI 호출을 담당
 3. JNI bridge: 진입점, 실행 순서, 직렬화와 native 자원 수명을 담당
-4. 프로젝트 소유 C++ 모듈: 옵션 변환, 메모리 정책, 로그 수집, 생성 진단과 callback adaptation을 담당
+4. 프로젝트 소유 C++ 모듈: 옵션 변환, 메모리 정책, 로그 수집, 생성 진단, OpenCL 디바이스 열거와 callback adaptation을 담당
 5. stable-diffusion.cpp: 실제 model loading 및 diffusion inference를 수행하는 upstream core
+
+Android 네이티브 모듈은 Vulkan과 함께 ggml-opencl을 컴파일한다. NDK에 OpenCL이 없어 Khronos 헤더·ICD 로더를 `stable-diffusion/cpp/` 서브모듈로 두고 프로젝트 CMake가 `find_package(OpenCL)`를 만족시킨다. 생성 요청의 `backend`는 여전히 `vulkan`이다.
+
+설정 디버그 패널의 OpenCL probe는 링크된 ICD와 vendor `libOpenCL.so`로 `clGetPlatformIDs` → GPU 이름만 확인한다. 패키지 ICD는 폰에서 `-1001`이고, Qualcomm 기기는 `/vendor/lib64/libOpenCL.so`가 구현인 관례다. 열거 성공은 생성 성공이 아니다. → ADR-026
 
 ## Intelligent memory policy
 

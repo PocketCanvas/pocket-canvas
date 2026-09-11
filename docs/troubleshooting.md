@@ -2,6 +2,34 @@
 
 반복적으로 확인된 문제와 해결 절차를 기록
 
+## OpenCL probe가 `-1001`이거나 GPU를 못 찾음
+
+근거는 ADR-026이다. 생성 백엔드는 Vulkan이며, probe는 기기 OpenCL GPU가 보이는지만 본다.
+
+설정 → 디버그 → OpenCL probe → **확인**.
+
+### 링크된 ICD만 `clGetPlatformIDs failed: -1001 (CL_PLATFORM_NOT_FOUND_KHR)`
+
+- **원인:** APK에 넣은 Khronos ICD `libOpenCL.so`가 `/system/vendor/Khronos/OpenCL/vendors`의 `.icd` 목록을 찾는다. 갤럭시에는 그 목록이 없다. 패키지 ICD가 기기 vendor 구현을 가린다.
+- **해결하지 않는 것:** ICD 검색 경로를 SoC 이름이나 Adreno 번호로 하드코딩하지 않는다. 서브모듈 ICD 로더를 수정하지 않는다.
+- **해결:** 구현을 연 것은 vendor 라이브러리 직접 `dlopen`이다.
+
+  1. 모듈 매니페스트에 `<uses-native-library android:name="libOpenCL.so" android:required="false" />` (Android 12+에서 vendor `.so`를 앱 네임스페이스에 넣기 위해 필요)
+  2. `OpenCLProbe`가 `/vendor/lib64/libOpenCL.so`와 `/system/vendor/lib64/libOpenCL.so`를 `dlopen`한 뒤 같은 `clGetPlatformIDs` → `clGetDeviceIDs(GPU)` → `CL_DEVICE_NAME`을 호출
+
+- **Qualcomm 관례:** 이 파일 이름은 S20+ 전용이 아니다. Treble 이후 64비트 Qualcomm 보드는 vendor 파티션에 `libOpenCL.so`를 두는 경우가 반복된다. 앱이 열려면 `/vendor/etc/public.libraries.txt`에 이름이 있어야 한다. Snapdragon 820 문서, msm8998·SM8750 proprietary 목록, llama.cpp/llama.rn Android OpenCL 안내가 같은 경로를 쓴다.
+- **S20+ 실측:** ICD `-1001` 유지. vendor 두 경로는 `QUALCOMM Snapdragon(TM)` / `QUALCOMM Adreno(TM)`. `libvndksupport.so`(sphal)는 이 기기에 없어 실패했고, vendor 직접 로드가 되므로 필수가 아니다.
+- **이름이 Adreno 650이 아님:** Qualcomm OpenCL이 칩 번호 없이 `QUALCOMM Adreno(TM)`만 주는 표시다.
+
+### vendor `dlopen`도 실패
+
+- **원인 후보:** OEM이 OpenCL을 넣지 않음, `public.libraries.txt`에 없음, `uses-native-library` 누락(API 31+), Mali/PowerVR처럼 `.so` 이름이 다름, 최신 보드의 실제 구현이 `libOpenCL_adreno.so`
+- **해결:** SoC whitelist를 만들지 않는다. probe 출력의 `dlopen failed` 문구를 보고, 생성 백엔드를 추측으로 바꾸지 않는다.
+
+### 디바이스는 보이지만 생성이 OpenCL이 아님
+
+정상이다. probe 성공은 열거만 증명한다. llama.cpp는 A6xx 폰 드라이버/컴파일러에서 OpenCL 백엔드 실패가 쉽다고 적으며 S20+ Adreno 650이 여기 해당할 수 있다.
+
 ## 생성 중 앱이 예외 없이 사라짐
 
 근거는 ADR-021, ADR-022, ADR-025다. 생성 성공 로그(ADR-011)만으로는 죽은 단계를 알 수 없다.

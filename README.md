@@ -75,6 +75,8 @@ stable-diffusion.cpp
 ggml / Vulkan
 ```
 
+Android 네이티브 모듈은 ggml OpenCL도 같이 컴파일한다. 생성 추론은 아직 Vulkan이다. 기기 GPU 열거는 설정 디버그 패널의 OpenCL probe로 확인한다. 패키지 Khronos ICD는 폰에서 플랫폼을 못 찾고, Qualcomm 기기는 vendor `libOpenCL.so`가 구현인 관례다. → [ADR-026](docs/decisions/ADR-026-android-opencl-compile-and-vendor-probe.md)
+
 - React Native는 화면, 생성 상태, 모델·이미지 영속화와 전역 작업 조정을 담당합니다.
 - TypeScript 모듈은 앱과 네이티브 모듈 사이의 공개 계약을 제공합니다.
 - Kotlin은 책임별 파일에서 앱 저장소 경로와 API 계약, 프로세스 종료 진단을 처리하고, 긴 JNI 호출을 Expo 공용 큐와 분리된 전용 큐에서 실행합니다.
@@ -94,7 +96,7 @@ ggml / Vulkan
 | 앱          | Expo SDK 57, React 19, React Native 0.86, TypeScript  |
 | UI·상태     | Expo Router, Zustand, Gesture Handler, Reanimated     |
 | Android     | Kotlin, Expo Modules API, JNI, Android NDK 27.1       |
-| 추론        | C++17, stable-diffusion.cpp, ggml, Vulkan, mmap       |
+| 추론        | C++17, stable-diffusion.cpp, ggml, Vulkan, mmap. OpenCL은 컴파일·열거만 |
 | 저장소      | expo-sqlite 메타데이터, Expo FileSystem 모델·PNG      |
 | 릴리즈 빌드 | Docker BuildKit, JDK 17, Android API 36, CMake 3.22.1 |
 
@@ -122,6 +124,9 @@ ggml / Vulkan
 │     ├─ NativeLogCollector.*      # upstream 로그 tail 수집
 │     ├─ GenerationDiagnostics.*   # breadcrumb와 Vulkan 진단
 │     ├─ NativeCallbacks.*         # JNI callback과 진행 이벤트 연결
+│     ├─ OpenCLProbe.*             # 임시 vendor OpenCL 디바이스 열거
+│     ├─ OpenCL-Headers/           # Khronos 헤더 submodule
+│     ├─ OpenCL-ICD-Loader/        # Khronos ICD 로더 submodule
 │     └─ stable-diffusion.cpp/     # upstream git submodule
 ├─ docs/
 │  ├─ architecture.md

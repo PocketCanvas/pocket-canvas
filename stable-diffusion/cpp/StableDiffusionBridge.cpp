@@ -9,6 +9,7 @@
 #include "GenerationOptions.h"
 #include "MemoryPolicy.h"
 #include "NativeCallbacks.h"
+#include "OpenCLProbe.h"
 #include "stable-diffusion.cpp/include/stable-diffusion.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -26,6 +27,13 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_expo_modules_stablediffusion_StableDiffusionModule_getSystemInfo(JNIEnv *env, jobject thiz) {
     return env->NewStringUTF(sd_get_system_info());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_expo_modules_stablediffusion_StableDiffusionModule_probeOpenCL(JNIEnv *env, jobject thiz) {
+    const std::string result = probe_opencl();
+    return env->NewStringUTF(result.c_str());
 }
 
 extern "C"

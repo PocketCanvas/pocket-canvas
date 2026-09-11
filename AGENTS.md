@@ -4,7 +4,7 @@
 
 ## Boundaries
 - `stable-diffusion/cpp/stable-diffusion.cpp/` 내부의 코드는 절대 수정하지 않는다
-- 추론·양자화 등 커스텀 네이티브 연산 로직은 `stable-diffusion/cpp/`의 프로젝트 소유 C++ 모듈에만 작성한다. `StableDiffusionBridge.cpp`는 JNI 진입점·실행 순서·native 자원 수명을 담당하고, Kotlin 모듈은 API 계약 검증, lifecycle, 이벤트 전달, 실행 큐 지정과 Android 저장소·프로세스 종료 진단만 담당한다. → ADR-023
+- 추론·양자화 등 커스텀 네이티브 연산 로직은 `stable-diffusion/cpp/`의 프로젝트 소유 C++ 모듈에만 작성한다. `StableDiffusionBridge.cpp`는 JNI 진입점·실행 순서·native 자원 수명을 담당하고, Kotlin 모듈은 API 계약 검증, lifecycle, 이벤트 전달, 실행 큐 지정과 Android 저장소·프로세스 종료 진단만 담당한다. OpenCL 디바이스 열거는 `OpenCLProbe.cpp`가 소유한다. → ADR-023, ADR-026
 - `stable-diffusion/cpp/stable-diffusion.cpp/ggml/src/ggml-vulkan/CMakeLists.txt` 에는 Android SPIRV-Headers 우회를 위한 의도적인 local modification이 존재, 이를 revert/reset하지 않는다. → ADR-002
 - `stable-diffusion/android/build.gradle`에 `minSdkVersion`을 직접 선언하지 않는다. Android API 28은 CMake `ANDROID_PLATFORM`으로 설정
 - 루트와 `stable-diffusion/`의 Expo / React / React Native 버전을 서로 다른 호환 세대로 변경하지 않는다
@@ -60,9 +60,10 @@
 | ADR-023 | 네이티브 모듈 책임 분리 | Kotlin/C++ 프로젝트 소유 코드를 책임별 파일로 분리하고 bridge는 JNI 조정에 집중 |
 | ADR-024 | TypeScript 기능·공유 모듈 경계 | 기능 순수 로직은 `features`, 교차 기능은 `shared`, UI·hook·storage는 기존 계층 책임 유지 |
 | ADR-025 | 크래시 로그 데이터 최소화 | 직접 식별자·사용자 입력 제거 + 모델별 지표용 family/storage/양자화/byte 유지 + 전체 레벨 nativeTail 정제 |
+| ADR-026 | Android OpenCL 컴파일과 vendor probe | Vulkan과 함께 ggml-opencl 컴파일 + Khronos 서브모듈 + S20+에서 vendor `libOpenCL.so` 열거. 생성 백엔드는 Vulkan |
 
 ## Known landmines
-- 프로젝트 소유 네이티브 코드의 변경 위치는 책임으로 정한다. JNI 실행 순서·자원 수명은 `StableDiffusionBridge.cpp`, sampler/upscaler 변환은 `GenerationOptions`, 메모리 정책은 `MemoryPolicy`, upstream 로그 tail은 `NativeLogCollector`, breadcrumb/Vulkan 진단은 `GenerationDiagnostics`, JNI callback은 `NativeCallbacks`가 소유한다. Kotlin에서는 Expo/JNI 조정은 `StableDiffusionModule`, 옵션 계약은 `GenerationOptions`, 앱 저장소 경계는 `AppStorageFiles`, 종료 보고서 조립은 `GenerationCrashReporter`가 소유한다. 기계적인 Kotlin↔C++ 1:1 파일 대응을 만들지 않는다. → ADR-023
+- 프로젝트 소유 네이티브 코드의 변경 위치는 책임으로 정한다. JNI 실행 순서·자원 수명은 `StableDiffusionBridge.cpp`, sampler/upscaler 변환은 `GenerationOptions`, 메모리 정책은 `MemoryPolicy`, upstream 로그 tail은 `NativeLogCollector`, breadcrumb/Vulkan 진단은 `GenerationDiagnostics`, JNI callback은 `NativeCallbacks`, OpenCL 디바이스 열거는 `OpenCLProbe`가 소유한다. Kotlin에서는 Expo/JNI 조정은 `StableDiffusionModule`, 옵션 계약은 `GenerationOptions`, 앱 저장소 경계는 `AppStorageFiles`, 종료 보고서 조립은 `GenerationCrashReporter`가 소유한다. 기계적인 Kotlin↔C++ 1:1 파일 대응을 만들지 않는다. → ADR-023, ADR-026
 - Docker 릴리즈 빌드의 기준 진입점은 Git Bash의 `./scripts/build-release-apk.sh`이며 결과는 `artifacts/android/pocket-canvas-release.apk`이다. Docker가 clean clone에서 `expo prebuild`와 `docs/CMakeLists.txt` workaround 적용을 수행하므로 호스트 `android/`를 build context에 넣지 않는다. host Vulkan generator에는 Ninja, SPIR-V headers, Vulkan `vulkan/`과 `vk_video/`가 모두 필요하다. → ADR-019, `docs/troubleshooting.md`
 - Docker BuildKit가 Gradle 오류 없이 `rpc error: code = Unavailable ... EOF`로 종료되면 엔진 중단 또는 peak memory를 먼저 의심한다. `--max-workers=2`, `--no-parallel`, `CMAKE_BUILD_PARALLEL_LEVEL=2`를 제거하지 않는다. → ADR-019
 - `stable-diffusion/android/build.gradle`의 `ndkVersion rootProject.ext.ndkVersion`은 루트와 Expo 모듈이 NDK 27.1을 공유하기 위한 설정이다. 이를 제거하거나 별도 NDK 버전으로 바꾸지 않는다. `minSdkVersion` 금지 규칙과는 별개다. → ADR-002, ADR-019
@@ -94,3 +95,6 @@
 - `pssKb`/`rssKb` 0을 수집 실패로 보지 않는다. native crash의 `exit.signal.faultAddress`와 `stack.relPc`/`buildId`가 주소 해석에 쓰인다. RAM·GPU 이름·samplingStep을 늘리지 않는다. → ADR-022
 - `sd1-512-native-v1`의 `verified`는 S26 근거다. S20+ Adreno 650에서 Vulkan params alloc SIGSEGV가 나도 검증 정책으로 가장하거나 서브모듈을 수정하지 않는다. → ADR-018, ADR-022
 - TypeScript 기능 상태·정책·parser는 `src/features/<feature>/`, 둘 이상의 기능이 공유하는 앱 메커니즘은 `src/shared/<capability>/`가 소유한다. `features`는 `components`·`hooks`·`app`·`storage`·`database`를 참조하지 않고 `shared`는 `features`를 참조하지 않는다. → ADR-024
+- Android OpenCL은 NDK 패키지가 없다. 헤더·ICD 로더는 `stable-diffusion/cpp/OpenCL-Headers`, `OpenCL-ICD-Loader` 서브모듈과 `android/cmake/FindOpenCL.cmake`로 컴파일한다. ggml-opencl kernel embed는 호스트 Python 3가 필요하다. 서브모듈 `ggml-opencl`은 수정하지 않는다. → ADR-026
+- 패키지에 넣은 Khronos ICD `libOpenCL.so`로 `clGetPlatformIDs`하면 폰에서 `-1001`(`CL_PLATFORM_NOT_FOUND_KHR`)이 난다. Qualcomm 기기는 `/vendor/lib64/libOpenCL.so`(또는 `/system/vendor/lib64/libOpenCL.so`)가 구현이다. targetSdk 31+는 `uses-native-library android:name="libOpenCL.so"` `required=false`가 필요하다. SoC 이름이나 Adreno 번호를 경로에 넣지 않는다. → ADR-026, `docs/troubleshooting.md`
+- OpenCL 디바이스가 보인다고 생성 백엔드를 OpenCL로 바꾸지 않는다. 현재 생성은 Vulkan이다. A6xx 폰 드라이버는 열거 성공 후에도 추론이 실패할 수 있다. → ADR-026

@@ -9,9 +9,11 @@ import type { DebugCrashLog } from '@/features/diagnostics/debug-log';
 
 type CrashLogPanelProps = {
   log: DebugCrashLog | null;
+  openCLProbeResult: string | null;
+  onProbeOpenCL: () => void;
 };
 
-export function CrashLogPanel({ log }: CrashLogPanelProps) {
+export function CrashLogPanel({ log, openCLProbeResult, onProbeOpenCL }: CrashLogPanelProps) {
   const colors = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -80,6 +82,27 @@ export function CrashLogPanel({ log }: CrashLogPanelProps) {
             </Pressable>
           </View>
         ) : null}
+
+        <View style={[styles.probe, { borderTopColor: colors.border }]}>
+          <View style={styles.probeHeader}>
+            <Text style={[styles.infoLabel, { color: colors.text }]}>OpenCL probe</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="OpenCL GPU 확인"
+              onPress={onProbeOpenCL}
+              style={({ pressed }) => [
+                styles.copyButton,
+                { borderColor: colors.border, backgroundColor: colors.backgroundElement },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.copyLabel, { color: colors.accentText }]}>확인</Text>
+            </Pressable>
+          </View>
+          <Text selectable style={[styles.json, { color: colors.textSecondary }]}>
+            {openCLProbeResult ?? '아직 확인하지 않았습니다'}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -151,5 +174,17 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72,
+  },
+  probe: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  probeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
 });

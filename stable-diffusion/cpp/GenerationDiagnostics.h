@@ -19,6 +19,7 @@ struct DiagnosticRecord {
     const char* memory_source = "native-default";
     const char* memory_policy = "default";
     const char* params_backend = "default";
+    const char* compute_backend = "vulkan";
     const char* vae_tiling = "disabled";
     bool diffusion_fa = false;
     bool taesd = false;

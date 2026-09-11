@@ -38,6 +38,7 @@ export async function generateImage(options: GenerateImageOptions): Promise<stri
       diffusionStorage: options.memoryModel?.diffusionStorage ?? 'unknown',
       diffusionBytes: options.memoryModel?.diffusionBytes ?? 0,
       vaeArchitecture: options.memoryModel?.vaeArchitecture ?? 'unknown',
+      inferenceBackend: options.inferenceBackend ?? 'vulkan',
     },
     options.outputUri,
   );

@@ -23,7 +23,8 @@ internal data class GenerationOptions(
   @Field val modelVariantEvidence: String,
   @Field val diffusionStorage: String,
   @Field val diffusionBytes: Double,
-  @Field val vaeArchitecture: String
+  @Field val vaeArchitecture: String,
+  @Field val inferenceBackend: String
 ) : Record
 
 internal fun GenerationOptions.validate(loraUris: List<String>, loraWeights: List<Double>) {
@@ -51,6 +52,7 @@ internal fun GenerationOptions.validate(loraUris: List<String>, loraWeights: Lis
   }
   require(diffusionBytes.isFinite() && diffusionBytes >= 0.0) { "Invalid diffusion byte estimate" }
   require(vaeArchitecture in setOf("autoencoder-kl", "unknown")) { "Unsupported VAE architecture" }
+  require(inferenceBackend in setOf("vulkan", "cpu")) { "Unsupported inference backend" }
   require(loraUris.size == loraWeights.size) { "LoRA paths and weights must match" }
   require(loraWeights.all { it.isFinite() && it in 0.0..2.0 }) {
     "LoRA weights must be between 0 and 2"

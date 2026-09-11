@@ -113,7 +113,8 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     jint hiresSteps,
     jdouble hiresDenoisingStrength,
     jstring jOutputPath,
-    jstring jDiagnosticPath
+    jstring jDiagnosticPath,
+    jstring jInferenceBackend
 ) {
     std::unique_lock<std::mutex> operation_lock(operation_mutex, std::try_to_lock);
     if (!operation_lock.owns_lock()) {
@@ -135,6 +136,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     const char *upscaler_type = env->GetStringUTFChars(jUpscalerType, nullptr);
     const char *output_path = env->GetStringUTFChars(jOutputPath, nullptr);
     const char *diagnostic_path = env->GetStringUTFChars(jDiagnosticPath, nullptr);
+    const char *inference_backend = env->GetStringUTFChars(jInferenceBackend, nullptr);
     const jsize lora_count = env->GetArrayLength(jLoraPaths);
     std::vector<std::string> lora_paths;
     lora_paths.reserve(lora_count);
@@ -166,6 +168,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
         env->ReleaseStringUTFChars(jDiagnosticPath, diagnostic_path);
+        env->ReleaseStringUTFChars(jInferenceBackend, inference_backend);
         env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
         return env->NewStringUTF("Error: Unsupported generation option");
     }
@@ -186,15 +189,19 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     };
     const ResolvedMemoryPolicy memory_policy =
         resolve_memory_policy(model_descriptor, memory_workload);
+    const bool force_cpu_backend = std::strcmp(inference_backend, "cpu") == 0;
+    const char* applied_compute_backend = force_cpu_backend ? "cpu" : "vulkan";
+    const char* applied_params_backend = force_cpu_backend ? "*=cpu" : memory_policy.params_backend;
     const char* vae_tiling = memory_policy.vae_tiling ? "48x48@0.50" : "disabled";
     LOGI("[model] family=%s family_evidence=%s diffusion_storage=%s diffusion_bytes=%.0f vae=%s",
          model_family, model_family_evidence, diffusion_storage, diffusionBytes, vae_architecture);
     LOGI("[settings] hires=%s scale=%.1f steps=%d denoise=%.2f memory_source=%s memory_policy=%s",
          upscaler_type, upscaleFactor, hiresSteps, hiresDenoisingStrength,
          memory_policy.source, memory_policy.id);
-    LOGI("[settings] diffusion_fa=%s params_backend=%s max_vram=disabled stream_layers=disabled vae_tiling=%s",
+    LOGI("[settings] backend=%s diffusion_fa=%s params_backend=%s max_vram=disabled stream_layers=disabled vae_tiling=%s",
+         applied_compute_backend,
          memory_policy.diffusion_flash_attn ? "enabled" : "disabled",
-         memory_policy.params_backend ? memory_policy.params_backend : "default", vae_tiling);
+         applied_params_backend ? applied_params_backend : "default", vae_tiling);
 
     DiagnosticRecord diagnostic;
     diagnostic.path = diagnostic_path ? diagnostic_path : "";
@@ -205,11 +212,12 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     diagnostic.preset = sampling_preset;
     diagnostic.memory_source = memory_policy.source;
     diagnostic.memory_policy = memory_policy.id;
-    diagnostic.params_backend = memory_policy.params_backend ? memory_policy.params_backend : "default";
+    diagnostic.params_backend = applied_params_backend ? applied_params_backend : "default";
+    diagnostic.compute_backend = applied_compute_backend;
     diagnostic.params_compute =
-        memory_policy.params_backend && std::strstr(memory_policy.params_backend, "cpu")
+        applied_params_backend && std::strstr(applied_params_backend, "cpu")
             ? "cpu"
-            : "vulkan";
+            : applied_compute_backend;
     diagnostic.vae_tiling = vae_tiling;
     diagnostic.diffusion_fa = memory_policy.diffusion_flash_attn;
     diagnostic.taesd = taesd_path[0] != '\0';
@@ -243,9 +251,9 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     ctx_params.model_path = model_path;
     ctx_params.taesd_path = taesd_path;
     ctx_params.enable_mmap = true;
-    ctx_params.backend = "vulkan";
+    ctx_params.backend = applied_compute_backend;
     ctx_params.diffusion_flash_attn = memory_policy.diffusion_flash_attn;
-    ctx_params.params_backend = memory_policy.params_backend;
+    ctx_params.params_backend = applied_params_backend;
     ctx_params.lora_apply_mode = LORA_APPLY_AT_RUNTIME;
 
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
@@ -270,6 +278,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
         env->ReleaseStringUTFChars(jDiagnosticPath, diagnostic_path);
+        env->ReleaseStringUTFChars(jInferenceBackend, inference_backend);
         env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
         env->DeleteLocalRef(module_class);
         return env->NewStringUTF("Error: Failed to create SD context");
@@ -358,6 +367,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
     env->ReleaseStringUTFChars(jOutputPath, output_path);
     env->ReleaseStringUTFChars(jDiagnosticPath, diagnostic_path);
+    env->ReleaseStringUTFChars(jInferenceBackend, inference_backend);
     env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
     env->DeleteLocalRef(module_class);
 

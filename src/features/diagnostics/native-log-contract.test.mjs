@@ -16,6 +16,22 @@ const collectorPath = new URL(
   import.meta.url,
 );
 
+test('settings CPU selects ggml CPU compute and params backends', async () => {
+  const bridge = await readFile(bridgePath, 'utf8');
+  const diagnostics = await readFile(diagnosticsPath, 'utf8');
+
+  assert.match(bridge, /force_cpu_backend = std::strcmp\(inference_backend, "cpu"\) == 0/);
+  assert.match(bridge, /applied_compute_backend = force_cpu_backend \? "cpu" : "vulkan"/);
+  assert.match(
+    bridge,
+    /applied_params_backend = force_cpu_backend \? "\*=cpu" : memory_policy\.params_backend/,
+  );
+  assert.match(bridge, /ctx_params\.backend = applied_compute_backend/);
+  assert.match(bridge, /ctx_params\.params_backend = applied_params_backend/);
+  assert.doesNotMatch(bridge, /ctx_params\.backend = "vulkan"/);
+  assert.match(diagnostics, /json_quote\(record\.compute_backend\)/);
+});
+
 test('native logcat omits prompts, paths, seed, and model variant identity', async () => {
   const bridge = await readFile(bridgePath, 'utf8');
 

@@ -36,6 +36,8 @@ native crash 기록은 메모리 스냅샷을 보장하지 않는다. 수집 실
 
 `sd1-512-native-v1`의 verified 범위는 Galaxy S26이다. S20+ Adreno 650 Vulkan params alloc SIGSEGV를 검증 정책 실패로 가장하지 않는다. 서브모듈을 수정하지 않는다.
 
+설정에서 추론 백엔드를 `CPU`로 두면 ggml CPU only로 넘어간다. S20+의 기능 기준은 SD1 Q4 + LCM-LoRA, 256×256, 2 steps, 전체 869.13초다. `[settings] backend=cpu params_backend=*=cpu`와 `[request] complete success=1`로 확인한다. 512×512 CPU는 sampling이 길어 사용자가 중지한 기록이며 `ggml_backend_buft_alloc_buffer` SIGSEGV와 구분한다. → ADR-027
+
 ## Docker release APK 빌드
 
 기본 실행은 저장소 루트의 Git Bash에서 다음과 같다.

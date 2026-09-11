@@ -13,6 +13,7 @@ import {
   generationRunReducer,
   visibleGenerationImageUri,
 } from '@/features/generation/run-state';
+import { inferenceBackendStore } from '@/shared/inference-backend/store';
 import { showOperationBlockedAlert } from '@/shared/heavy-operation/blocked-alert';
 import { createImageDestination, saveImageMetadata } from '@/storage/image-storage';
 import { getStoredModelUri, inspectStoredModelDescriptor } from '@/storage/model-storage';
@@ -147,6 +148,7 @@ export default function GenerateScreen() {
           steps: hires.steps,
           denoisingStrength: hires.denoisingStrength,
         },
+        inferenceBackend: inferenceBackendStore.getState().inferenceBackend,
         outputUri: destination.file.uri,
       });
       let warning: string | undefined;

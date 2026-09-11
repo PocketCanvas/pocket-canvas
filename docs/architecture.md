@@ -161,7 +161,11 @@ resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 �
 
 이 정책은 사용자 생성 설정이나 UI 옵션이 아니다. 사용자 설정을 수정하지 않고, 실패 후 다른 조건으로 재시도하지 않으며, 아직은 미검증 조합을 사전 거절하지도 않는다. Kotlin은 descriptor 계약 검증과 전달만 담당하고, `MemoryPolicy`가 최종 정책을 판정하며 `StableDiffusionBridge.cpp`가 native 옵션에 적용한다. `[model]` 로그는 판정 입력을, `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`은 판정 결과를 보여준다.
 
-> VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018 참조
+설정 탭의 추론 백엔드는 이 합성을 바꾸지 않는다. `Vulkan`은 정책 결과를 그대로 쓰고, `CPU`는 `ctx_params.backend="cpu"`와 `params_backend=*=cpu`를 강제한다. 적용 주체는 계속 `StableDiffusionBridge.cpp`다.
+
+Galaxy S20+(Adreno 650)에서 설정 CPU의 기능 기준은 SD1 Q4 + LCM-LoRA, 256×256, 2 steps다. 로그는 `backend=cpu`, 전체 869.13초(loading 1.44s, encoding 12.49s, sampling 341.84s, decoding 512.85s), `memory_source=native-default`였다. 512×512 CPU는 sampling 중 사용자가 중지했으며 크래시가 아니다. 이 수치를 `verified` 메모리 정책으로 올리지 않는다. → ADR-027
+
+> VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018, 설정 덮어쓰기는 ADR-027 참조
 
 ## Persistence
 
@@ -238,7 +242,7 @@ storage ─→ feature domain types/parsers
 ```
 
 - `features`: 생성, 모델, 이미지, 히스토리와 진단의 상태 모델·정책·parser·순수 로직
-- `shared`: 여러 feature가 함께 쓰는 theme와 heavy-operation 같은 공통 앱 기능
+- `shared`: 여러 feature가 함께 쓰는 theme, heavy-operation, inference-backend 같은 공통 앱 기능
 - `components`: React presentation과 로컬 UI 상태
 - `hooks`: React lifecycle, 저장소/native 호출과 feature 로직의 조정
 - `storage` / `database`: FileSystem과 SQLite 부수 효과

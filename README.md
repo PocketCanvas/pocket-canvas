@@ -247,11 +247,13 @@ Galaxy S26에서 다음 경로가 검증되었습니다.
 - SDXL Turbo Q4 768×768의 48×48 VAE tiling
 - SDXL Turbo float 512×512의 flash attention + CPU parameter backend
 
+Galaxy S20+(Adreno 650)에서는 Vulkan 파라미터 할당이 SIGSEGV로 죽습니다. 설정 CPU(ggml CPU only)로 SD 1.5 Q4_K + LCM-LoRA, 256×256, 2 steps 생성이 완료됐고 전체 약 869초입니다. 512×512 CPU는 너무 길어 중지했으며 크래시가 아닙니다.
+
 초기 SD 1.5 Q4_K + LCM-LoRA PoC는 전체 약 116초로 기능 검증에는 성공했지만 60초 성능 목표에는 미달했습니다. 당시 sampling과 VAE decode가 각각 약 54초와 57초였으며, VAE decode가 주요 병목으로 확인되었습니다.
 
 23개 sampling preset과 8개 Hires 방식은 네이티브 빌드까지 검증됐지만 모든 모델·옵션 조합의 실기기 성공, 품질과 메모리를 보장하지 않습니다. TAESD도 별도 SD 1.x 가중치가 필요하며 최종 품질 문제로 기본 decoder로 채택하지 않았습니다.
 
-실험 결과는 [ADR-003](docs/decisions/ADR-003-poc-benchmark-results.md), [ADR-009](docs/decisions/ADR-009-generation-profiling-and-taesd-poc.md), [ADR-017](docs/decisions/ADR-017-evidence-based-vae-memory-policy.md), [ADR-018](docs/decisions/ADR-018-model-descriptor-memory-policy-resolution.md)에 기록되어 있습니다.
+실험 결과는 [ADR-003](docs/decisions/ADR-003-poc-benchmark-results.md), [ADR-009](docs/decisions/ADR-009-generation-profiling-and-taesd-poc.md), [ADR-017](docs/decisions/ADR-017-evidence-based-vae-memory-policy.md), [ADR-018](docs/decisions/ADR-018-model-descriptor-memory-policy-resolution.md), [ADR-027](docs/decisions/ADR-027-ggml-cpu-inference-backend.md)에 기록되어 있습니다.
 
 ## 모델과 개인정보
 

@@ -135,7 +135,13 @@ void write_generation_diagnostic(DiagnosticRecord& record, const char* stage, bo
     json += record.diffusion_fa ? "true" : "false";
     json += ",\"paramsBackend\":";
     json += json_quote(record.params_backend);
-    json += ",\"backend\":{\"diffusion\":\"vulkan\",\"textEncoder\":\"vulkan\",\"vae\":\"vulkan\",\"textEncoderParams\":";
+    json += ",\"backend\":{\"diffusion\":";
+    json += json_quote(record.compute_backend);
+    json += ",\"textEncoder\":";
+    json += json_quote(record.compute_backend);
+    json += ",\"vae\":";
+    json += json_quote(record.compute_backend);
+    json += ",\"textEncoderParams\":";
     json += json_quote(record.params_compute.c_str());
     json += "}";
     json += ",\"vaeTiling\":";

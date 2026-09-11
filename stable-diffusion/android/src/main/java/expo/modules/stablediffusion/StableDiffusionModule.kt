@@ -44,7 +44,8 @@ class StableDiffusionModule : Module() {
     hiresSteps: Int,
     hiresDenoisingStrength: Double,
     outputPath: String,
-    diagnosticPath: String
+    diagnosticPath: String,
+    inferenceBackend: String
   ): String
 
   @Keep
@@ -136,7 +137,8 @@ class StableDiffusionModule : Module() {
         options.hiresSteps,
         options.hiresDenoisingStrength,
         outputFile.absolutePath,
-        diagnosticFile.absolutePath
+        diagnosticFile.absolutePath,
+        options.inferenceBackend
       )
     }.runOnQueue(nativeOperationQueue)
   }

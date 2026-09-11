@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/common/screen-header';
 import { CrashLogPanel } from '@/components/settings/crash-log-panel';
+import { InferenceBackendSettings } from '@/components/settings/inference-backend-settings';
 import { ThemeSettings } from '@/components/settings/theme-settings';
 import { useTheme } from '@/hooks/use-theme';
 import { loadDebugCrashLog, type DebugCrashLog } from '@/storage/diagnostic-storage';
@@ -31,6 +32,8 @@ export default function SettingsScreen() {
         <ScreenHeader style={styles.header} title="설정" />
 
         <ThemeSettings />
+
+        <InferenceBackendSettings />
 
         {/* 2. 앱 정보 섹션 */}
         <View style={styles.section}>

@@ -6,6 +6,8 @@
 #include <CL/cl.h>
 
 #include <dlfcn.h>
+#include <mutex>
+#include <stdlib.h>
 
 #include <sstream>
 #include <string>
@@ -169,7 +171,26 @@ void* load_sphal(const char* name) {
 
 }  // namespace
 
+void prepare_opencl_vendor_icd() {
+    static std::once_flag once;
+    std::call_once(once, [] {
+        // Packaged Khronos ICD looks for /etc/OpenCL/vendors. Point it at vendor
+        // implementations before the first clGetPlatformIDs in this process.
+        if (getenv("OCL_ICD_FILENAMES") == nullptr) {
+            setenv(
+                "OCL_ICD_FILENAMES",
+                "/vendor/lib64/libOpenCL.so:/system/vendor/lib64/libOpenCL.so",
+                0
+            );
+        }
+        if (getenv("OCL_ICD_VENDORS") == nullptr) {
+            setenv("OCL_ICD_VENDORS", "/vendor/etc/OpenCL/vendors", 0);
+        }
+    });
+}
+
 std::string probe_opencl() {
+    prepare_opencl_vendor_icd();
     std::ostringstream out;
 
     OpenCLApi linked = {
@@ -178,7 +199,7 @@ std::string probe_opencl() {
         clGetPlatformInfo,
         clGetDeviceInfo,
     };
-    append_section(out, "linked ICD", indent_body(describe_devices(linked)).substr(2));
+    append_section(out, "linked libOpenCL.so", indent_body(describe_devices(linked)).substr(2));
 
     dlerror();
     probe_handle(out, "/vendor/lib64/libOpenCL.so", dlopen("/vendor/lib64/libOpenCL.so", RTLD_NOW), true);

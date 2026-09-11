@@ -23,7 +23,7 @@ Pocket Canvas C++ modules
 stable-diffusion.cpp
         │
         ▼
-ggml / Vulkan (+ OpenCL 컴파일, 생성은 아직 Vulkan)
+ggml / Vulkan 또는 OpenCL
 ```
 
 `stable-diffusion.cpp`는 git submodule로 관리한다. Pocket Canvas의 custom native logic은 `stable-diffusion/cpp/`의 프로젝트 소유 모듈에서 구현하고, bridge는 JNI 진입점과 실행 조정을 담당한다. 세부 경계는 ADR-023을 따른다.
@@ -60,7 +60,7 @@ Prompt / Model / LoRA / Steps / Optional TAESD
 1. JS에서 생성 요청을 구성
 2. Kotlin 계층에서 앱 storage URI 등 native boundary를 검증
 3. JNI bridge가 inference context를 생성
-4. stable-diffusion.cpp가 Vulkan backend에서 inference를 수행
+4. stable-diffusion.cpp가 선택한 backend(Vulkan 또는 OpenCL)에서 inference를 수행
 5. C++ `NativeCallbacks`가 upstream 생성 단계를 Kotlin의 JS progress event 전달 메서드에 연결
 6. 생성 결과를 앱 document storage에 PNG로 저장
 7. JS가 결과 URI와 metadata를 UI/history에 반영
@@ -137,12 +137,12 @@ JNI bridge mutex       생성·양자화의 최종 동시 실행 방지
 1. Expo module: JS 에 asynchronous native API와 event interface를 제공
 2. Kotlin 책임 모듈: Android lifecycle, API 계약, URI/storage validation, 종료 보고서 조립과 JNI 호출을 담당
 3. JNI bridge: 진입점, 실행 순서, 직렬화와 native 자원 수명을 담당
-4. 프로젝트 소유 C++ 모듈: 옵션 변환, 메모리 정책, 로그 수집, 생성 진단, OpenCL 디바이스 열거와 callback adaptation을 담당
+4. 프로젝트 소유 C++ 모듈: 옵션 변환, 메모리 정책, 로그 수집, 생성 진단, OpenCL 디바이스 열거, vendor OpenCL API 전달과 callback adaptation을 담당
 5. stable-diffusion.cpp: 실제 model loading 및 diffusion inference를 수행하는 upstream core
 
-Android 네이티브 모듈은 Vulkan과 함께 ggml-opencl을 컴파일한다. NDK에 OpenCL이 없어 Khronos 헤더·ICD 로더를 `stable-diffusion/cpp/` 서브모듈로 두고 프로젝트 CMake가 `find_package(OpenCL)`를 만족시킨다. 생성 요청의 `backend`는 여전히 `vulkan`이다.
+Android 네이티브 모듈은 Vulkan과 함께 ggml-opencl을 컴파일한다. NDK에 OpenCL이 없어 Khronos 헤더는 컴파일에 쓰고, 런타임 `libOpenCL.so`는 프로젝트 소유 `OpenCLForward`가 vendor 구현으로 전달한다. 생성 요청의 `backend`는 설정에서 고른 `vulkan` 또는 `opencl`이다. OpenCL을 고르면 mmap만 적용하고 MemoryPolicy는 쓰지 않는다.
 
-설정 디버그 패널의 OpenCL probe는 링크된 ICD와 vendor `libOpenCL.so`로 `clGetPlatformIDs` → GPU 이름만 확인한다. 패키지 ICD는 폰에서 `-1001`이고, Qualcomm 기기는 `/vendor/lib64/libOpenCL.so`가 구현인 관례다. 열거 성공은 생성 성공이 아니다. → ADR-026
+설정 디버그 패널의 OpenCL probe는 링크된 `libOpenCL.so`와 vendor 경로 `dlopen`으로 GPU 이름을 확인한다. Qualcomm 기기는 `/vendor/lib64/libOpenCL.so`가 구현인 관례다. 열거 성공은 생성 성공이 아니다. → ADR-026, ADR-027, ADR-028
 
 ## Intelligent memory policy
 
@@ -163,7 +163,7 @@ Model header + import provenance
 
 resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 적용한다. 정확히 일치하는 실험값이 없어도 SDXL의 diffusion parameter cost가 큰 경우에는 flash attention과 CPU 공유 parameter backend를, SD1/SDXL AutoEncoderKL의 768² 이상 decode에는 48×48 overlap 0.50 tiling을 서로 독립적으로 합성할 수 있다. 이 경로는 `conservative`로 기록하며 검증 완료를 의미하지 않는다. 어느 조건에도 해당하지 않으면 upstream 기본값을 유지한다.
 
-이 정책은 사용자 생성 설정이나 UI 옵션이 아니다. 사용자 설정을 수정하지 않고, 실패 후 다른 조건으로 재시도하지 않으며, 아직은 미검증 조합을 사전 거절하지도 않는다. Kotlin은 descriptor 계약 검증과 전달만 담당하고, `MemoryPolicy`가 최종 정책을 판정하며 `StableDiffusionBridge.cpp`가 native 옵션에 적용한다. `[model]` 로그는 판정 입력을, `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`은 판정 결과를 보여준다.
+이 정책은 사용자 생성 설정이나 UI 옵션이 아니다. 사용자 설정을 수정하지 않고, 실패 후 다른 조건으로 재시도하지 않으며, 아직은 미검증 조합을 사전 거절하지도 않는다. Kotlin은 descriptor 계약 검증과 전달만 담당하고, `MemoryPolicy`가 최종 정책을 판정하며 `StableDiffusionBridge.cpp`가 native 옵션에 적용한다. 설정에서 OpenCL을 고르면 이 합성을 건너뛰고 mmap만 적용한다. `[model]` 로그는 판정 입력을, `[settings]`의 `memory_source`, `memory_policy`, `diffusion_fa`, `params_backend`, `vae_tiling`과 `backend`는 판정 결과를 보여준다.
 
 > VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018 참조
 

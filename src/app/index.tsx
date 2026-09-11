@@ -8,6 +8,7 @@ import { LoraSortableList } from '@/components/generate/lora-sortable-list';
 import { useModelCatalog } from '@/hooks/use-model-catalog';
 import { useTheme } from '@/hooks/use-theme';
 import { createInitialGenerationDraft, generationDraftReducer } from '@/features/generation/draft';
+import { useInferenceBackend } from '@/hooks/use-inference-backend';
 import {
   createInitialGenerationRunState,
   generationRunReducer,
@@ -37,6 +38,7 @@ import { addProgressListener, generateImage } from 'stable-diffusion';
 
 export default function GenerateScreen() {
   const colors = useTheme();
+  const { backend } = useInferenceBackend();
   const [openPicker, setOpenPicker] = useState<'model' | 'taesd' | 'lora' | null>(null);
   const [draft, dispatchDraft] = useReducer(
     generationDraftReducer,
@@ -147,6 +149,7 @@ export default function GenerateScreen() {
           steps: hires.steps,
           denoisingStrength: hires.denoisingStrength,
         },
+        backend,
         outputUri: destination.file.uri,
       });
       let warning: string | undefined;

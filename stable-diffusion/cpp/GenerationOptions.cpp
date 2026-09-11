@@ -41,6 +41,12 @@ sd_hires_upscaler_t resolve_builtin_upscaler(const char* type) {
     return SD_HIRES_UPSCALER_COUNT;
 }
 
+const char* resolve_compute_backend(const char* name) {
+    if (name && std::strcmp(name, "vulkan") == 0) return "vulkan";
+    if (name && std::strcmp(name, "opencl") == 0) return "opencl";
+    return nullptr;
+}
+
 bool is_supported_quantization_type(sd_type_t type) {
     return type == SD_TYPE_Q8_0 || type == SD_TYPE_Q5_0 || type == SD_TYPE_Q5_1 ||
            type == SD_TYPE_Q4_0 || type == SD_TYPE_Q4_1 || type == SD_TYPE_Q4_K;

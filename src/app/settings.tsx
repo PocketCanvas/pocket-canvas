@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/common/screen-header';
+import { BackendSettings } from '@/components/settings/backend-settings';
 import { CrashLogPanel } from '@/components/settings/crash-log-panel';
 import { ThemeSettings } from '@/components/settings/theme-settings';
 import { useTheme } from '@/hooks/use-theme';
@@ -33,6 +34,8 @@ export default function SettingsScreen() {
         <ScreenHeader style={styles.header} title="설정" />
 
         <ThemeSettings />
+
+        <BackendSettings />
 
         {/* 2. 앱 정보 섹션 */}
         <View style={styles.section}>

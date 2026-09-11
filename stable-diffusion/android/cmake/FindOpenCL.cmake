@@ -1,7 +1,7 @@
-# Android NDK has no OpenCL package. Pocket Canvas builds Khronos ICD loader
-# first and this module satisfies ggml-opencl's find_package(OpenCL REQUIRED).
+# Android NDK has no OpenCL package. Pocket Canvas builds a vendor-forwarding
+# libOpenCL.so first and this module satisfies ggml-opencl's find_package(OpenCL REQUIRED).
 if(NOT TARGET OpenCL)
-    message(FATAL_ERROR "OpenCL ICD loader must be added before find_package(OpenCL)")
+    message(FATAL_ERROR "OpenCL vendor trampoline must be added before find_package(OpenCL)")
 endif()
 
 set(OpenCL_INCLUDE_DIR "${POCKET_CANVAS_OPENCL_HEADERS_DIR}")

@@ -24,6 +24,7 @@ type NativeGenerationOptions = {
   diffusionStorage: string;
   diffusionBytes: number;
   vaeArchitecture: string;
+  backend: string;
 };
 
 declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEvents> {

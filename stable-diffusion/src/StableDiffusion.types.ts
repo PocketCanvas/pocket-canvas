@@ -1,5 +1,7 @@
 export type GenerationStage = 'loading' | 'encoding' | 'sampling' | 'decoding';
 
+export type InferenceBackend = 'vulkan' | 'opencl';
+
 export type QuantizationType = 'q8_0' | 'q5_0' | 'q5_1' | 'q4_0' | 'q4_1' | 'q4_K';
 export type MemoryModelDescriptor = {
   family: 'sd1' | 'sdxl' | 'anima' | 'unknown';
@@ -65,5 +67,6 @@ export type GenerateImageOptions = {
   cfgScale: number;
   seed: number;
   upscaler: BuiltInUpscaler;
+  backend: InferenceBackend;
   outputUri: string;
 };

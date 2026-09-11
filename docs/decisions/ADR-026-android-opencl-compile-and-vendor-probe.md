@@ -4,7 +4,7 @@
 
 Accepted
 
-생성 추론 백엔드는 계속 Vulkan이다. 이 ADR은 OpenCL을 네이티브 모듈에 같이 빌드하고, 기기 GPU가 보이는지만 확인한 범위다.
+생성 백엔드를 설정에서 Vulkan/OpenCL로 고르는 계약은 [ADR-027](ADR-027-selectable-generation-backend.md)이 갱신한다. 이 ADR의 컴파일, vendor probe, 패키지 ICD `-1001` 관례는 유지한다.
 
 ## Date
 

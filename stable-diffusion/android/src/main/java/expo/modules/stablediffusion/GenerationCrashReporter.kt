@@ -78,9 +78,10 @@ internal object GenerationCrashReporter {
     archived.parentFile?.mkdirs()
     archived.writeText(report.toString())
     file.delete()
+    val backend = breadcrumb.optJSONObject("backend")?.optString("diffusion") ?: "unknown"
     Log.i(
       "StableDiffusionBridge",
-      "[crash] $title stage=$stage exit=$reason vulkan=${breadcrumb.optString("vulkanApi")} family=${breadcrumb.optString("family")} lora=${breadcrumb.optInt("loraCount")} symbol=${topSymbol ?: "none"}"
+      "[crash] $title stage=$stage exit=$reason backend=$backend vulkan=${breadcrumb.optString("vulkanApi")} family=${breadcrumb.optString("family")} lora=${breadcrumb.optInt("loraCount")} symbol=${topSymbol ?: "none"}"
     )
     return report.toString()
   }

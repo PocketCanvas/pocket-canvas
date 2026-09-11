@@ -11,7 +11,7 @@ Pocket Canvas는 사용자가 가져온 Stable Diffusion 모델과 LoRA를 외�
 ### 온디바이스 이미지 생성
 
 - GGUF 및 SafeTensors 체크포인트 실행
-- Vulkan GPU backend와 mmap 모델 로딩
+- Vulkan 또는 OpenCL GPU backend와 mmap 모델 로딩. 설정에서 선택하며 기본값은 Vulkan
 - 복수 LoRA 적용, 순서 변경 및 개별 가중치 설정
 - 23개 sampler/scheduler preset
 - 해상도, steps, CFG, seed, negative prompt 설정
@@ -72,10 +72,10 @@ Pocket Canvas C++ modules
 stable-diffusion.cpp
         │
         ▼
-ggml / Vulkan
+ggml / Vulkan 또는 OpenCL
 ```
 
-Android 네이티브 모듈은 ggml OpenCL도 같이 컴파일한다. 생성 추론은 아직 Vulkan이다. 기기 GPU 열거는 설정 디버그 패널의 OpenCL probe로 확인한다. 패키지 Khronos ICD는 폰에서 플랫폼을 못 찾고, Qualcomm 기기는 vendor `libOpenCL.so`가 구현인 관례다. → [ADR-026](docs/decisions/ADR-026-android-opencl-compile-and-vendor-probe.md)
+Android 네이티브 모듈은 ggml Vulkan과 OpenCL을 같이 컴파일한다. 생성 백엔드는 설정에서 Vulkan 또는 OpenCL을 고르며 기본값은 Vulkan이다. OpenCL 경로에는 mmap만 적용한다. 기기 GPU 열거는 설정 디버그 패널의 OpenCL probe로 확인한다. Qualcomm 기기는 vendor `libOpenCL.so`가 구현이며, 앱의 `libOpenCL.so`는 그 구현으로 전달한다. → [ADR-026](docs/decisions/ADR-026-android-opencl-compile-and-vendor-probe.md), [ADR-027](docs/decisions/ADR-027-selectable-generation-backend.md), [ADR-028](docs/decisions/ADR-028-vendor-opencl-forwarding-library.md)
 
 - React Native는 화면, 생성 상태, 모델·이미지 영속화와 전역 작업 조정을 담당합니다.
 - TypeScript 모듈은 앱과 네이티브 모듈 사이의 공개 계약을 제공합니다.
@@ -96,7 +96,7 @@ Android 네이티브 모듈은 ggml OpenCL도 같이 컴파일한다. 생성 추
 | 앱          | Expo SDK 57, React 19, React Native 0.86, TypeScript  |
 | UI·상태     | Expo Router, Zustand, Gesture Handler, Reanimated     |
 | Android     | Kotlin, Expo Modules API, JNI, Android NDK 27.1       |
-| 추론        | C++17, stable-diffusion.cpp, ggml, Vulkan, mmap. OpenCL은 컴파일·열거만 |
+| 추론        | C++17, stable-diffusion.cpp, ggml, Vulkan 또는 OpenCL, mmap |
 | 저장소      | expo-sqlite 메타데이터, Expo FileSystem 모델·PNG      |
 | 릴리즈 빌드 | Docker BuildKit, JDK 17, Android API 36, CMake 3.22.1 |
 

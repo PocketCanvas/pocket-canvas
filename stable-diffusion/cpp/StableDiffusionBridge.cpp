@@ -23,6 +23,11 @@ using namespace pocket_canvas;
 
 static std::mutex operation_mutex;
 
+extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM*, void*) {
+    prepare_opencl_vendor_icd();
+    return JNI_VERSION_1_6;
+}
+
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_expo_modules_stablediffusion_StableDiffusionModule_getSystemInfo(JNIEnv *env, jobject thiz) {
@@ -108,6 +113,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     jstring jDiffusionStorage,
     jdouble diffusionBytes,
     jstring jVaeArchitecture,
+    jstring jBackend,
     jobjectArray jLoraPaths,
     jdoubleArray jLoraWeights,
     jint width,
@@ -139,6 +145,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     const char *model_variant_evidence = env->GetStringUTFChars(jModelVariantEvidence, nullptr);
     const char *diffusion_storage = env->GetStringUTFChars(jDiffusionStorage, nullptr);
     const char *vae_architecture = env->GetStringUTFChars(jVaeArchitecture, nullptr);
+    const char *backend_name = env->GetStringUTFChars(jBackend, nullptr);
     const char *sampling_preset = env->GetStringUTFChars(jSamplingPreset, nullptr);
     const char *upscaler_type = env->GetStringUTFChars(jUpscalerType, nullptr);
     const char *output_path = env->GetStringUTFChars(jOutputPath, nullptr);
@@ -158,8 +165,10 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     sample_method_t sample_method;
     scheduler_t scheduler;
     const auto upscaler = resolve_builtin_upscaler(upscaler_type);
+    const char* compute_backend = resolve_compute_backend(backend_name);
     if (!resolve_sampling_preset(sampling_preset, sample_method, scheduler) ||
-        upscaler == SD_HIRES_UPSCALER_COUNT) {
+        upscaler == SD_HIRES_UPSCALER_COUNT ||
+        compute_backend == nullptr) {
         env->ReleaseStringUTFChars(jPrompt, prompt);
         env->ReleaseStringUTFChars(jNegativePrompt, negative_prompt);
         env->ReleaseStringUTFChars(jModelPath, model_path);
@@ -170,6 +179,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jModelVariantEvidence, model_variant_evidence);
         env->ReleaseStringUTFChars(jDiffusionStorage, diffusion_storage);
         env->ReleaseStringUTFChars(jVaeArchitecture, vae_architecture);
+        env->ReleaseStringUTFChars(jBackend, backend_name);
         env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
@@ -177,13 +187,14 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseDoubleArrayElements(jLoraWeights, lora_weights, JNI_ABORT);
         return env->NewStringUTF("Error: Unsupported generation option");
     }
+    prepare_opencl_vendor_icd();
 
     // ?? Diagnostic: elapsed time tracker ??
     const auto generation_started = Clock::now();
-    LOGI("[request] start taesd=%s loras=%d",
-         taesd_path[0] ? "enabled" : "disabled", static_cast<int>(lora_count));
-    LOGI("[settings] size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f",
-         width, height, sampling_preset, sd_scheduler_name(scheduler), steps, cfgScale);
+    LOGI("[request] start taesd=%s loras=%d backend=%s",
+         taesd_path[0] ? "enabled" : "disabled", static_cast<int>(lora_count), compute_backend);
+    LOGI("[settings] size=%dx%d preset=%s scheduler=%s steps=%d cfg=%.2f backend=%s",
+         width, height, sampling_preset, sd_scheduler_name(scheduler), steps, cfgScale, compute_backend);
     const ModelMemoryDescriptor model_descriptor{
         model_family, model_family_evidence, model_variant, model_variant_evidence,
         diffusion_storage, diffusionBytes, vae_architecture
@@ -192,8 +203,10 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         width, height, lora_count > 0, taesd_path[0] != '\0',
         upscaler != SD_HIRES_UPSCALER_NONE
     };
-    const ResolvedMemoryPolicy memory_policy =
-        resolve_memory_policy(model_descriptor, memory_workload);
+    const bool opencl_backend = std::strcmp(compute_backend, "opencl") == 0;
+    const ResolvedMemoryPolicy memory_policy = opencl_backend
+        ? ResolvedMemoryPolicy{}
+        : resolve_memory_policy(model_descriptor, memory_workload);
     const char* vae_tiling = memory_policy.vae_tiling ? "48x48@0.50" : "disabled";
     LOGI("[model] family=%s family_evidence=%s diffusion_storage=%s diffusion_bytes=%.0f vae=%s",
          model_family, model_family_evidence, diffusion_storage, diffusionBytes, vae_architecture);
@@ -214,10 +227,11 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     diagnostic.memory_source = memory_policy.source;
     diagnostic.memory_policy = memory_policy.id;
     diagnostic.params_backend = memory_policy.params_backend ? memory_policy.params_backend : "default";
+    diagnostic.compute_backend = compute_backend;
     diagnostic.params_compute =
         memory_policy.params_backend && std::strstr(memory_policy.params_backend, "cpu")
             ? "cpu"
-            : "vulkan";
+            : compute_backend;
     diagnostic.vae_tiling = vae_tiling;
     diagnostic.diffusion_fa = memory_policy.diffusion_flash_attn;
     diagnostic.taesd = taesd_path[0] != '\0';
@@ -251,7 +265,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     ctx_params.model_path = model_path;
     ctx_params.taesd_path = taesd_path;
     ctx_params.enable_mmap = true;
-    ctx_params.backend = "vulkan";
+    ctx_params.backend = compute_backend;
     ctx_params.diffusion_flash_attn = memory_policy.diffusion_flash_attn;
     ctx_params.params_backend = memory_policy.params_backend;
     ctx_params.lora_apply_mode = LORA_APPLY_AT_RUNTIME;
@@ -274,6 +288,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
         env->ReleaseStringUTFChars(jModelVariantEvidence, model_variant_evidence);
         env->ReleaseStringUTFChars(jDiffusionStorage, diffusion_storage);
         env->ReleaseStringUTFChars(jVaeArchitecture, vae_architecture);
+        env->ReleaseStringUTFChars(jBackend, backend_name);
         env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
         env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
         env->ReleaseStringUTFChars(jOutputPath, output_path);
@@ -362,6 +377,7 @@ Java_expo_modules_stablediffusion_StableDiffusionModule_generateImage(
     env->ReleaseStringUTFChars(jModelVariantEvidence, model_variant_evidence);
     env->ReleaseStringUTFChars(jDiffusionStorage, diffusion_storage);
     env->ReleaseStringUTFChars(jVaeArchitecture, vae_architecture);
+    env->ReleaseStringUTFChars(jBackend, backend_name);
     env->ReleaseStringUTFChars(jSamplingPreset, sampling_preset);
     env->ReleaseStringUTFChars(jUpscalerType, upscaler_type);
     env->ReleaseStringUTFChars(jOutputPath, output_path);

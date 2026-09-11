@@ -31,7 +31,42 @@ test('native logcat omits prompts, paths, seed, and model variant identity', asy
 test('breadcrumb logcat retains non-identifying crash execution context', async () => {
   const diagnostics = await readFile(diagnosticsPath, 'utf8');
 
-  assert.match(diagnostics, /\[breadcrumb\] stage=%s vulkan=%s family=%s lora=%d policy=%s/);
+  assert.match(
+    diagnostics,
+    /\[breadcrumb\] stage=%s backend=%s vulkan=%s family=%s lora=%d policy=%s/,
+  );
+});
+
+test('Android OpenCL runtime forwards vendor libOpenCL.so instead of packaging Khronos ICD', async () => {
+  const cmake = await readFile(
+    new URL('../../../stable-diffusion/android/CMakeLists.txt', import.meta.url),
+    'utf8',
+  );
+  const forward = await readFile(
+    new URL('../../../stable-diffusion/cpp/OpenCLForward.cpp', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(cmake, /OpenCLForward\.cpp/);
+  assert.doesNotMatch(cmake, /OpenCL-ICD-Loader/);
+  assert.match(forward, /\/vendor\/lib64\/libOpenCL\.so/);
+  assert.match(forward, /clGetPlatformIDs/);
+});
+
+test('generation backend is selected at runtime and OpenCL skips memory policy', async () => {
+  const bridge = await readFile(bridgePath, 'utf8');
+  const options = await readFile(
+    new URL('../../../stable-diffusion/cpp/GenerationOptions.cpp', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(options, /resolve_compute_backend/);
+  assert.match(bridge, /ctx_params\.backend = compute_backend/);
+  assert.match(bridge, /ctx_params\.enable_mmap = true/);
+  assert.doesNotMatch(bridge, /ctx_params\.backend = "vulkan"/);
+  assert.match(bridge, /opencl_backend/);
+  assert.match(bridge, /ResolvedMemoryPolicy\{\}/);
+  assert.match(bridge, /resolve_memory_policy\(model_descriptor, memory_workload\)/);
 });
 
 test('upstream logcat and native tail share redaction for identity-bearing text', async () => {

@@ -1,3 +1,9 @@
 [submodule "stable-diffusion/cpp/stable-diffusion.cpp"]
 	path = stable-diffusion/cpp/stable-diffusion.cpp
 	url = https://github.com/PocketCanvas/stable-diffusion.cpp.git
+[submodule "stable-diffusion/cpp/OpenCL-Headers"]
+	path = stable-diffusion/cpp/OpenCL-Headers
+	url = https://github.com/KhronosGroup/OpenCL-Headers.git
+[submodule "stable-diffusion/cpp/OpenCL-ICD-Loader"]
+	path = stable-diffusion/cpp/OpenCL-ICD-Loader
+	url = https://github.com/KhronosGroup/OpenCL-ICD-Loader.git

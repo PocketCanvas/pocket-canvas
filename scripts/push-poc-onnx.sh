@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Git Bash는 /sdcard 같은 인자를 Windows 경로로 바꿔 adb에 넘깁니다.
+# 그 결과 기기에서 `mkdir C:` / `mkdir Files` 가 실행됩니다.
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL='*'
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_root="$(cd -- "${script_dir}/.." && pwd)"
 source_dir="${project_root}/Chilloutmix"
@@ -22,13 +27,12 @@ if ! adb get-state >/dev/null 2>&1; then
   exit 1
 fi
 
-# Git Bash의 /c/Users/... 경로는 Windows adb가 읽지 못합니다.
 if command -v cygpath >/dev/null 2>&1; then
   local_source="$(cygpath -w "${source_dir}")"
 else
   local_source="${source_dir}"
 fi
 
-adb shell mkdir -p -- "${destination}"
+adb shell "mkdir -p '${destination}'"
 adb push --sync "${local_source}/." "${destination}"
 echo "ONNX PoC 파일을 ${destination} 에 복사했습니다."

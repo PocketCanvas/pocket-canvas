@@ -69,6 +69,8 @@ Prompt / Model / LoRA / Steps / Optional TAESD
 
 > 상세 내용은 ADR-007, ADR-021, ADR-022, ADR-023, ADR-025 참조
 
+S20+ ONNX PoC는 이 흐름과 별개다. 설정 → `onnx-poc` 화면 → Kotlin `OnnxPocGenerator` → Maven ORT 1.24.3 CPU 세션(text encoder / UNet / VAE) → 앱 filesDir PNG. ggml JNI·MemoryPolicy·생성 탭을 타지 않는다. → ADR-028
+
 TAESD를 선택하면 별도 가중치 경로가 TS → Kotlin → JNI 계약을 통해
 `sd_ctx_params_t.taesd_path`로 전달되고 최종 decode의 기본 VAE를 대체한다. TAESD는
 실험 옵션이며 품질 저하 때문에 기본값으로 사용하지 않는다. → ADR-009
@@ -165,7 +167,9 @@ resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 �
 
 Galaxy S20+(Adreno 650)에서 설정 CPU의 기능 기준은 SD1 Q4 + LCM-LoRA, 256×256, 2 steps다. 로그는 `backend=cpu`, 전체 869.13초(loading 1.44s, encoding 12.49s, sampling 341.84s, decoding 512.85s), `memory_source=native-default`였다. 512×512 CPU는 sampling 중 사용자가 중지했으며 크래시가 아니다. 이 수치를 `verified` 메모리 정책으로 올리지 않는다. → ADR-027
 
-> VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018, 설정 덮어쓰기는 ADR-027 참조
+S20+에서 ggml Vulkan SIGSEGV와 ggml CPU 869초를 우회하는 실험은 생성 탭이 아니라 전용 `onnx-poc` 화면이다. Maven ONNX Runtime 1.24.3 CPU로 Chilloutmix INT8 `.ort` 파이프라인을 돌리며, 설정 Vulkan/CPU와 MemoryPolicy를 바꾸지 않는다. logcat `OnnxPoc` 기준 256×256 20 steps 40.526초, 512×512 20 steps 228.439초다. → ADR-028
+
+> VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018, 설정 덮어쓰기는 ADR-027, S20+ ONNX PoC는 ADR-028 참조
 
 ## Persistence
 

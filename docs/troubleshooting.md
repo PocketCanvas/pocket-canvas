@@ -38,6 +38,16 @@ native crash 기록은 메모리 스냅샷을 보장하지 않는다. 수집 실
 
 설정에서 추론 백엔드를 `CPU`로 두면 ggml CPU only로 넘어간다. S20+의 기능 기준은 SD1 Q4 + LCM-LoRA, 256×256, 2 steps, 전체 869.13초다. `[settings] backend=cpu params_backend=*=cpu`와 `[request] complete success=1`로 확인한다. 512×512 CPU는 sampling이 길어 사용자가 중지한 기록이며 `ggml_backend_buft_alloc_buffer` SIGSEGV와 구분한다. → ADR-027
 
+S20+에서 더 짧은 생성이 필요하면 ggml 경로를 바꾸지 않고 ONNX PoC 화면을 쓴다. 확인은 `adb logcat -s OnnxPoc:I`다. Chilloutmix INT8, 20 steps, CFG 7 기준 256×256 40.526초, 512×512 228.439초. 설정에 ONNX를 세 번째 백엔드로 넣거나 `onnxruntime-react-native`를 설치하지 않는다. → ADR-028
+
+### Git Bash `adb push`가 `mkdir: 'C:'` / `'Files'`로 실패
+
+Git Bash가 `/sdcard/...`를 `C:\Program Files\Git\...`로 바꾼다. `./scripts/push-poc-onnx.sh`는 `MSYS_NO_PATHCONV=1`을 켠다. 손으로 `adb`를 칠 때도 같은 변수가 필요하다.
+
+### ONNX 생성이 `UNICODE_CHARACTER_CLASS flag not supported`
+
+Android `Pattern`은 그 플래그를 지원하지 않는다. CLIP tokenizer는 `CASE_INSENSITIVE`만 쓴다. → ADR-028
+
 ## Docker release APK 빌드
 
 기본 실행은 저장소 루트의 Git Bash에서 다음과 같다.

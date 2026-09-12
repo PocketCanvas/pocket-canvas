@@ -40,8 +40,9 @@ test('parses a successful session inspection', () => {
   assert.equal(inspection.sessions[0]?.inputs[0]?.name, 'sample');
 });
 
-test('uses a fixed English tag prompt about a cat climbing a tree', () => {
-  assert.match(ONNX_POC_PROMPT, /cat climbing a tree/);
+test('uses a photorealistic Chilloutmix prompt of a cat climbing a tree', () => {
+  assert.match(ONNX_POC_PROMPT, /photorealistic/);
+  assert.match(ONNX_POC_PROMPT, /cat climbing/);
 });
 
 test('parses a successful ONNX generation path', () => {

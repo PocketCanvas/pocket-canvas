@@ -1,10 +1,11 @@
 export const ONNX_POC_DIRECTORY_NAME = 'poc-chilloutmix';
 
 export const ONNX_POC_PROMPT =
-  'cat climbing a tree, tree, outdoors, animal focus, masterpiece, best quality, highly detailed';
-export const ONNX_POC_NEGATIVE_PROMPT = 'worst quality, low quality, blurry, deformed';
-export const ONNX_POC_WIDTH = 256;
-export const ONNX_POC_HEIGHT = 256;
+  'RAW photo, photorealistic, a fluffy ginger tabby cat climbing a thick tree trunk, looking up, paws gripping bark, sunlit forest, dappled light through leaves, shallow depth of field, 85mm, f/1.8, natural lighting, sharp focus, masterpiece, best quality, ultra detailed';
+export const ONNX_POC_NEGATIVE_PROMPT =
+  'worst quality, low quality, blurry, deformed, cartoon, anime, illustration, painting, extra legs, extra tails, watermark, text';
+export const ONNX_POC_WIDTH = 512;
+export const ONNX_POC_HEIGHT = 512;
 export const ONNX_POC_STEPS = 20;
 export const ONNX_POC_CFG = 7;
 export const ONNX_POC_SEED = 42;

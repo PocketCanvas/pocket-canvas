@@ -14,8 +14,8 @@ internal class ClipTokenizer(vocabFile: File, mergesFile: File) {
   private val unk: Int
   private val pattern: Pattern =
     Pattern.compile(
-      """'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]|[^\s\p{L}\p{N}]+""",
-      Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CHARACTER_CLASS,
+      """'s|'t|'re|'ve|'m|'ll|'d|[a-z]+|[0-9]+|[^\s\w]+""",
+      Pattern.CASE_INSENSITIVE,
     )
 
   init {

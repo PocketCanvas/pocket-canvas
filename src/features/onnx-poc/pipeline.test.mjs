@@ -5,6 +5,7 @@ import {
   ONNX_POC_PROMPT,
   ONNX_POC_REQUIRED_FILES,
   isOnnxPocBackend,
+  isOnnxPocSize,
   parseOnnxPocGeneration,
   parseOnnxPocInspection,
 } from './pipeline.ts';
@@ -39,6 +40,12 @@ test('parses a successful session inspection', () => {
   assert.equal(inspection.ok, true);
   if (!inspection.ok) return;
   assert.equal(inspection.sessions[0]?.inputs[0]?.name, 'sample');
+});
+
+test('accepts only 256 and 512 ONNX sizes', () => {
+  assert.equal(isOnnxPocSize(256), true);
+  assert.equal(isOnnxPocSize(512), true);
+  assert.equal(isOnnxPocSize(768), false);
 });
 
 test('accepts only cpu, xnnpack, and nnapi ONNX backends', () => {

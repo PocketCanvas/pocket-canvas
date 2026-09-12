@@ -4,8 +4,16 @@ export const ONNX_POC_PROMPT =
   'RAW photo, photorealistic, a fluffy ginger tabby cat climbing a thick tree trunk, looking up, paws gripping bark, sunlit forest, dappled light through leaves, shallow depth of field, 85mm, f/1.8, natural lighting, sharp focus, masterpiece, best quality, ultra detailed';
 export const ONNX_POC_NEGATIVE_PROMPT =
   'worst quality, low quality, blurry, deformed, cartoon, anime, illustration, painting, extra legs, extra tails, watermark, text';
-export const ONNX_POC_WIDTH = 512;
-export const ONNX_POC_HEIGHT = 512;
+export const ONNX_POC_SIZES = [256, 512] as const;
+
+export type OnnxPocSize = (typeof ONNX_POC_SIZES)[number];
+
+export const ONNX_POC_DEFAULT_SIZE: OnnxPocSize = 256;
+
+export function isOnnxPocSize(value: number): value is OnnxPocSize {
+  return (ONNX_POC_SIZES as readonly number[]).includes(value);
+}
+
 export const ONNX_POC_STEPS = 20;
 export const ONNX_POC_CFG = 7;
 export const ONNX_POC_SEED = 42;

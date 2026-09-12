@@ -14,21 +14,22 @@ import { AppIcon } from '@/components/common/app-icon';
 import { ScreenHeader } from '@/components/common/screen-header';
 import { useTheme } from '@/hooks/use-theme';
 import { OnnxPocBackendPicker } from '@/components/onnx-poc/onnx-poc-backend-picker';
+import { OnnxPocSizePicker } from '@/components/onnx-poc/onnx-poc-size-picker';
 import {
   ONNX_POC_CFG,
   ONNX_POC_DEFAULT_BACKEND,
-  ONNX_POC_HEIGHT,
+  ONNX_POC_DEFAULT_SIZE,
   ONNX_POC_NEGATIVE_PROMPT,
   ONNX_POC_PROMPT,
   ONNX_POC_REQUIRED_FILES,
   ONNX_POC_SEED,
   ONNX_POC_STEPS,
-  ONNX_POC_WIDTH,
   parseOnnxPocGeneration,
   parseOnnxPocInspection,
   type OnnxPocBackend,
   type OnnxPocInspection,
   type OnnxPocSessionInspection,
+  type OnnxPocSize,
   type OnnxTensorInfo,
 } from '@/features/onnx-poc/pipeline';
 import { showOperationBlockedAlert } from '@/shared/heavy-operation/blocked-alert';
@@ -43,8 +44,10 @@ export default function OnnxPocScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState<number | null>(null);
   const [usedBackend, setUsedBackend] = useState<OnnxPocBackend | null>(null);
+  const [usedSize, setUsedSize] = useState<OnnxPocSize | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [backend, setBackend] = useState<OnnxPocBackend>(ONNX_POC_DEFAULT_BACKEND);
+  const [size, setSize] = useState<OnnxPocSize>(ONNX_POC_DEFAULT_SIZE);
 
   useEffect(() => {
     const subscription = addOnnxPocProgressListener(setProgress);
@@ -86,8 +89,8 @@ export default function OnnxPocScreen() {
         await generateOnnxPoc({
           prompt: ONNX_POC_PROMPT,
           negativePrompt: ONNX_POC_NEGATIVE_PROMPT,
-          width: ONNX_POC_WIDTH,
-          height: ONNX_POC_HEIGHT,
+          width: size,
+          height: size,
           steps: ONNX_POC_STEPS,
           cfgScale: ONNX_POC_CFG,
           seed: ONNX_POC_SEED,
@@ -100,6 +103,7 @@ export default function OnnxPocScreen() {
       }
       setElapsedMs(result.elapsedMs);
       setUsedBackend(backend);
+      setUsedSize(size);
       setImageUri(`file://${result.outputPath}?t=${Date.now()}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'ONNX 생성에 실패했습니다.');
@@ -107,7 +111,7 @@ export default function OnnxPocScreen() {
       useOperationStore.getState().finishOperation(operation.id);
       setIsGenerating(false);
     }
-  }, [backend]);
+  }, [backend, size]);
 
   const busy = isInspecting || isGenerating;
 
@@ -136,10 +140,11 @@ export default function OnnxPocScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.hint, { color: colors.muted }]}>
-          Chilloutmix 실사 프롬프트로 512×512, 20 steps, CFG 7, seed 42 한 장을 만듭니다. ORT
+          Chilloutmix 실사 프롬프트로 20 steps, CFG 7, seed 42 한 장을 만듭니다. 해상도와 ORT
           백엔드는 아래 선택입니다. 측정된 기준은 CPU입니다.
         </Text>
 
+        <OnnxPocSizePicker disabled={busy} onChange={setSize} size={size} />
         <OnnxPocBackendPicker backend={backend} disabled={busy} onChange={setBackend} />
 
         <View
@@ -191,7 +196,7 @@ export default function OnnxPocScreen() {
             />
             {elapsedMs != null ? (
               <Text style={[styles.path, { color: colors.muted }]}>
-                {(elapsedMs / 1000).toFixed(1)}초 · {ONNX_POC_WIDTH}×{ONNX_POC_HEIGHT} ·{' '}
+                {(elapsedMs / 1000).toFixed(1)}초 · {usedSize ?? size}×{usedSize ?? size} ·{' '}
                 {ONNX_POC_STEPS} steps · {usedBackend ?? backend}
               </Text>
             ) : null}

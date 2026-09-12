@@ -73,5 +73,12 @@ export async function consumeInterruptedGeneration(): Promise<string | null> {
   return StableDiffusionModule.consumeInterruptedGeneration();
 }
 
+export async function inspectOnnxPipeline(): Promise<unknown> {
+  if (typeof StableDiffusionModule.inspectOnnxPipeline !== 'function') {
+    throw new Error('이 플랫폼에서는 ONNX 파이프라인을 열 수 없습니다.');
+  }
+  return JSON.parse(await StableDiffusionModule.inspectOnnxPipeline()) as unknown;
+}
+
 export { default as StableDiffusionModule } from './StableDiffusionModule';
 export * from './StableDiffusion.types';

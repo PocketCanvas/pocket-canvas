@@ -75,6 +75,20 @@ class StableDiffusionModule : Module() {
       GenerationCrashReporter.consume(context)
     }
 
+    AsyncFunction("inspectOnnxPipeline") {
+      val context = appContext.reactContext ?: throw Exception("React context not found")
+      try {
+        OnnxPipelineInspector.inspect(context.filesDir, context.getExternalFilesDir(null)).toString()
+      } catch (error: Exception) {
+        org.json.JSONObject()
+          .put("ok", false)
+          .put("rootPath", org.json.JSONObject.NULL)
+          .put("missing", org.json.JSONArray())
+          .put("error", error.message ?: "ONNX 파이프라인을 열지 못했습니다.")
+          .toString()
+      }
+    }.runOnQueue(nativeOperationQueue)
+
     AsyncFunction("quantizeModel") { inputUri: String, outputUri: String, type: String ->
       val context = appContext.reactContext ?: throw Exception("React context not found")
       val supportedTypes = setOf("q8_0", "q5_0", "q5_1", "q4_0", "q4_1", "q4_K")

@@ -31,6 +31,7 @@ declare class StableDiffusionModule extends NativeModule<StableDiffusionModuleEv
   getSystemInfo(): string;
   quantizeModel(inputUri: string, outputUri: string, type: QuantizationType): Promise<string>;
   consumeInterruptedGeneration(): Promise<string | null>;
+  inspectOnnxPipeline(): Promise<string>;
   generateImage(
     prompt: string,
     modelUri: string,

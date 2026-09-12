@@ -12,6 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 export type ScreenHeaderProps = {
   title: string;
+  leftAction?: React.ReactNode;
   rightAction?: React.ReactNode;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -20,6 +21,7 @@ export type ScreenHeaderProps = {
 
 export function ScreenHeader({
   title,
+  leftAction,
   rightAction,
   children,
   style,
@@ -30,6 +32,7 @@ export function ScreenHeader({
   return (
     <View style={[styles.container, style]}>
       <View style={styles.bar}>
+        {leftAction ? <View style={styles.actions}>{leftAction}</View> : null}
         <View style={styles.titleContainer}>
           <Text
             accessibilityRole="header"

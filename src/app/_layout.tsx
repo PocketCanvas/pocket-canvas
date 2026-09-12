@@ -1,11 +1,10 @@
 import { preventAutoHideAsync } from 'expo-splash-screen';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { consumeInterruptedGeneration } from 'stable-diffusion';
 
 import { AnimatedSplashOverlay } from '@/components/common/animated-icon';
-import AppTabs from '@/components/common/app-tabs';
 import { useColorScheme } from '@/hooks/use-theme';
 import {
   isGenerationCrashReport,
@@ -14,7 +13,7 @@ import {
 
 preventAutoHideAsync();
 
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   useEffect(() => {
@@ -34,7 +33,10 @@ export default function TabLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <AnimatedSplashOverlay />
-        <AppTabs />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="onnx-poc" />
+        </Stack>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

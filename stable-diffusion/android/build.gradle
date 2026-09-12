@@ -30,4 +30,11 @@ android {
   lintOptions {
     abortOnError false
   }
+  packagingOptions {
+    pickFirst '**/libc++_shared.so'
+  }
+}
+
+dependencies {
+  implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.24.3'
 }

@@ -43,6 +43,9 @@ example
 /android
 /artifacts/
 
+# Local ONNX PoC weights. Do not commit checkpoints.
+/Chilloutmix/
+
 tasks
 
 test-result

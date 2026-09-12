@@ -167,7 +167,7 @@ resolver는 실기기에서 확인된 조합을 `verified` 정책으로 우선 �
 
 Galaxy S20+(Adreno 650)에서 설정 CPU의 기능 기준은 SD1 Q4 + LCM-LoRA, 256×256, 2 steps다. 로그는 `backend=cpu`, 전체 869.13초(loading 1.44s, encoding 12.49s, sampling 341.84s, decoding 512.85s), `memory_source=native-default`였다. 512×512 CPU는 sampling 중 사용자가 중지했으며 크래시가 아니다. 이 수치를 `verified` 메모리 정책으로 올리지 않는다. → ADR-027
 
-S20+에서 ggml Vulkan SIGSEGV와 ggml CPU 869초를 우회하는 실험은 생성 탭이 아니라 전용 `onnx-poc` 화면이다. Maven ONNX Runtime 1.24.3 CPU로 Chilloutmix INT8 `.ort` 파이프라인을 돌리며, 설정 Vulkan/CPU와 MemoryPolicy를 바꾸지 않는다. logcat `OnnxPoc` 기준 256×256 20 steps 40.526초, 512×512 20 steps 228.439초다. → ADR-028
+S20+에서 ggml Vulkan SIGSEGV와 ggml CPU 869초를 우회하는 실험은 생성 탭이 아니라 전용 `onnx-poc` 화면이다. Maven ONNX Runtime 1.24.3으로 Chilloutmix INT8 `.ort` 파이프라인을 돌리며, 설정 Vulkan/CPU와 MemoryPolicy를 바꾸지 않는다. logcat `OnnxPoc` 기준 256×256 20 steps는 CPU 40.526초 / XNNPACK 48.902초 / NNAPI 113.655초, 512×512 CPU 20 steps는 228.439초다. 기능 기준은 CPU다. → ADR-028
 
 > VAE 실험 근거는 ADR-017, 확장 가능한 정책 구조와 sampling 근거는 ADR-018, 설정 덮어쓰기는 ADR-027, S20+ ONNX PoC는 ADR-028 참조
 

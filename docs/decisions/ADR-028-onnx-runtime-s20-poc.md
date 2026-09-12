@@ -68,8 +68,9 @@ Vulkan/CPU는 같은 ggml 엔진의 연산 백엔드고, ONNX는 모델 포맷·
 
 ### QNN HTP / NNAPI를 첫 가속으로 채택
 
-S20+ Hexagon은 v66이라 Local Dream 등 SD1.5 NPU 타깃(V68+) 밖이다. NNAPI GPU는
-실기기 할당 로그가 필요하다. 첫 기능 기준은 CPU에서 그림이 나오는 것이다.
+S20+ Hexagon은 v66이라 Local Dream 등 SD1.5 NPU 타깃(V68+) 밖이다. 256² 20 steps에서
+NNAPI는 세션은 열리지만 CPU보다 약 2.6배 느렸다. 첫 기능 기준은 CPU에서 그림이
+나오는 것이다.
 
 ### ADR-023대로 생성 루프를 즉시 C++로 작성
 
@@ -84,17 +85,18 @@ S20+ Hexagon은 v66이라 Local Dream 등 SD1.5 NPU 타깃(V68+) 밖이다. NNAP
 - `.ort`는 2023 포맷이다. ORT 1.24에서 열린 것은 이 묶음에 한한다.
 - Android `Pattern.UNICODE_CHARACTER_CLASS`는 쓰지 않는다. Git Bash `adb`는
   `MSYS_NO_PATHCONV=1` 없이 `/sdcard`를 `C:\Program Files`로 바꾼다.
-- NNAPI와 XNNPACK은 화면에서 고를 수 있지만, 기능 기준 시간은 CPU 로그다. QNN, LoRA,
-  카탈로그, 히스토리 연동은 후속이다.
+- NNAPI와 XNNPACK은 화면에서 고를 수 있다. 256² 20 steps에서 CPU가 가장 빠르고,
+  XNNPACK은 비슷하거나 조금 느리며, NNAPI는 더 느리다. QNN, LoRA, 카탈로그, 히스토리
+  연동은 후속이다.
 
 ## Validation
 
 Galaxy S20+(`SM-G986N`, Android 13, Adreno 650). 모델은 Chilloutmix INT8 `.ort`
-파이프라인. ORT 1.24.3 CPU, DDIM, CFG 7, seed 42, 20 steps. logcat `OnnxPoc`.
+파이프라인. ORT 1.24.3, DDIM, CFG 7, seed 42, 20 steps. logcat `OnnxPoc`.
 
 CFG라 sampling 1스텝은 UNet 순방향 2회다.
 
-### 256×256
+### 256×256 CPU 기준
 
 `generate start 256x256 steps=20 cfg=7.0` … `generate done 40526ms`
 
@@ -106,9 +108,25 @@ CFG라 sampling 1스텝은 UNet 순방향 2회다.
 | decoding (VAE) + PNG | 3,378ms |
 | **전체** | **40,526ms** |
 
-latent `32×32`. CLIP hidden 59,136 floats (`77×768`).
+latent `32×32`. CLIP hidden 59,136 floats (`77×768`). 이 실행은 백엔드 선택 UI 이전이라
+로그에 `backend=`이 없다. 기본 세션 옵션은 ORT CPU다.
 
-### 512×512
+### 256×256 백엔드 비교
+
+같은 해상도·스텝으로 CPU / XNNPACK / NNAPI를 한 번씩 돌렸다. 순서는 NNAPI → CPU →
+XNNPACK. 로그에 `backend=`이 있다.
+
+| 백엔드 | encoding | UNet 로드 | sampling 합 (스텝당) | VAE | **전체** |
+|---|---:|---:|---:|---:|---:|
+| CPU | 1,491ms | 3,924ms | 33,993ms (1,481–2,639ms) | 3,513ms | **43,063ms** |
+| XNNPACK | 1,829ms | 6,329ms | 36,820ms (1,823–1,888ms) | 3,789ms | **48,902ms** |
+| NNAPI | 1,972ms | 5,880ms | 101,810ms (4,827–5,255ms) | 3,856ms | **113,655ms** |
+
+CPU 6스텝만 2,639ms로 튀고 나머지는 약 1.5–1.7초다. NNAPI 직후 측정이라 첫 CPU
+40.5초보다 2.5초 길다. XNNPACK은 로드가 길고 스텝도 CPU보다 약간 느리다. NNAPI는
+세션이 열리지만 스텝이 약 3배라, 이 모델·기기에서 GPU 가속으로 보지 않는다.
+
+### 512×512 CPU
 
 `generate start 512x512 steps=20 cfg=7.0` … `generate done 228439ms`
 
@@ -124,8 +142,8 @@ latent `64×64`. 출력 `512×512`. sampling 1–9스텝은 9.2–10.1초, 10–
 10.7–10.8초로 붙는다. 면적 4배에 sampling 약 6.6배인 이유다.
 
 같은 기기 ggml CPU 256×256 LCM 2 steps 869.13초와 직접 모델·스텝이 같지는 않다.
-그래도 S20+에서 **한 장이 1분 안(256²) / 약 4분(512²)** 에 끝나는 경로는 ggml CPU와
-비교할 수 있는 기능 기준이다.
+그래도 S20+에서 **한 장이 1분 안(256² CPU) / 약 4분(512² CPU)** 에 끝나는 경로는
+ggml CPU와 비교할 수 있는 기능 기준이다.
 
 확인: `adb logcat -s OnnxPoc:I`
 

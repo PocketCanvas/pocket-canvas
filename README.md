@@ -249,7 +249,7 @@ Galaxy S26에서 다음 경로가 검증되었습니다.
 
 Galaxy S20+(Adreno 650)에서는 Vulkan 파라미터 할당이 SIGSEGV로 죽습니다. 설정 CPU(ggml CPU only)로 SD 1.5 Q4_K + LCM-LoRA, 256×256, 2 steps 생성이 완료됐고 전체 약 869초입니다. 512×512 CPU는 너무 길어 중지했으며 크래시가 아닙니다.
 
-같은 기기에서 ONNX Runtime CPU PoC(Chilloutmix INT8 `.ort`, DDIM 20 steps, CFG 7)는 256×256 40.5초, 512×512 228.4초로 한 장이 나왔습니다. 이 경로는 설정 Vulkan/CPU나 생성 탭을 대체하지 않으며, 전용 실험 화면에서만 돕니다.
+같은 기기에서 ONNX Runtime PoC(Chilloutmix INT8 `.ort`, DDIM 20 steps, CFG 7)는 256×256 CPU 40.5초, 512×512 CPU 228.4초로 한 장이 나왔습니다. 256²에서 XNNPACK은 48.9초, NNAPI는 113.7초라 CPU가 가장 빨랐습니다. 이 경로는 설정 Vulkan/CPU나 생성 탭을 대체하지 않으며, 전용 실험 화면에서만 돕니다.
 
 초기 SD 1.5 Q4_K + LCM-LoRA PoC는 전체 약 116초로 기능 검증에는 성공했지만 60초 성능 목표에는 미달했습니다. 당시 sampling과 VAE decode가 각각 약 54초와 57초였으며, VAE decode가 주요 병목으로 확인되었습니다.
 

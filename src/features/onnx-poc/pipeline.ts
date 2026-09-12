@@ -5,7 +5,7 @@ export const ONNX_POC_PROMPT =
 export const ONNX_POC_NEGATIVE_PROMPT = 'worst quality, low quality, blurry, deformed';
 export const ONNX_POC_WIDTH = 256;
 export const ONNX_POC_HEIGHT = 256;
-export const ONNX_POC_STEPS = 8;
+export const ONNX_POC_STEPS = 20;
 export const ONNX_POC_CFG = 7;
 export const ONNX_POC_SEED = 42;
 

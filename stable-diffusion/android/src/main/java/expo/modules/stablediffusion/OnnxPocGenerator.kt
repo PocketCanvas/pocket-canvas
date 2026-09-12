@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.util.Log
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -44,8 +45,10 @@ internal object OnnxPocGenerator {
     val latentSize = LATENT_CHANNELS * latentHeight * latentWidth
     val rng = Random(seed)
     val started = System.nanoTime()
+    Log.i(TAG, "generate start ${width}x${height} steps=$steps cfg=$cfgScale")
 
     onProgress("encoding", 0, steps)
+    val encodeStarted = System.nanoTime()
     val tokenizer =
       ClipTokenizer(File(root, "tokenizer/vocab.json"), File(root, "tokenizer/merges.txt"))
     val positiveIds = tokenizer.encode(prompt)
@@ -57,12 +60,19 @@ internal object OnnxPocGenerator {
       negativeHidden = encodeText(environment, textEncoder, negativeIds)
     }
     val hiddenSize = positiveHidden.size / SEQUENCE
+    Log.i(
+      TAG,
+      "encoding done ${nsToMs(System.nanoTime() - encodeStarted)}ms hidden=${positiveHidden.size} latent=${latentWidth}x${latentHeight}",
+    )
 
     var latents = FloatArray(latentSize) { rng.nextGaussian().toFloat() }
     val timesteps = scheduler.timesteps(steps)
     onProgress("sampling", 0, steps)
+    val unetLoadStarted = System.nanoTime()
     session(environment, File(root, "unet/model.ort")).use { unet ->
+      Log.i(TAG, "unet loaded ${nsToMs(System.nanoTime() - unetLoadStarted)}ms")
       for ((index, timestep) in timesteps.withIndex()) {
+        val stepStarted = System.nanoTime()
         val uncond =
           runUnet(environment, unet, latents, negativeHidden, hiddenSize, timestep, latentHeight, latentWidth)
         val cond =
@@ -71,11 +81,16 @@ internal object OnnxPocGenerator {
           (uncond[i] + cfgScale.toFloat() * (cond[i] - uncond[i]))
         }
         latents = scheduler.step(latents, guided, timestep, steps)
+        Log.i(
+          TAG,
+          "sampling ${index + 1}/$steps timestep=$timestep ${nsToMs(System.nanoTime() - stepStarted)}ms",
+        )
         onProgress("sampling", index + 1, steps)
       }
     }
 
     onProgress("decoding", steps, steps)
+    val decodeStarted = System.nanoTime()
     for (i in latents.indices) latents[i] /= VAE_SCALING
     val rgb: FloatArray
     val outWidth: Int
@@ -87,6 +102,9 @@ internal object OnnxPocGenerator {
       outHeight = decoded.height
     }
     writePng(output, rgb, outWidth, outHeight)
+    val elapsedMs = nsToMs(System.nanoTime() - started)
+    Log.i(TAG, "decoding done ${nsToMs(System.nanoTime() - decodeStarted)}ms ${outWidth}x${outHeight}")
+    Log.i(TAG, "generate done ${elapsedMs}ms")
 
     return JSONObject()
       .put("ok", true)
@@ -94,7 +112,7 @@ internal object OnnxPocGenerator {
       .put("width", outWidth)
       .put("height", outHeight)
       .put("steps", steps)
-      .put("elapsedMs", (System.nanoTime() - started) / 1_000_000)
+      .put("elapsedMs", elapsedMs)
   }
 
   private fun session(environment: OrtEnvironment, file: File): OrtSession {
@@ -220,5 +238,9 @@ internal object OnnxPocGenerator {
     return OnnxTensor.createTensor(environment, buffer, shape)
   }
 
+  private fun nsToMs(durationNs: Long): Long = durationNs / 1_000_000
+
   private data class DecodedImage(val pixels: FloatArray, val width: Int, val height: Int)
+
+  private const val TAG = "OnnxPoc"
 }

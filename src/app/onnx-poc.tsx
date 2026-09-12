@@ -129,7 +129,7 @@ export default function OnnxPocScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.hint, { color: colors.muted }]}>
-          고정 태그 프롬프트로 256×256, 8 steps, CFG 7, seed 42 한 장을 만듭니다. 백엔드는 ORT
+          고정 태그 프롬프트로 256×256, 20 steps, CFG 7, seed 42 한 장을 만듭니다. 백엔드는 ORT
           CPU입니다.
         </Text>
 

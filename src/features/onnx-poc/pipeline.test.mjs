@@ -50,7 +50,7 @@ test('parses a successful ONNX generation path', () => {
     outputPath: '/data/poc-onnx-output.png',
     width: 256,
     height: 256,
-    steps: 8,
+    steps: 20,
     elapsedMs: 12000,
   });
   assert.equal(result.ok, true);

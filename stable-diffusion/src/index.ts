@@ -4,6 +4,7 @@ import StableDiffusionModule from './StableDiffusionModule';
 import {
   GenerateImageOptions,
   GenerationProgressEvent,
+  OnnxPocProgressEvent,
   QuantizationProgressEvent,
   QuantizationType,
 } from './StableDiffusion.types';
@@ -78,6 +79,37 @@ export async function inspectOnnxPipeline(): Promise<unknown> {
     throw new Error('이 플랫폼에서는 ONNX 파이프라인을 열 수 없습니다.');
   }
   return JSON.parse(await StableDiffusionModule.inspectOnnxPipeline()) as unknown;
+}
+
+export async function generateOnnxPoc(options: {
+  prompt: string;
+  negativePrompt: string;
+  width: number;
+  height: number;
+  steps: number;
+  cfgScale: number;
+  seed: number;
+}): Promise<unknown> {
+  if (typeof StableDiffusionModule.generateOnnxPoc !== 'function') {
+    throw new Error('이 플랫폼에서는 ONNX 생성을 실행할 수 없습니다.');
+  }
+  return JSON.parse(
+    await StableDiffusionModule.generateOnnxPoc(
+      options.prompt,
+      options.negativePrompt,
+      options.width,
+      options.height,
+      options.steps,
+      options.cfgScale,
+      options.seed,
+    ),
+  ) as unknown;
+}
+
+export function addOnnxPocProgressListener(
+  listener: (event: OnnxPocProgressEvent) => void,
+): EventSubscription {
+  return StableDiffusionModule.addListener('onOnnxPocProgress', listener);
 }
 
 export { default as StableDiffusionModule } from './StableDiffusionModule';

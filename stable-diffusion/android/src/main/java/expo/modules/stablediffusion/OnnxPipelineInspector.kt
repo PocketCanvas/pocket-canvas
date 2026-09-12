@@ -10,22 +10,9 @@ import org.json.JSONObject
 import java.io.File
 
 internal object OnnxPipelineInspector {
-  private val sessionFiles =
-    listOf(
-      "text_encoder" to "text_encoder/model.ort",
-      "unet" to "unet/model.ort",
-      "vae_decoder" to "vae_decoder/model.ort",
-    )
-  private val tokenizerFiles =
-    listOf(
-      "tokenizer/vocab.json",
-      "tokenizer/merges.txt",
-      "tokenizer/tokenizer_config.json",
-    )
-
   fun inspect(filesDir: File, externalFilesDir: File?): JSONObject {
-    val root = resolveRoot(filesDir, externalFilesDir)
-    val missing = requiredFiles().filterNot { File(root, it).isFile }
+    val root = OnnxPocFiles.resolveRoot(filesDir, externalFilesDir)
+    val missing = OnnxPocFiles.requiredFiles().filterNot { File(root, it).isFile }
     if (missing.isNotEmpty()) {
       return JSONObject()
         .put("ok", false)
@@ -36,7 +23,7 @@ internal object OnnxPipelineInspector {
     val environment = OrtEnvironment.getEnvironment()
     val sessions = JSONArray()
     OrtSession.SessionOptions().use { options ->
-      for ((role, relativePath) in sessionFiles) {
+      for ((role, relativePath) in OnnxPocFiles.sessionFiles) {
         environment.createSession(File(root, relativePath).absolutePath, options).use { session ->
           sessions.put(
             JSONObject()
@@ -54,16 +41,6 @@ internal object OnnxPipelineInspector {
       .put("rootPath", root.absolutePath)
       .put("sessions", sessions)
   }
-
-  private fun resolveRoot(filesDir: File, externalFilesDir: File?): File {
-    val externalRoot = externalFilesDir?.let { File(it, "poc-chilloutmix") }
-    if (externalRoot != null && requiredFiles().any { File(externalRoot, it).isFile }) {
-      return externalRoot
-    }
-    return File(filesDir, "poc-chilloutmix")
-  }
-
-  private fun requiredFiles(): List<String> = sessionFiles.map { it.second } + tokenizerFiles
 
   private fun tensorsJson(info: Map<String, NodeInfo>): JSONArray {
     val tensors = JSONArray()

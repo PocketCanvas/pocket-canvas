@@ -1,5 +1,14 @@
 export const ONNX_POC_DIRECTORY_NAME = 'poc-chilloutmix';
 
+export const ONNX_POC_PROMPT =
+  'cat climbing a tree, tree, outdoors, animal focus, masterpiece, best quality, highly detailed';
+export const ONNX_POC_NEGATIVE_PROMPT = 'worst quality, low quality, blurry, deformed';
+export const ONNX_POC_WIDTH = 256;
+export const ONNX_POC_HEIGHT = 256;
+export const ONNX_POC_STEPS = 8;
+export const ONNX_POC_CFG = 7;
+export const ONNX_POC_SEED = 42;
+
 export const ONNX_POC_SESSION_FILES = [
   { role: 'text_encoder', relativePath: 'text_encoder/model.ort' },
   { role: 'unet', relativePath: 'unet/model.ort' },
@@ -31,6 +40,20 @@ export type OnnxPocSessionInspection = {
   inputs: OnnxTensorInfo[];
   outputs: OnnxTensorInfo[];
 };
+
+export type OnnxPocGeneration =
+  | {
+      ok: true;
+      outputPath: string;
+      width: number;
+      height: number;
+      steps: number;
+      elapsedMs: number;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 
 export type OnnxPocInspection =
   | {
@@ -70,6 +93,34 @@ export function parseOnnxPocInspection(value: unknown): OnnxPocInspection {
     : [];
   const error = typeof record.error === 'string' ? record.error : undefined;
   return { ok: false, rootPath, missing, error };
+}
+
+export function parseOnnxPocGeneration(value: unknown): OnnxPocGeneration {
+  if (!value || typeof value !== 'object') {
+    return { ok: false, error: '생성 결과가 없습니다.' };
+  }
+  const record = value as Record<string, unknown>;
+  if (record.ok === true) {
+    if (typeof record.outputPath !== 'string' || record.outputPath.length === 0) {
+      return { ok: false, error: '출력 경로가 없습니다.' };
+    }
+    return {
+      ok: true,
+      outputPath: record.outputPath,
+      width: numberOrZero(record.width),
+      height: numberOrZero(record.height),
+      steps: numberOrZero(record.steps),
+      elapsedMs: numberOrZero(record.elapsedMs),
+    };
+  }
+  return {
+    ok: false,
+    error: typeof record.error === 'string' ? record.error : 'ONNX 생성에 실패했습니다.',
+  };
+}
+
+function numberOrZero(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 function parseSessions(value: unknown): OnnxPocSessionInspection[] | null {

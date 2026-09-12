@@ -28,9 +28,16 @@ export type QuantizationProgressEvent = {
   totalTensors: number;
 };
 
+export type OnnxPocProgressEvent = {
+  stage: string;
+  step: number;
+  steps: number;
+};
+
 export type StableDiffusionModuleEvents = {
   onProgress(event: GenerationProgressEvent): void;
   onQuantizationProgress(event: QuantizationProgressEvent): void;
+  onOnnxPocProgress(event: OnnxPocProgressEvent): void;
 };
 
 export type SamplingPreset =

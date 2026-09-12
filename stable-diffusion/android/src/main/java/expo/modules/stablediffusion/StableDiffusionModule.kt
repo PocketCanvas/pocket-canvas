@@ -63,7 +63,7 @@ class StableDiffusionModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("StableDiffusion")
-    Events("onProgress", "onQuantizationProgress")
+    Events("onProgress", "onQuantizationProgress", "onOnnxPocProgress")
     OnDestroy { nativeOperationQueue.cancel() }
 
     Function("getSystemInfo") {
@@ -85,6 +85,40 @@ class StableDiffusionModule : Module() {
           .put("rootPath", org.json.JSONObject.NULL)
           .put("missing", org.json.JSONArray())
           .put("error", error.message ?: "ONNX 파이프라인을 열지 못했습니다.")
+          .toString()
+      }
+    }.runOnQueue(nativeOperationQueue)
+
+    AsyncFunction("generateOnnxPoc") {
+        prompt: String,
+        negativePrompt: String,
+        width: Int,
+        height: Int,
+        steps: Int,
+        cfgScale: Double,
+        seed: Long ->
+      val context = appContext.reactContext ?: throw Exception("React context not found")
+      try {
+        OnnxPocGenerator.generate(
+          context.filesDir,
+          context.getExternalFilesDir(null),
+          prompt,
+          negativePrompt,
+          width,
+          height,
+          steps,
+          cfgScale,
+          seed,
+        ) { stage, step, currentSteps ->
+          sendEvent(
+            "onOnnxPocProgress",
+            mapOf("stage" to stage, "step" to step, "steps" to currentSteps),
+          )
+        }.toString()
+      } catch (error: Exception) {
+        org.json.JSONObject()
+          .put("ok", false)
+          .put("error", error.message ?: "ONNX 생성에 실패했습니다.")
           .toString()
       }
     }.runOnQueue(nativeOperationQueue)

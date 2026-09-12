@@ -31,7 +31,8 @@ ggml CPU보다 쓸 수 있는지**다.
 ## Decision
 
 - Maven `com.microsoft.onnxruntime:onnxruntime-android:1.24.3`을 Expo 모듈에 링크한다.
-  퀄컴 SDK, QNN AAR, ORT 소스 빌드는 PoC 범위가 아니다. 실행 백엔드는 ORT CPU다.
+  퀄컴 SDK, QNN AAR, ORT 소스 빌드는 PoC 범위가 아니다. 측정된 기준 백엔드는 ORT CPU다.
+  실험 화면에서 CPU / XNNPACK / NNAPI를 고를 수 있다. QNN은 이 AAR에 없다.
 - `onnxruntime-react-native`를 넣지 않는다. 설정 탭의 Vulkan/CPU 옆에 ONNX를 세 번째
   백엔드로 두지 않는다. ggml 생성 탭 draft/run과도 섞지 않는다. → ADR-016, ADR-027
 - 전용 화면 `onnx-poc`만 둔다. 설정에서 진입한다. 모델 카탈로그·ZIP 가져오기·히스토리
@@ -83,7 +84,8 @@ S20+ Hexagon은 v66이라 Local Dream 등 SD1.5 NPU 타깃(V68+) 밖이다. NNAP
 - `.ort`는 2023 포맷이다. ORT 1.24에서 열린 것은 이 묶음에 한한다.
 - Android `Pattern.UNICODE_CHARACTER_CLASS`는 쓰지 않는다. Git Bash `adb`는
   `MSYS_NO_PATHCONV=1` 없이 `/sdcard`를 `C:\Program Files`로 바꾼다.
-- NNAPI/QNN, LoRA, 카탈로그, 히스토리 연동은 후속이다.
+- NNAPI와 XNNPACK은 화면에서 고를 수 있지만, 기능 기준 시간은 CPU 로그다. QNN, LoRA,
+  카탈로그, 히스토리 연동은 후속이다.
 
 ## Validation
 

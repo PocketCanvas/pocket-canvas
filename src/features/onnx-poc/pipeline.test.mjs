@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   ONNX_POC_PROMPT,
   ONNX_POC_REQUIRED_FILES,
+  isOnnxPocBackend,
   parseOnnxPocGeneration,
   parseOnnxPocInspection,
 } from './pipeline.ts';
@@ -38,6 +39,14 @@ test('parses a successful session inspection', () => {
   assert.equal(inspection.ok, true);
   if (!inspection.ok) return;
   assert.equal(inspection.sessions[0]?.inputs[0]?.name, 'sample');
+});
+
+test('accepts only cpu, xnnpack, and nnapi ONNX backends', () => {
+  assert.equal(isOnnxPocBackend('cpu'), true);
+  assert.equal(isOnnxPocBackend('xnnpack'), true);
+  assert.equal(isOnnxPocBackend('nnapi'), true);
+  assert.equal(isOnnxPocBackend('vulkan'), false);
+  assert.equal(isOnnxPocBackend('qnn'), false);
 });
 
 test('uses a photorealistic Chilloutmix prompt of a cat climbing a tree', () => {

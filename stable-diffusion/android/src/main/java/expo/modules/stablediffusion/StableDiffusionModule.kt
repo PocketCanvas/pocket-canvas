@@ -75,10 +75,10 @@ class StableDiffusionModule : Module() {
       GenerationCrashReporter.consume(context)
     }
 
-    AsyncFunction("inspectOnnxPipeline") {
+    AsyncFunction("inspectOnnxPipeline") { backend: String ->
       val context = appContext.reactContext ?: throw Exception("React context not found")
       try {
-        OnnxPipelineInspector.inspect(context.filesDir, context.getExternalFilesDir(null)).toString()
+        OnnxPipelineInspector.inspect(context.filesDir, context.getExternalFilesDir(null), backend).toString()
       } catch (error: Exception) {
         org.json.JSONObject()
           .put("ok", false)
@@ -96,7 +96,8 @@ class StableDiffusionModule : Module() {
         height: Int,
         steps: Int,
         cfgScale: Double,
-        seed: Long ->
+        seed: Long,
+        backend: String ->
       val context = appContext.reactContext ?: throw Exception("React context not found")
       try {
         OnnxPocGenerator.generate(
@@ -109,6 +110,7 @@ class StableDiffusionModule : Module() {
           steps,
           cfgScale,
           seed,
+          backend,
         ) { stage, step, currentSteps ->
           sendEvent(
             "onOnnxPocProgress",

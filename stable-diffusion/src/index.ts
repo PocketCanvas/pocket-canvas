@@ -74,11 +74,11 @@ export async function consumeInterruptedGeneration(): Promise<string | null> {
   return StableDiffusionModule.consumeInterruptedGeneration();
 }
 
-export async function inspectOnnxPipeline(): Promise<unknown> {
+export async function inspectOnnxPipeline(backend: string): Promise<unknown> {
   if (typeof StableDiffusionModule.inspectOnnxPipeline !== 'function') {
     throw new Error('이 플랫폼에서는 ONNX 파이프라인을 열 수 없습니다.');
   }
-  return JSON.parse(await StableDiffusionModule.inspectOnnxPipeline()) as unknown;
+  return JSON.parse(await StableDiffusionModule.inspectOnnxPipeline(backend)) as unknown;
 }
 
 export async function generateOnnxPoc(options: {
@@ -89,6 +89,7 @@ export async function generateOnnxPoc(options: {
   steps: number;
   cfgScale: number;
   seed: number;
+  backend: string;
 }): Promise<unknown> {
   if (typeof StableDiffusionModule.generateOnnxPoc !== 'function') {
     throw new Error('이 플랫폼에서는 ONNX 생성을 실행할 수 없습니다.');
@@ -102,6 +103,7 @@ export async function generateOnnxPoc(options: {
       options.steps,
       options.cfgScale,
       options.seed,
+      options.backend,
     ),
   ) as unknown;
 }

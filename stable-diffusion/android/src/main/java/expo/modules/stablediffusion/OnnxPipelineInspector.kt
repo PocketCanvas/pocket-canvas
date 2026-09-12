@@ -10,7 +10,7 @@ import org.json.JSONObject
 import java.io.File
 
 internal object OnnxPipelineInspector {
-  fun inspect(filesDir: File, externalFilesDir: File?): JSONObject {
+  fun inspect(filesDir: File, externalFilesDir: File?, backend: String): JSONObject {
     val root = OnnxPocFiles.resolveRoot(filesDir, externalFilesDir)
     val missing = OnnxPocFiles.requiredFiles().filterNot { File(root, it).isFile }
     if (missing.isNotEmpty()) {
@@ -20,9 +20,11 @@ internal object OnnxPipelineInspector {
         .put("missing", JSONArray(missing))
     }
 
+    val executionBackend = OnnxPocBackends.requireSupported(backend)
     val environment = OrtEnvironment.getEnvironment()
     val sessions = JSONArray()
     OrtSession.SessionOptions().use { options ->
+      OnnxPocBackends.apply(options, executionBackend)
       for ((role, relativePath) in OnnxPocFiles.sessionFiles) {
         environment.createSession(File(root, relativePath).absolutePath, options).use { session ->
           sessions.put(
@@ -39,6 +41,7 @@ internal object OnnxPipelineInspector {
     return JSONObject()
       .put("ok", true)
       .put("rootPath", root.absolutePath)
+      .put("backend", executionBackend)
       .put("sessions", sessions)
   }
 

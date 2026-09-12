@@ -10,6 +10,16 @@ export const ONNX_POC_STEPS = 20;
 export const ONNX_POC_CFG = 7;
 export const ONNX_POC_SEED = 42;
 
+export const ONNX_POC_BACKENDS = ['cpu', 'xnnpack', 'nnapi'] as const;
+
+export type OnnxPocBackend = (typeof ONNX_POC_BACKENDS)[number];
+
+export const ONNX_POC_DEFAULT_BACKEND: OnnxPocBackend = 'cpu';
+
+export function isOnnxPocBackend(value: string): value is OnnxPocBackend {
+  return (ONNX_POC_BACKENDS as readonly string[]).includes(value);
+}
+
 export const ONNX_POC_SESSION_FILES = [
   { role: 'text_encoder', relativePath: 'text_encoder/model.ort' },
   { role: 'unet', relativePath: 'unet/model.ort' },
@@ -50,6 +60,7 @@ export type OnnxPocGeneration =
       height: number;
       steps: number;
       elapsedMs: number;
+      backend?: string;
     }
   | {
       ok: false;
@@ -112,6 +123,7 @@ export function parseOnnxPocGeneration(value: unknown): OnnxPocGeneration {
       height: numberOrZero(record.height),
       steps: numberOrZero(record.steps),
       elapsedMs: numberOrZero(record.elapsedMs),
+      backend: typeof record.backend === 'string' ? record.backend : undefined,
     };
   }
   return {

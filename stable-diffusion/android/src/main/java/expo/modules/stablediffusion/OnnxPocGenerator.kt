@@ -29,12 +29,14 @@ internal object OnnxPocGenerator {
     steps: Int,
     cfgScale: Double,
     seed: Long,
+    backend: String,
     onProgress: (stage: String, step: Int, steps: Int) -> Unit,
   ): JSONObject {
     require(width in 64..512 && width % 8 == 0) { "width must be a multiple of 8 between 64 and 512" }
     require(height in 64..512 && height % 8 == 0) { "height must be a multiple of 8 between 64 and 512" }
     require(steps in 1..30) { "steps must be between 1 and 30" }
     require(prompt.isNotBlank()) { "prompt must not be blank" }
+    val executionBackend = OnnxPocBackends.requireSupported(backend)
 
     val root = OnnxPocFiles.requireRoot(filesDir, externalFilesDir)
     val output = File(filesDir, "poc-onnx-output.png")
@@ -45,7 +47,7 @@ internal object OnnxPocGenerator {
     val latentSize = LATENT_CHANNELS * latentHeight * latentWidth
     val rng = Random(seed)
     val started = System.nanoTime()
-    Log.i(TAG, "generate start ${width}x${height} steps=$steps cfg=$cfgScale")
+    Log.i(TAG, "generate start ${width}x${height} steps=$steps cfg=$cfgScale backend=$executionBackend")
 
     onProgress("encoding", 0, steps)
     val encodeStarted = System.nanoTime()
@@ -55,7 +57,7 @@ internal object OnnxPocGenerator {
     val negativeIds = tokenizer.encode(negativePrompt)
     val positiveHidden: FloatArray
     val negativeHidden: FloatArray
-    session(environment, File(root, "text_encoder/model.ort")).use { textEncoder ->
+    session(environment, File(root, "text_encoder/model.ort"), executionBackend).use { textEncoder ->
       positiveHidden = encodeText(environment, textEncoder, positiveIds)
       negativeHidden = encodeText(environment, textEncoder, negativeIds)
     }
@@ -69,7 +71,7 @@ internal object OnnxPocGenerator {
     val timesteps = scheduler.timesteps(steps)
     onProgress("sampling", 0, steps)
     val unetLoadStarted = System.nanoTime()
-    session(environment, File(root, "unet/model.ort")).use { unet ->
+    session(environment, File(root, "unet/model.ort"), executionBackend).use { unet ->
       Log.i(TAG, "unet loaded ${nsToMs(System.nanoTime() - unetLoadStarted)}ms")
       for ((index, timestep) in timesteps.withIndex()) {
         val stepStarted = System.nanoTime()
@@ -95,7 +97,7 @@ internal object OnnxPocGenerator {
     val rgb: FloatArray
     val outWidth: Int
     val outHeight: Int
-    session(environment, File(root, "vae_decoder/model.ort")).use { vae ->
+    session(environment, File(root, "vae_decoder/model.ort"), executionBackend).use { vae ->
       val decoded = runVae(environment, vae, latents, latentHeight, latentWidth)
       rgb = decoded.pixels
       outWidth = decoded.width
@@ -104,7 +106,7 @@ internal object OnnxPocGenerator {
     writePng(output, rgb, outWidth, outHeight)
     val elapsedMs = nsToMs(System.nanoTime() - started)
     Log.i(TAG, "decoding done ${nsToMs(System.nanoTime() - decodeStarted)}ms ${outWidth}x${outHeight}")
-    Log.i(TAG, "generate done ${elapsedMs}ms")
+    Log.i(TAG, "generate done ${elapsedMs}ms backend=$executionBackend")
 
     return JSONObject()
       .put("ok", true)
@@ -113,11 +115,13 @@ internal object OnnxPocGenerator {
       .put("height", outHeight)
       .put("steps", steps)
       .put("elapsedMs", elapsedMs)
+      .put("backend", executionBackend)
   }
 
-  private fun session(environment: OrtEnvironment, file: File): OrtSession {
+  private fun session(environment: OrtEnvironment, file: File, backend: String): OrtSession {
     OrtSession.SessionOptions().use { options ->
       options.setIntraOpNumThreads(Runtime.getRuntime().availableProcessors().coerceAtMost(4))
+      OnnxPocBackends.apply(options, backend)
       return environment.createSession(file.absolutePath, options)
     }
   }
